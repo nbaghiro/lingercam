@@ -676,9 +676,12 @@ function Events({ session }: { session: Session }) {
             {
                 label: t("home.menu.shareLink"),
                 run: () => {
-                    shareLink(title, url, t("create.invite.shareMessage", { title, url })).catch(
-                        () => null,
-                    );
+                    shareLink(
+                        title,
+                        url,
+                        t("create.invite.shareMessage", { title, url }),
+                        t("invite.shareText", { title }),
+                    ).catch(() => null);
                 },
             },
             {

@@ -124,6 +124,7 @@ JSON `{ code, message }` with codes from the concept that raised them.
 | `POST /v1/events` | host | Creates a draft from `EventSettings` |
 | `PATCH /v1/events/:id` | host | Edits settings that the current state allows |
 | `POST /v1/events/:id/cover` | host | Signed upload URL for the cover photo |
+| `DELETE /v1/events/:id/cover` | host | Removes the cover photo |
 | `POST /v1/events/:id/live` | host | Goes live on the free tier or a paid one |
 | `POST /v1/events/:id/end` | host | Ends early |
 | `DELETE /v1/events/:id` | host | Deletes the event, its stored files and queued jobs; 204 |
@@ -494,7 +495,43 @@ Filled in as phases complete.
   Legal placeholders left for a lawyer (decision Q13): privacy, the email provider's name, backup
   and tax record retention, minimum ages per region, the postal address; terms, the minimum age
   per region, the refund policy, liability per jurisdiction, the postal address and governing law.
-
+- 2026-11-02, polish W1: the create flow makes the server draft when the host leaves step 2, so
+  the cover uploads as soon as it's chosen, and later edits are sent with PATCH at Start. Discard
+  deletes the draft only when this visit created it and Start hasn't been tried. New events start
+  at the next half hour today, or 18:00 on a later day, so an event started straight away sits
+  under "Coming up" until then. A draft open when the session drops is kept on the device under
+  `createDraft:<hostId>` and restored on the next New event; if its server draft already existed,
+  the restored draft creates a second one.
+- 2026-11-02, polish W3: the native viewfinder draws `FILM_SHADER` through
+  `react-native-vision-camera-skia`. Photos are scaled to 2048 px with a 192 px thumbnail. The web
+  look is built from core's matrix, warmth and vignette as an SVG `feColorMatrix` and a gradient,
+  without grain or halation. The system shutter sound stands in for Q11. The Live Activity covers
+  the shooting window: it goes stale at `endsAt`, shows the closed line, and leaves the lock
+  screen within 4 hours and never after the reveal. The volume-button shutter moves to Later,
+  because VisionCamera 5 has no event for it. The front screen flash fires on On, not Auto, and
+  has no brightness boost, since `expo-brightness` isn't installed. The Live Activity module's
+  `ios/` folder was hidden by the root `.gitignore` and is now committed, with an exception for
+  `apps/app/modules/*/ios/`.
+- 2026-11-02, polish W5: a device registered for push gets no local reveal reminder. `notify.tsx`
+  exports `NotifyCard` (host and guest), `EmailCard`, `cancelReminder` and `useEventOnScreen`; the
+  invite and the event screen share the card and its per-event answer. The moment sits over the
+  revealed grid and settles its cards into the first tiles. Silent pushes are handled while the
+  app is open and caught up by `resyncReminders` at launch. A background task wasn't added:
+  silent pushes only reach devices registered for push, and those never hold a local reminder.
+- 2026-11-02, polish W6: the people sheet reads the summary for the host's guest limit. Download
+  all runs in `gallery.ts` outside any screen and saves into an album named after the event with
+  full access, or into the library with add-only access; the event screen shows its line with
+  Stop or Open Settings. The viewer takes `?guest=` to page within a roll, and the roll is a
+  gallery of its own paged by the server. The recap plays the server's highlights, fixed when it
+  opens. The iOS photo library sentence now mentions the album.
+- 2026-11-02, polish merge: `PATCH /v1/events/:id` drops `revealAt` when the reveal mode changes
+  to a preset, so a custom reveal can be switched back. `DELETE /v1/events/:id/cover` removes a
+  cover, used by "Remove photo" in create. A reservation that expires with its original already
+  uploaded intact is confirmed and developed instead of released, so a photo the phone sent in
+  the background while locked is kept even if the app confirms it later. `/v1/e/:code/page`
+  returns the plain app page when the code-miss limit is reached, instead of a 429. Copy link
+  uses `expo-clipboard` (a dev client rebuild is needed). Open question for Naib: moving Ends
+  earlier on an at-end event also moves the reveal earlier, which `lockedSettings` allows.
 ### Status by phase
 
 Checked at hand-off on 2026-11-01. "Passed" means the command was run in that phase and passed.

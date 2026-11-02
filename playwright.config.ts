@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
-// The web end-to-end run: the API on 8171 and the Expo web app on 8173, with the docker compose
-// services already up. Servers that are already running are reused.
+// The web end-to-end run: the site on 8170, the API on 8171 and the Expo web app on 8173, with the
+// docker compose services already up. Servers that are already running are reused.
 
 export default defineConfig({
     testDir: "apps",
@@ -23,6 +23,12 @@ export default defineConfig({
         },
     },
     webServer: [
+        {
+            command: "pnpm --filter site dev",
+            url: "http://127.0.0.1:8170",
+            reuseExistingServer: true,
+            timeout: 120_000,
+        },
         {
             command: "pnpm --filter api start",
             url: "http://localhost:8171/health",

@@ -177,6 +177,7 @@ export async function developShot(shotId: string): Promise<ShotRow | null> {
  */
 export async function releaseExpired(now = new Date()): Promise<number> {
     const cutoff = new Date(now.getTime() - RESERVATION_MINUTES * 60_000);
+    await keepUploaded(cutoff);
     const released = await db.transaction(async (tx) => {
         const gone = await tx
             .delete(shots)
@@ -201,6 +202,31 @@ export async function releaseExpired(now = new Date()): Promise<number> {
         );
     }
     return released.length;
+}
+
+/**
+ * A phone can finish the upload in the background and only confirm once it's opened again, so an
+ * expired reservation whose original arrived intact is confirmed here instead of released.
+ */
+async function keepUploaded(cutoff: Date): Promise<void> {
+    const stale = await db
+        .select({ id: shots.id, eventId: shots.eventId })
+        .from(shots)
+        .where(and(eq(shots.state, "reserved"), lt(shots.reservedAt, cutoff)));
+    const arrived: string[] = [];
+    for (const s of stale) {
+        const size = await objectSize(keys.shot(s.eventId, s.id, "original")).catch(() => null);
+        if (size !== null && size > 0 && size <= MAX_UPLOAD_BYTES) arrived.push(s.id);
+    }
+    if (arrived.length === 0) return;
+    const kept = await db
+        .update(shots)
+        .set({ state: "uploaded" })
+        .where(and(inArray(shots.id, arrived), eq(shots.state, "reserved")))
+        .returning({ id: shots.id });
+    for (const k of kept) {
+        await boss.send("develop", { shotId: k.id }, { retryLimit: 3, retryDelay: 10 });
+    }
 }
 
 export async function startShotWorkers(): Promise<void> {

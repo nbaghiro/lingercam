@@ -1,3 +1,4 @@
+import NetInfo from "@react-native-community/netinfo";
 import * as Notifications from "expo-notifications";
 import { useFonts } from "expo-font";
 import { DarkTheme, Stack, ThemeProvider } from "expo-router";
@@ -15,6 +16,9 @@ import { ConfirmHost, FONTS, ToastHost, color } from "@/ui";
 import { resumeUploads } from "@/uploads";
 
 SplashScreen.preventAutoHideAsync().catch(() => null);
+
+// The app only reads whether there's a connection, so NetInfo needn't ping an outside server.
+NetInfo.configure({ reachabilityShouldRun: () => false });
 
 // A deep link to an event opens with the events list under it, so Back has somewhere to go.
 export const unstable_settings = { initialRouteName: "index" };

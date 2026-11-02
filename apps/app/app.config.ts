@@ -3,7 +3,8 @@ import type { ExpoConfig } from "expo/config";
 const NIGHT = "#0D0D0D";
 const CAMERA =
     "Linger uses the camera to take the photos you share with an event. Photos stay hidden until the reveal.";
-const PHOTOS = "Linger opens your photo library so you can choose a cover photo for an event.";
+const PHOTOS =
+    "Linger opens your photo library so you can choose a cover photo, and saves an event's photos into an album named after it.";
 const SAVE_PHOTOS = "Linger saves the photos you choose to your photo library.";
 /** Guests' links and printed codes point here; the app opens them when it's installed. */
 const JOIN_HOST = "join.lingercam.app";

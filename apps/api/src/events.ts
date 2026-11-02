@@ -54,6 +54,7 @@ import {
     keys,
     MAX_UPLOAD_BYTES,
     objectSize,
+    remove,
     removePrefix,
     uploadUrl,
 } from "./storage.ts";
@@ -497,7 +498,10 @@ eventRoutes.patch("/v1/events/:id", async (c) => {
                 `These can't change once the event is ${event.state}: ${locked.join(", ")}.`,
             );
         }
-        const merged = EventSettings.safeParse({ ...event.settings, ...patch });
+        const next = { ...event.settings, ...patch };
+        // revealAt only belongs to a custom reveal, so switching to a preset clears it.
+        if (patch.revealMode !== undefined && patch.revealMode !== "custom") delete next.revealAt;
+        const merged = EventSettings.safeParse(next);
         if (!merged.success) {
             throw new ApiError(400, "invalid-request", issueMessage(merged.error));
         }
@@ -541,6 +545,18 @@ eventRoutes.post("/v1/events/:id/cover", async (c) => {
         uploadUrl: await uploadUrl(keys.cover(event.id), contentType),
         coverUrl: coverUrl(updated),
     });
+});
+
+eventRoutes.delete("/v1/events/:id/cover", async (c) => {
+    const event = await ownedEvent(await requireHost(c), c.req.param("id"));
+    const [updated] = await db
+        .update(events)
+        .set({ hasCover: false, coverVersion: sql`${events.coverVersion} + 1` })
+        .where(eq(events.id, event.id))
+        .returning();
+    if (!updated) throw notFound();
+    await remove(keys.cover(event.id));
+    return c.json({ event: await hostEventJson(updated) });
 });
 
 eventRoutes.post("/v1/events/:id/live", async (c) => {
@@ -624,7 +640,13 @@ eventRoutes.get("/v1/e/:code/page", async (c) => {
     try {
         event = await eventByCode(c);
     } catch (error) {
-        if (error instanceof ApiError && error.code === "not-found") return c.html(html);
+        // A mistyped path or a visitor over the code-miss limit still gets the app.
+        if (
+            error instanceof ApiError &&
+            (error.code === "not-found" || error.code === "too-many")
+        ) {
+            return c.html(html);
+        }
         throw error;
     }
     const title = `You're invited to shoot ${event.settings.title}`;

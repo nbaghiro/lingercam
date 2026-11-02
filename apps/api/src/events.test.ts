@@ -69,6 +69,19 @@ describe("creating and editing", () => {
         expect(title.body.event?.settings?.title).toBe("Again");
     });
 
+    test("switching a custom reveal back to a preset clears its time", async () => {
+        const { token } = await newHost();
+        const revealAt = new Date(Date.now() + 2 * 86_400_000).toISOString();
+        const event = await newEvent(token, { settings: { revealMode: "custom", revealAt } });
+        const res = await call("PATCH", `/v1/events/${event.id}`, {
+            token,
+            json: { revealMode: "at-end" },
+        });
+        expect(res.status).toBe(200);
+        expect(res.body.event?.settings?.revealMode).toBe("at-end");
+        expect(res.body.event?.settings?.revealAt).toBeUndefined();
+    });
+
     test("once live, photo privacy can only get stricter and the reveal only later", async () => {
         const { token } = await newHost();
         const event = await newEvent(token, {
@@ -105,6 +118,11 @@ describe("creating and editing", () => {
             json: { contentType: "text/html" },
         });
         expect(html.status).toBe(400);
+        const removed = await call("DELETE", `/v1/events/${event.id}/cover`, { token });
+        expect(removed.status).toBe(200);
+        expect(removed.body.event?.coverUrl).toBeNull();
+        const gone = await call("GET", `/v1/e/${event.code}/cover`);
+        expect(gone.body.code).toBe("no-cover");
     });
 
     test("events carry the server's reveal time", async () => {

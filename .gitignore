@@ -5,6 +5,7 @@ dist/
 web-build/
 ios/
 android/
+!apps/app/modules/*/ios/
 coverage/
 playwright-report/
 test-results/

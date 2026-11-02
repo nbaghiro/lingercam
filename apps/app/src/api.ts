@@ -409,6 +409,9 @@ export const api = {
                 body: { contentType },
                 schema: CoverUpload,
             }),
+        /** Removes the cover photo. */
+        removeCover: (id: string) =>
+            request("DELETE", `/v1/events/${id}/cover`, { schema: EventEnvelope }),
         live: (id: string) => request("POST", `/v1/events/${id}/live`, { schema: EventEnvelope }),
         /** Ends a live event now. */
         end: (id: string) => request("POST", `/v1/events/${id}/end`, { schema: EventEnvelope }),

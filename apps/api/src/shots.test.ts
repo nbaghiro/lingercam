@@ -51,7 +51,8 @@ describe("reserving shots", () => {
         const extra = await call("POST", `/v1/e/${event.code}/shots`, { device: guest.device });
         expect(extra.body.code).toBe("no-shots-left");
 
-        // Two of them were made eleven minutes ago; one of those had even started uploading.
+        // Two of them were made eleven minutes ago; one of those finished uploading in the
+        // background, so it's kept and confirmed, and only the other is released.
         const stale = new Date(Date.now() - 11 * 60_000);
         for (const r of reserved.slice(0, 2)) {
             await db
@@ -60,16 +61,21 @@ describe("reserving shots", () => {
                 .where(eq(shots.id, String(r.body.shotId)));
         }
         expect(await upload(String(reserved[0]?.body.uploadUrl), await samplePhoto())).toBe(200);
-        expect(await releaseExpired()).toBeGreaterThanOrEqual(2);
+        expect(await releaseExpired()).toBeGreaterThanOrEqual(1);
 
         const me = await call("GET", `/v1/e/${event.code}/me`, { device: guest.device });
-        expect(me.body.shotsLeft).toBe(2);
+        expect(me.body.shotsLeft).toBe(1);
         const again = await call("POST", `/v1/e/${event.code}/shots`, { device: guest.device });
         expect(again.status).toBe(201);
         const late = await call("POST", `/v1/shots/${String(reserved[0]?.body.shotId)}/confirm`, {
             device: guest.device,
         });
-        expect(late.body.code).toBe("reservation-expired");
+        expect(late.status).toBe(200);
+        expect(late.body.shot?.state).not.toBe("reserved");
+        const lost = await call("POST", `/v1/shots/${String(reserved[1]?.body.shotId)}/confirm`, {
+            device: guest.device,
+        });
+        expect(lost.body.code).toBe("reservation-expired");
     });
 
     test("confirm checks the upload and the owner", async () => {

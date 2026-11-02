@@ -54,7 +54,9 @@ linger/
 │   │   │   ├── index.tsx        my events
 │   │   │   ├── new.tsx          create an event
 │   │   │   ├── settings.tsx
-│   │   │   ├── j/[code].tsx     join: QR code, App Clip, browser
+│   │   │   ├── [code].tsx       a bare join code, sent on to j/<CODE>
+│   │   │   ├── +not-found.tsx
+│   │   │   ├── j/[code].tsx     join: QR code, the app or the browser
 │   │   │   └── e/[code]/
 │   │   │       ├── index.tsx    the event
 │   │   │       ├── camera.tsx
@@ -64,8 +66,12 @@ linger/
 │   │   │   ├── home.tsx         my events, sign-in, settings, account deletion
 │   │   │   ├── create.tsx       occasion, name, rules, look, guests and price
 │   │   │   ├── join.tsx         join sheet, name, camera permission
-│   │   │   ├── camera.tsx       native camera: VisionCamera, live film look, shot counter
+│   │   │   ├── shutter.tsx      the camera frame both platforms share: states, counter, flash
+│   │   │   ├── camera.tsx       native camera: VisionCamera with the live film look
 │   │   │   ├── camera.web.tsx   browser camera
+│   │   │   ├── look.tsx         the film look for still photos (.web.tsx in the browser)
+│   │   │   ├── activity.ts      the Live Activity for the shooting window
+│   │   │   ├── demo.ts          sample photos for a device without a camera, in development
 │   │   │   ├── event.tsx        cover, stats, actions, developing grid, gallery
 │   │   │   ├── gallery.ts       gallery store shared by the event, viewer and recap
 │   │   │   ├── moment.tsx       the reveal moment
@@ -75,14 +81,21 @@ linger/
 │   │   │   ├── joined.tsx       events this device joined, code entry
 │   │   │   ├── notify.tsx       permission card, reminders, push token, notification taps
 │   │   │   ├── photo.tsx        viewer: photographer, save, like, report
+│   │   │   ├── save.ts          saving to Photos, one or every photo (.web.ts in the browser)
 │   │   │   ├── recap.tsx        the recap: the event's best photos as a story
 │   │   │   ├── purchase.ts      RevenueCat on iOS and Android
 │   │   │   ├── purchase.web.ts  Stripe Checkout on the web
 │   │   │   ├── uploads.ts       upload queue that survives bad signal and restarts
+│   │   │   ├── shrink.ts        makes a queued photo smaller after a too-large refusal (.web.ts on the web)
+│   │   │   ├── missing.tsx      the page for a link that doesn't exist
 │   │   │   ├── api.ts           typed client from core schemas, session, guest device token
 │   │   │   ├── ui.tsx           tokens, Text, Button, Segmented, Sheet, Tile, icons
 │   │   │   └── copy.ts          every user-facing string, in ICU format
-│   │   ├── public/              favicon, .well-known for join.<domain>
+│   │   ├── modules/             the Live Activity native module
+│   │   ├── targets/             the Live Activity widget
+│   │   ├── flows/               Maestro flows for the iOS simulator
+│   │   ├── *.e2e.ts             Playwright tests against the web build
+│   │   ├── public/              index.html template, touch icon, .well-known for join.<domain>
 │   │   ├── assets/              icon, adaptive icon, splash, fonts, demo photos
 │   │   ├── app.config.ts
 │   │   ├── eas.json

@@ -23,14 +23,12 @@ const en = {
     "common.close": "Close",
     "common.back": "Back",
     "common.retry": "Try again",
-    "common.error": "Something went wrong. Try again.",
     "common.undo": "Undo",
     "common.openSettings": "Open Settings",
     "common.notNow": "Not now",
     "common.turnOn": "Turn on",
     "common.stop": "Stop",
     "common.copied": "Link copied",
-    "common.offline": "Linger couldn't reach the server. Check your connection and try again.",
 
     "welcome.title": "Every guest gets a camera. Everyone gets the night.",
     "welcome.body":
@@ -122,9 +120,6 @@ const en = {
     "create.guests.unlimitedPrice": "Add {price}",
     "create.start": "Start my film",
     "create.startPaid": "Start my film for {price}",
-    "create.failed": "The event couldn't be created. Please try again.",
-    "create.paymentFailed":
-        "The payment didn't go through, so the event is saved as a draft. You can try again from your events.",
     "create.invite.title": "Your film is ready",
     "create.invite.scan": "Scan to join. No download needed.",
     "create.invite.print": "Print table cards",
@@ -142,8 +137,6 @@ const en = {
 
     "print.title": "Table cards for {title}",
     "print.scan": "Scan to join and take photos",
-    "print.how": "Point your phone's camera at the code. No download needed. Photos appear {when}.",
-    "print.howRightAway": "Point your phone's camera at the code. No download needed.",
 
     "web.hostTitle": "Hosting happens in the app",
     "web.hostBody":
@@ -166,13 +159,8 @@ const en = {
         "Linger needs the camera to take photos for this event. You can change this in Settings at any time.",
     "join.cameraAllow": "Allow camera",
     "join.openSettings": "Open Settings",
-    "join.full": "This event is full. Ask the host to make room.",
     "join.notFound": "There's no event with that code. Check the code on the card and try again.",
-    "join.notOpen": "This event isn't open to guests right now.",
-    "join.rulesEnded": "The camera has closed. Photos appear {when}.",
-    "join.rulesRevealed": "The camera has closed and the photos are ready.",
     "join.seePhotos": "See the photos",
-    "join.loadFailed": "This event couldn't be loaded. Check your connection and try again.",
 
     "camera.left": "{time} left",
     "camera.shotsLeft":
@@ -180,15 +168,9 @@ const en = {
     "camera.unlimited": "Unlimited shots",
     "camera.out": "That's your roll",
     "camera.outBody": "You've used every shot. The photos appear {when}.",
-    "camera.ended": "This event has ended, so the camera is closed.",
-    "camera.demo": "There's no camera here, so Linger is using sample photos.",
     "camera.flip": "Switch camera",
     "camera.shutter": "Take photo",
-    "camera.flashOn": "Flash on",
-    "camera.flashOff": "Flash off",
     "camera.zoom": "Zoom {level}",
-    "camera.denied":
-        "Linger can't use the camera. Turn it on for Linger in Settings, then come back.",
     "camera.webDenied":
         "The browser blocked the camera. Allow it from the address bar, then try again.",
     "camera.failed": "The photo didn't take. Please try again.",
@@ -236,16 +218,15 @@ const en = {
     "photo.reported": "Thanks. The photo has been reported.",
     "photo.hide": "Hide photo",
     "photo.unhide": "Show photo",
-    "photo.hidden": "Hidden from guests",
     "photo.missing": "This photo isn't available.",
     "photo.saveFailed": "The photo couldn't be saved. Please try again.",
-    "photo.allowPhotos": "Allow Linger to add photos in Settings, then try again.",
     "photo.reportFailed": "The report didn't go through. Please try again.",
 
     "recap.subtitle": "The whole night in {seconds, number} seconds",
     "recap.save": "Save photo",
     "recap.share": "Share",
     "recap.shareMessage": "The photos from {title} are on Linger: {url}",
+    "recap.shareText": "The photos from {title} are on Linger.",
     "recap.empty": "The recap is ready once the photos are revealed.",
     "recap.pause": "Pause",
     "recap.play": "Play",
@@ -278,9 +259,6 @@ const en = {
     "activity.revealsAt": "Reveals at {time}",
     "activity.closed": "The camera has closed. Photos at {time}.",
     "activity.rollDone": "Your roll is done",
-
-    "notify.revealTitle": "{title}",
-    "notify.revealBody": "The photos are ready.",
 
     "duration.days": "{days}d {hours}h",
     "duration.hours": "{hours}h {minutes}m",
@@ -326,10 +304,8 @@ const en = {
     "problem.not-yours": "Only the person who took a photo can remove it.",
 
     "a11y.step": "Step {step} of {total}",
-    "a11y.warning": "Warning",
 
     "welcome.haveCode": "Have a code?",
-    "welcome.yourEvents": "Your events",
     "welcome.signedOut": "You've been signed out. Sign in to continue.",
     "welcome.legalTerms": "Terms",
     "welcome.legalPrivacy": "Privacy Policy",
@@ -380,9 +356,6 @@ const en = {
     "invite.copyLink": "Copy link",
     "invite.opens": "The camera opens {when}.",
     "invite.code": "Code {code}",
-    "invite.sharePhoto": "Share a photo",
-    "invite.sharePhotoBody":
-        "New guests can't join once the photos are out. To share one, open it and tap Share.",
     "print.rules": "{shots, plural, one {# shot} other {# shots}} each. Photos appear {when}.",
     "print.rulesUnlimited": "Unlimited shots. Photos appear {when}.",
 
@@ -478,12 +451,8 @@ const en = {
     "notify.emailPlaceholder": "you@example.com",
     "notify.emailSaved": "We'll email you when the photos are ready.",
     "notify.calendar": "Add to calendar",
-    "notify.calendarTitle": "{title}: the photos are ready",
     "notify.homeScreen": "Add to Home Screen to come back later",
-    "notify.revealLine": "{title}: the photos are ready. {counts}.",
     "notify.revealLocal": "{title}: the photos are ready.",
-    "notify.full": "{title} is full. Make room for more guests.",
-    "notify.hidden": "A photo at {title} was hidden after reports.",
 
     "moment.yours": "{count, plural, one {# of these is yours.} other {# of these are yours.}}",
 
@@ -492,7 +461,6 @@ const en = {
     "photo.remove": "Remove my photo",
     "photo.removeTitle": "Remove this photo?",
     "photo.removeBody": "It's removed from the event for everyone. This can't be undone.",
-    "photo.liked": "Liked",
 
     "save.partial":
         "{saved, number} of {total, number} saved. {failed, plural, one {# couldn't be saved.} other {# couldn't be saved.}}",
@@ -520,7 +488,6 @@ const en = {
         "Linger gives every guest at an event a camera. The photos stay hidden until the reveal, then everyone gets them at the same time.",
     "web.siteLink": "About Linger",
 
-    // W1, host setup and account. Add strings below this line.
     "signIn.nameBody": "Guests see this name when they join your events.",
     "home.deleted": "{title} was deleted.",
     "settings.signOutTitle": "Sign out?",
@@ -530,9 +497,7 @@ const en = {
     "create.name.zoneChange": "Change time zone",
     "create.name.zoneSearch": "Search by city",
     "create.rules.revealBefore": "The reveal needs to be at or after the end.",
-    // End of W1.
 
-    // W2, hosting tools and invite. Add strings below this line.
     "invite.shareText": "Join {title} on Linger and take photos with everyone.",
     "print.point": "Point your phone's camera at the code. No download needed.",
     "print.rulesRightAway":
@@ -542,9 +507,7 @@ const en = {
     "manage.whoLocked": "Photos can't go back to every guest once the event is live.",
     "host.makeRoomFor": "Make room for {price}",
     "host.roomMade": "There's room for up to {count, number} guests now.",
-    // End of W2.
 
-    // W3, guest join, camera and Live Activity. Add strings below this line.
     "join.opensWhen": "The camera opens {when}.",
     "join.countsLine": "{counts}.",
     "join.loading": "Loading the event",
@@ -571,20 +534,8 @@ const en = {
         "{count, plural, one {See the event. # photo is still sending} other {See the event. # photos are still sending}}",
     "camera.noLastShot": "See the event",
     "camera.seePhotos": "See the photos",
-    // End of W3.
 
-    // W4, upload queue. Add strings below this line.
-    // End of W4.
-
-    // W5, event screen, waiting and the reveal. Add strings below this line.
-    // End of W5.
-
-    // W6, gallery, viewer, people, recap and saving. Add strings below this line.
     "recap.paused": "Paused",
-    // End of W6.
-
-    // W7, web shell and site. Add strings below this line.
-    // End of W7.
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -642,6 +593,9 @@ const PROBLEMS: Record<string, MessageKey> = {
     "checkout-failed": "problem.checkout-failed",
     "checkout-not-configured": "problem.checkout-failed",
     "not-yours": "problem.not-yours",
+    "not-member": "join.notMemberTitle",
+    "bad-link": "join.badLink",
+    "already-joined": "join.alreadyJoined",
 };
 
 /**

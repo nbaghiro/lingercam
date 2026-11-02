@@ -1,11 +1,18 @@
 # `maestro test flows` runs these in order. open.yaml is a shared step, not a flow of its own.
+# manage.yaml changes and deletes GAMENT, so it runs last and needs a fresh seed before a rerun.
 flows:
   - host.yaml
   - guest.yaml
+  - uploads.yaml
   - gallery.yaml
+  - notify.yaml
+  - manage.yaml
 executionOrder:
   continueOnFailure: false
   flowsOrder:
     - host
     - guest
+    - uploads
     - gallery
+    - notify
+    - manage

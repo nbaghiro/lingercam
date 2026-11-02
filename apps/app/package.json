@@ -22,6 +22,7 @@
         "@shopify/react-native-skia": "catalog:",
         "expo": "catalog:",
         "expo-asset": "~58.0.19",
+        "expo-clipboard": "~58.0.4",
         "expo-constants": "catalog:",
         "expo-crypto": "~58.0.7",
         "expo-dev-client": "catalog:",

@@ -901,11 +901,20 @@ export function Progress({ step, total = 5 }: { step: number; total?: number }) 
             accessibilityValue={{ min: 0, max: total, now: step }}
         >
             {Array.from({ length: total }, (_, i) => (
-                <View
-                    key={i}
-                    style={[styles.progressBar, i < step ? { backgroundColor: color.paper } : null]}
-                />
+                <ProgressBar key={i} filled={i < step} />
             ))}
+        </View>
+    );
+}
+
+function ProgressBar({ filled }: { filled: boolean }) {
+    const duration = useReduceMotion() ? 0 : 200;
+    const fill = useAnimatedStyle(() => ({
+        width: withTiming(filled ? "100%" : "0%", { duration }),
+    }));
+    return (
+        <View style={styles.progressBar}>
+            <Animated.View style={[styles.progressFill, fill]} />
         </View>
     );
 }
@@ -1500,7 +1509,14 @@ const styles = StyleSheet.create({
     ticks: { height: 17, marginHorizontal: 6, marginTop: 2 },
     tick: { position: "absolute", top: 0, width: 40, marginLeft: -20, alignItems: "center" },
     progress: { flexDirection: "row", gap: 5 },
-    progressBar: { flex: 1, height: 3.5, borderRadius: 2, backgroundColor: color.track },
+    progressBar: {
+        flex: 1,
+        height: 3.5,
+        borderRadius: 2,
+        overflow: "hidden",
+        backgroundColor: color.track,
+    },
+    progressFill: { height: "100%", backgroundColor: color.paper },
     label: {
         flexDirection: "row",
         justifyContent: "space-between",

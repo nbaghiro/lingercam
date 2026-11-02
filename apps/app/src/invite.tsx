@@ -1,11 +1,10 @@
 import type { Event } from "@linger/core/events";
 import { Asset } from "expo-asset";
+import * as Clipboard from "expo-clipboard";
 import { File } from "expo-file-system";
-import * as Notifications from "expo-notifications";
 import * as Print from "expo-print";
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-    Clipboard,
     Platform,
     Pressable,
     Share,
@@ -19,7 +18,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-na
 
 import { api, joinLink, useLoad, type EventSummary } from "@/api";
 import { formatDay, formatTime, formatWhen, t } from "@/copy";
-import { remindAtReveal } from "@/notify";
+import { NotifyCard } from "@/notify";
 import {
     Button,
     Mark,
@@ -110,11 +109,7 @@ export async function shareLink(
 
 /** Puts the join link on the clipboard. */
 export async function copyLink(url: string): Promise<void> {
-    if (Platform.OS === "web" && navigator.clipboard) {
-        await navigator.clipboard.writeText(url);
-        return;
-    }
-    Clipboard.setString(url);
+    await Clipboard.setStringAsync(url);
 }
 
 /** A "Copy link" button that reads "Link copied" for 2 seconds after a tap. */
@@ -374,60 +369,6 @@ export function InviteSheet({
 
 // The invite after creating
 
-/**
- * Asks the host for notifications from a short card, and schedules the reveal reminder once they
- * allow it. Shows nothing when the answer is already known or the event reveals right away.
- */
-function NotifyCard({ event }: { event: Event }) {
-    const [asking, setAsking] = useState(false);
-    const quiet = Platform.OS === "web" || event.settings.revealMode === "right-away";
-
-    const schedule = () => {
-        api.guest
-            .summary(event.code)
-            .then((summary) => remindAtReveal(summary))
-            .catch(() => null);
-    };
-
-    const check = useEffectEvent(() => {
-        Notifications.getPermissionsAsync()
-            .then((permission) => {
-                if (permission.granted) schedule();
-                else if (permission.canAskAgain) setAsking(true);
-            })
-            .catch(() => null);
-    });
-
-    useEffect(() => {
-        if (!quiet) check();
-    }, [quiet]);
-
-    if (!asking) return null;
-    return (
-        <View style={styles.notify}>
-            <Text variant="small">{t("notify.hostCard")}</Text>
-            <View style={styles.pair}>
-                <Button
-                    label={t("common.notNow")}
-                    variant="dark"
-                    size="compact"
-                    style={{ flex: 1 }}
-                    onPress={() => setAsking(false)}
-                />
-                <Button
-                    label={t("common.turnOn")}
-                    size="compact"
-                    style={{ flex: 1 }}
-                    onPress={() => {
-                        setAsking(false);
-                        schedule();
-                    }}
-                />
-            </View>
-        </View>
-    );
-}
-
 export function Invite({ event, onDone }: { event: Event; onDone: () => void }) {
     const url = joinLink(event.code);
     const title = event.settings.title;
@@ -498,7 +439,16 @@ export function Invite({ event, onDone }: { event: Event; onDone: () => void }) 
                     })}
                 </Text>
             ) : null}
-            <NotifyCard event={event} />
+            <NotifyCard
+                event={{
+                    code: event.code,
+                    title: event.settings.title,
+                    revealsAt: event.revealsAt,
+                    revealMode: event.settings.revealMode,
+                    timeZone: event.settings.timeZone,
+                }}
+                audience="host"
+            />
         </Screen>
     );
 }
@@ -523,11 +473,5 @@ const styles = StyleSheet.create({
     },
     doneRow: { flexDirection: "row", justifyContent: "flex-end", marginBottom: space.m },
     pair: { flexDirection: "row", gap: space.s },
-    notify: {
-        backgroundColor: color.surface,
-        borderRadius: radius.row,
-        padding: space.l,
-        gap: space.m,
-    },
     hiddenQr: { position: "absolute", top: 0, left: 0, opacity: 0 },
 });

@@ -229,8 +229,12 @@ function MakeRoom({
 // The Manage sheet
 
 /** The gear button in the event's action row, shown to the owner only. */
-export function ManageButton(props: HostToolsProps) {
-    const [open, setOpen] = useState(false);
+/** The gear that opens the Manage sheet. `openAtStart` opens it straight away, from a link. */
+export function ManageButton({
+    openAtStart = false,
+    ...props
+}: HostToolsProps & { openAtStart?: boolean }) {
+    const [open, setOpen] = useState(openAtStart);
     if (props.summary.viewer.role !== "host") return null;
     return (
         <>

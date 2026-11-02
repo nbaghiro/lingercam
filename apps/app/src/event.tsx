@@ -23,7 +23,6 @@ import {
     useSession,
     type Event,
     type GalleryPage,
-    type Person,
 } from "@/api";
 import {
     dayLabel,
@@ -36,13 +35,24 @@ import {
     revealModeLabel,
     t,
 } from "@/copy";
-import { loadMoreGallery, loadWholeGallery, refreshGallery, useGallery } from "@/gallery";
+import {
+    loadMoreGallery,
+    refreshGallery,
+    saveAllLine,
+    saveWholeGallery,
+    showRoll,
+    stopSaving,
+    useFreshGallery,
+    useGallery,
+    useRoll,
+    useSaveAll,
+} from "@/gallery";
 import { InviteSheet, shareLink } from "@/invite";
 import { HostRow, ManageButton } from "@/manage";
 import { Moment, type TileTarget } from "@/moment";
 import { EmailCard, NotifyCard, cancelReminder, remindAtReveal, useEventOnScreen } from "@/notify";
 import { People } from "@/people";
-import { saveAll as saveAllPhotos } from "@/save";
+import { openPhotoSettings } from "@/save";
 import {
     Button,
     Cover,
@@ -117,53 +127,6 @@ function useNow(boundaries: readonly number[]): Date {
     return now;
 }
 
-/** Another person's roll, a page at a time, through the gallery's `guest` filter. */
-function useRoll(code: string, guestId: string | null) {
-    const firstPage = useLoad(guestId ? `roll:${code}:${guestId}` : null, () =>
-        api.guest.gallery(code, undefined, guestId ?? undefined),
-    );
-    const [more, setMore] = useState<{
-        guestId: string | null;
-        items: GalleryItem[];
-        cursor: string | null;
-        loading: boolean;
-    }>({ guestId: null, items: [], cursor: null, loading: false });
-
-    const page = firstPage.data?.kind === "photos" ? firstPage.data : null;
-    const current = more.guestId === guestId;
-    const items = page ? [...page.items, ...(current ? more.items : [])] : [];
-    const cursor = current && more.guestId ? more.cursor : (page?.nextCursor ?? null);
-
-    return {
-        items: guestId ? items : [],
-        loading: firstPage.loading || (current && more.loading),
-        more: () => {
-            if (!guestId || !cursor || (current && more.loading)) return;
-            setMore((s) => ({
-                ...(s.guestId === guestId ? s : { items: [] }),
-                guestId,
-                cursor,
-                loading: true,
-            }));
-            api.guest
-                .gallery(code, cursor, guestId)
-                .then((next) =>
-                    setMore((s) => {
-                        if (s.guestId !== guestId || next.kind !== "photos") return s;
-                        const seen = new Set([...(page?.items ?? []), ...s.items].map((i) => i.id));
-                        return {
-                            guestId,
-                            items: [...s.items, ...next.items.filter((i) => !seen.has(i.id))],
-                            cursor: next.nextCursor,
-                            loading: false,
-                        };
-                    }),
-                )
-                .catch(() => setMore((s) => ({ ...s, loading: false })));
-        },
-    };
-}
-
 /** Upload progress over an offline spell: how many were waiting, for "All 12 of your photos are in." */
 interface Spell {
     last: number;
@@ -178,6 +141,7 @@ type Row =
 
 export function EventScreen() {
     const code = useCode();
+    const { manage: manageParam } = useLocalSearchParams<{ manage?: string }>();
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const reduceMotion = useReduceMotion();
@@ -188,9 +152,9 @@ export function EventScreen() {
     const shots = useShots(code);
     const [inviting, setInviting] = useState(false);
     const [showPeople, setShowPeople] = useState(false);
-    const [roll, setRoll] = useState<Person | null>(null);
-    const [saving, setSaving] = useState<{ done: number; total: number } | null>(null);
-    const [saved, setSaved] = useState<number | null>(null);
+    const roll = useRoll(code);
+    const rollGallery = useGallery(code, roll?.id);
+    const saveRun = useSaveAll(code);
     const [refreshing, setRefreshing] = useState(false);
     const [headerHeight, setHeaderHeight] = useState(0);
     const [momentSeen, setMomentSeen] = useState(
@@ -203,7 +167,6 @@ export function EventScreen() {
     const event = summary.data;
     const role = event?.viewer.role ?? "none";
     const me = useLoad(role === "none" ? null : `me:${code}`, () => api.guest.me(code));
-    const rollItems = useRoll(code, roll?.id ?? null);
 
     const endsAt = event ? Date.parse(event.endsAt) : NaN;
     const startsAt = event ? Date.parse(event.startsAt) : NaN;
@@ -236,6 +199,11 @@ export function EventScreen() {
         }, [code]),
     );
     useOnForeground(reloadAll);
+    useFreshGallery(code);
+    useFreshGallery(code, roll?.id);
+    useEffect(() => {
+        if (roll) refreshGallery(code, roll.id).catch(() => null);
+    }, [code, roll]);
     useEventOnScreen(code, reloadAll);
 
     // Polling. Developing: every 30 s, then every 5 s from a minute before the reveal until the
@@ -377,7 +345,7 @@ export function EventScreen() {
     // A gallery that failed falls back to the summary's count instead of a "0" that isn't real.
     const momentCount = first?.total ?? event.photoCount;
 
-    const shown = roll ? rollItems.items : items;
+    const shown = roll ? rollGallery.items : items;
     const developingCount = first?.kind === "developing" ? first.total : 0;
     const names = first?.kind === "developing" ? first.names : [];
     const rows: Row[] = photos
@@ -389,17 +357,8 @@ export function EventScreen() {
               name: names[index],
           }));
 
-    const saveAll = async () => {
-        const all = await loadWholeGallery(code);
-        setSaved(null);
-        setSaving({ done: 0, total: all.length });
-        const done = await saveAllPhotos(
-            all.map((item) => item.url),
-            (count) => setSaving({ done: count, total: all.length }),
-        );
-        setSaving(null);
-        setSaved(done);
-    };
+    const saving = saveRun.state === "saving";
+    const saveLine = saveAllLine(saveRun);
 
     // The roll line: allowance from the server, shots left counting photos not yet reserved.
     const serverLeft = viewer.shotsLeft;
@@ -408,7 +367,7 @@ export function EventScreen() {
         serverLeft === null || left === null
             ? viewer.shotsTaken + shots.pending
             : viewer.shotsTaken + serverLeft - left;
-    const showRoll = !revealed && (role === "guest" || (host && taken > 0));
+    const showRollLine = !revealed && (role === "guest" || (host && taken > 0));
     const hasPhoto = taken > 0 || shots.pending > 0;
 
     const returned = me.data?.returned ?? 0;
@@ -418,10 +377,21 @@ export function EventScreen() {
     };
 
     // One status line at a time, in a slot that keeps its height.
-    let status: { text: string; onPress?: () => void } | null = null;
-    if (saving) status = { text: t("event.downloading", saving) };
-    else if (saved !== null) status = { text: t("event.downloaded", { count: saved }) };
-    else if (shots.keptInPhotos > 0)
+    let status: {
+        text: string;
+        onPress?: () => void;
+        action?: { label: string; run: () => void };
+    } | null = null;
+    if (saveLine !== null) {
+        status = {
+            text: saveLine,
+            ...(saving
+                ? { action: { label: t("common.stop"), run: () => stopSaving(code) } }
+                : saveRun.state === "denied"
+                  ? { action: { label: t("common.openSettings"), run: openPhotoSettings } }
+                  : {}),
+        };
+    } else if (shots.keptInPhotos > 0)
         status = { text: t("uploads.kept", { count: shots.keptInPhotos }) };
     else if (shots.failed > 0) {
         status = {
@@ -446,7 +416,7 @@ export function EventScreen() {
     } else if (spell.allIn !== null) {
         status = { text: t("uploads.allIn", { count: spell.allIn }) };
     }
-    const statusSlot = member || saving !== null || saved !== null;
+    const statusSlot = member || saveLine !== null;
 
     const primary: {
         icon: typeof icons.camera;
@@ -482,9 +452,12 @@ export function EventScreen() {
 
     const shareEvent = () => {
         const url = joinLink(code);
-        shareLink(event.title, url, t("recap.shareMessage", { title: event.title, url })).catch(
-            () => null,
-        );
+        shareLink(
+            event.title,
+            url,
+            t("recap.shareMessage", { title: event.title, url }),
+            t("recap.shareText", { title: event.title }),
+        ).catch(() => null);
     };
 
     const header = (
@@ -553,16 +526,20 @@ export function EventScreen() {
                     <IconButton
                         icon={icons.download}
                         onPress={() => {
-                            saveAll().catch(() => setSaving(null));
+                            saveWholeGallery(code, event.title).catch(() => null);
                         }}
-                        disabled={saving !== null}
+                        disabled={saving}
                         accessibilityLabel={t("event.download")}
                     />
                 ) : null}
-                <ManageButton summary={event} onChanged={summary.reload} />
+                <ManageButton
+                    summary={event}
+                    onChanged={summary.reload}
+                    openAtStart={manageParam === "1"}
+                />
             </View>
             <HostRow summary={event} onChanged={summary.reload} />
-            {showRoll ? (
+            {showRollLine ? (
                 <Text variant="caption" tone="ash" align="center" style={styles.rollLine}>
                     {left === null
                         ? t("event.yourRollUnlimited", { taken })
@@ -588,6 +565,17 @@ export function EventScreen() {
                             </Text>
                         </Pressable>
                     ) : null}
+                    {status?.action ? (
+                        <Pressable
+                            onPress={status.action.run}
+                            accessibilityRole="button"
+                            hitSlop={8}
+                        >
+                            <Text variant="caption" weight="medium" align="center">
+                                {status.action.label}
+                            </Text>
+                        </Pressable>
+                    ) : null}
                 </View>
             ) : null}
             {!revealed && (role === "guest" || host) && (hasPhoto || host) ? (
@@ -599,14 +587,18 @@ export function EventScreen() {
             {roll ? (
                 <View style={styles.roll}>
                     <Text variant="name">{t("event.roll", { name: roll.name })}</Text>
-                    <Pressable onPress={() => setRoll(null)} accessibilityRole="button" hitSlop={8}>
+                    <Pressable
+                        onPress={() => showRoll(code, null)}
+                        accessibilityRole="button"
+                        hitSlop={8}
+                    >
                         <Text variant="small" tone="ash">
                             {t("event.everyone")}
                         </Text>
                     </Pressable>
                 </View>
             ) : null}
-            {first && rows.length === 0 && !(roll && rollItems.loading) ? (
+            {first && rows.length === 0 && !(roll && rollGallery.loading) ? (
                 <Text variant="small" tone="ash" align="center" style={styles.empty}>
                     {photos
                         ? t("event.emptyRevealed")
@@ -676,14 +668,14 @@ export function EventScreen() {
                                     {t("event.more", { count: extra })}
                                 </Text>
                             ) : null}
-                            {(gallery.loading && gallery.cursor) || (roll && rollItems.loading) ? (
+                            {(gallery.loading && gallery.cursor) ||
+                            (roll && rollGallery.loading) ? (
                                 <ActivityIndicator color={color.ash} />
                             ) : null}
                         </View>
                     }
                     onEndReached={() => {
-                        if (roll) rollItems.more();
-                        else loadMoreGallery(code).catch(() => null);
+                        loadMoreGallery(code, roll?.id).catch(() => null);
                     }}
                     onEndReachedThreshold={0.6}
                     refreshControl={
@@ -693,7 +685,7 @@ export function EventScreen() {
                                 setRefreshing(true);
                                 summary.reload();
                                 people.reload();
-                                refreshGallery(code)
+                                refreshGallery(code, roll?.id)
                                     .catch(() => null)
                                     .finally(() => setRefreshing(false));
                             }}
@@ -706,7 +698,11 @@ export function EventScreen() {
                                 item={row.item}
                                 host={host}
                                 fade={fadeNew}
-                                onPress={() => router.push(`/e/${code}/${row.item.id}` as Href)}
+                                onPress={() =>
+                                    router.push(
+                                        `/e/${code}/${row.item.id}${roll ? `?guest=${roll.id}` : ""}` as Href,
+                                    )
+                                }
                             />
                         ) : (
                             <DevelopingTile index={row.index} name={row.name} />
@@ -741,7 +737,7 @@ export function EventScreen() {
                 revealed={photos}
                 timeZone={tz}
                 onPick={(person) => {
-                    setRoll(person);
+                    showRoll(code, { id: person.id, name: person.name });
                     setShowPeople(false);
                 }}
             />

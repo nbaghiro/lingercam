@@ -564,7 +564,18 @@ function Create() {
         update({ cover });
         latestCover.current = cover?.uri ?? null;
         setCoverState("idle");
-        if (!cover) return;
+        if (!cover) {
+            if (event) {
+                const id = event.id;
+                coverJob.current = (coverJob.current ?? Promise.resolve())
+                    .then(() => api.events.removeCover(id))
+                    .then(
+                        () => invalidate("events:"),
+                        () => undefined,
+                    );
+            }
+            return;
+        }
         if (event) uploadCover(cover, event.id);
         else if (canCreate(draft)) {
             ensureEvent()
