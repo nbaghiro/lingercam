@@ -56,7 +56,8 @@ function spelled(code: string): string {
 /** The cream card with the mark, a real QR code for the join link, the code and the name. */
 export function InviteCard({ title, url, caption, code, size = 220, qrRef }: InviteCardProps) {
     const label = [title, caption, code ? t("invite.code", { code: spelled(code) }) : null]
-        .filter(Boolean)
+        .filter((part): part is string => Boolean(part))
+        .map((part) => part.replace(/\.$/, ""))
         .join(". ");
     return (
         <View style={styles.inviteCard} accessible accessibilityLabel={label}>
@@ -201,7 +202,9 @@ export function useTableCards(facts: CardFacts | null) {
         setPrinting(true);
         ref.toDataURL((png) => {
             fontCss()
-                .then((css) => Print.printAsync({ html: tableCards(facts, png, css) }))
+                .then((css) =>
+                    Print.printAsync({ html: tableCards(facts, png, css), margins: PAGE_MARGINS }),
+                )
                 .catch(() => null)
                 .finally(() => setPrinting(false));
         });
@@ -290,8 +293,13 @@ export function cardRules(facts: CardFacts): string {
     return shots === null ? t("print.rulesUnlimited", { when }) : t("print.rules", { shots, when });
 }
 
+/** 12 mm, in points. The margin is set here once, so two rows of 110 mm cards fit one page. */
+const PAGE_MARGINS = { top: 34, right: 34, bottom: 34, left: 34 };
+
 /** Four table cards on one A4 or Letter page, to cut out and fold. */
 export function tableCards(facts: CardFacts, qrPng: string, fontFace = ""): string {
+    // A long name at 20 pt wraps to three lines and pushes the fourth card onto a second page.
+    const titleSize = facts.title.length > 40 ? 14 : facts.title.length > 24 ? 16 : 20;
     const card = `<div class="card">
         <svg width="28" height="28" viewBox="0 0 32 32"><circle cx="12" cy="16" r="9" fill="none" stroke="#121210" stroke-width="2.2"/><circle cx="20" cy="16" r="9" fill="#121210" fill-opacity=".9"/></svg>
         <p class="scan">${escape(t("print.scan"))}</p>
@@ -304,14 +312,14 @@ export function tableCards(facts: CardFacts, qrPng: string, fontFace = ""): stri
     return `<!doctype html><html><head><meta charset="utf-8"><title>${escape(t("print.title", { title: facts.title }))}</title>
     <style>
         ${fontFace}
-        @page { margin: 12mm; }
+        @page { margin: 0; }
         body { margin: 0; font-family: -apple-system, "Helvetica Neue", sans-serif; color: #121210; }
-        .sheet { display: grid; grid-template-columns: 1fr 1fr; gap: 10mm; }
-        .card { border: 1px dashed #c9c6bf; border-radius: 6mm; padding: 8mm 7mm; text-align: center; break-inside: avoid; }
+        .sheet { display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: 110mm; gap: 6mm; }
+        .card { box-sizing: border-box; height: 110mm; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px dashed #c9c6bf; border-radius: 6mm; padding: 6mm 7mm; text-align: center; break-inside: avoid; }
         .scan { font-size: 11pt; color: #6D6B65; margin: 4mm 0; }
         img { width: 44mm; height: 44mm; }
         .code { font-size: 13pt; font-weight: 600; letter-spacing: 0.3em; margin: 2mm 0 0; padding-left: 0.3em; }
-        h2 { font-family: Newsreader, Georgia, serif; font-weight: 400; font-size: 20pt; margin: 3mm 0 2mm; }
+        h2 { font-family: Newsreader, Georgia, serif; font-weight: 400; font-size: ${titleSize}pt; margin: 3mm 0 2mm; }
         .rules { font-size: 10pt; margin: 0 0 1.5mm; }
         .how { font-size: 9pt; color: #6D6B65; margin: 0; }
     </style></head><body><div class="sheet">${card.repeat(4)}</div></body></html>`;

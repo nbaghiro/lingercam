@@ -1,15 +1,33 @@
 # A guest opens the seeded live birthday from its link, joins and shoots, checks the camera's
 # tools, then leaves and comes back. Also opens a code by hand and the seeded states the join
-# sheet has: before the start, a draft, ended and revealed.
+# sheet has: before the start, right-away while shooting, a draft, ended and revealed.
 appId: app.galleo.linger
 ---
 - runFlow: open.yaml
+# A guest, so the demo host from host.yaml signs out first.
+- runFlow:
+    when:
+      visible: "Your events"
+    commands:
+      - tapOn: "Settings"
+      - scrollUntilVisible:
+          element: "Sign out"
+      - tapOn: "Sign out"
+- extendedWaitUntil:
+    visible: "Continue as demo host"
+    timeout: 20000
 
 # Have a code? on the welcome or home screen takes a typed code.
 - runFlow:
     when:
       visible: "Have a code?"
     commands:
+      # Welcome opens the code field in a sheet; the events list shows it inline.
+      - runFlow:
+          when:
+            notVisible: "Join code"
+          commands:
+            - tapOn: "Have a code?"
       - tapOn: "Join code"
       - inputText: "maya3x"
       - extendedWaitUntil:
@@ -22,6 +40,8 @@ appId: app.galleo.linger
     timeout: 20000
 - assertVisible: "Alex invited you"
 - assertVisible: "Photos come from this camera only."
+# The sheet grows into its content first.
+- waitForAnimationToEnd
 - tapOn: "Open camera|Join as .*"
 - runFlow:
     when:
@@ -53,8 +73,9 @@ appId: app.galleo.linger
 
 # The last shot stays on the thumbnail after leaving and reopening the camera.
 - tapOn: "Last photo. See the event|See the event\\. \\d+ photos? (is|are) still sending"
+# The developing grid is one element for VoiceOver.
 - extendedWaitUntil:
-    visible: "Developing"
+    visible: "\\d+ photos? developing"
     timeout: 20000
 - openLink: linger://e/MAYA3X/camera
 - extendedWaitUntil:
@@ -68,7 +89,13 @@ appId: app.galleo.linger
 - extendedWaitUntil:
     visible: "The camera opens .*"
     timeout: 20000
-- assertVisible: "Join now|Join as .*"
+# A new guest joins now; the demo host from host.yaml already has a place and sees the event.
+- assertVisible: "Join now|Join as .*|See the event"
+# A right-away event shows photos from its start and still invites guests to shoot.
+- openLink: linger://j/BRNCH5
+- extendedWaitUntil:
+    visible: "You're invited to shoot Sunday brunch"
+    timeout: 20000
 - openLink: linger://j/TFNWKD
 - extendedWaitUntil:
     visible: ".* isn't open yet"

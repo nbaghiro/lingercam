@@ -367,7 +367,7 @@ function SignInSheet({ visible, onClose }: { visible: boolean; onClose: () => vo
                         autoFocus
                         maxLength={6}
                         style={styles.codeInput}
-                        accessibilityLabel={t("signIn.codeTitle")}
+                        accessibilityLabel={t("signIn.codeLabel")}
                     />
                     {Platform.OS === "ios" ? (
                         <View style={{ alignItems: "center" }}>

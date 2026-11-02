@@ -135,12 +135,6 @@ export function CodeEntry({ initialCode, onSubmit }: CodeEntryProps) {
 
     return (
         <View style={styles.entry}>
-            <Text variant="heading" align="center" accessibilityRole="header">
-                {t("code.title")}
-            </Text>
-            <Text variant="small" tone="ash" align="center">
-                {t("code.body")}
-            </Text>
             <Pressable onPress={() => input.current?.focus()} style={styles.boxes}>
                 {Array.from({ length: JOIN_CODE_LENGTH }, (_, index) => {
                     const ch = value[index] ?? "";

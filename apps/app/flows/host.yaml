@@ -43,8 +43,9 @@ appId: app.galleo.linger
 - assertVisible: "What are we capturing?"
 - tapOn: "Close"
 - tapOn: "Discard"
+# The list keeps its scroll position, so wait on the button that is always on screen.
 - extendedWaitUntil:
-    visible: "Your events"
+    visible: "New event"
     timeout: 10000
 
 # A new event with a start time and a custom reveal.
@@ -81,8 +82,11 @@ appId: app.galleo.linger
 - assertVisible: "Print table cards"
 - tapOn: "Done"
 - extendedWaitUntil:
-    visible: "Maestro test party.*"
+    visible: "New event"
     timeout: 10000
+- scrollUntilVisible:
+    element: "Maestro test party, Coming up.*"
+    direction: UP
 
 # The seeded draft opens at step 5, and Back reaches every step.
 - scrollUntilVisible:
@@ -102,7 +106,7 @@ appId: app.galleo.linger
 - assertVisible: "What are we capturing?"
 - tapOn: "Close"
 - extendedWaitUntil:
-    visible: "Your events"
+    visible: "New event"
     timeout: 10000
 
 # The name guests see, from Settings.

@@ -32,7 +32,18 @@ import {
 import { formatDuration, formatTime, revealWhen, t } from "@/copy";
 import { InviteSheet } from "@/invite";
 import { LookImage } from "@/look";
-import { Button, Icon, IconButton, Mark, Text, color, haptic, icons, useReduceMotion } from "@/ui";
+import {
+    Button,
+    CHROME_SCALE,
+    Icon,
+    IconButton,
+    Mark,
+    Text,
+    color,
+    haptic,
+    icons,
+    useReduceMotion,
+} from "@/ui";
 import { enqueue, setShotsLeft, useShots, type ShotsState } from "@/uploads";
 
 // The camera screen's frame, shared by the native camera (camera.tsx) and the browser camera
@@ -435,7 +446,7 @@ export function CameraFrame({ event, lens }: { event: CameraEvent; lens: Lens })
                     accessibilityLabel={t("common.back")}
                 />
                 <View style={styles.title}>
-                    <Text variant="name" align="center" numberOfLines={1}>
+                    <Text variant="name" align="center" numberOfLines={1} maxScale={CHROME_SCALE}>
                         {summary?.title ?? " "}
                     </Text>
                     <Text
@@ -443,6 +454,7 @@ export function CameraFrame({ event, lens }: { event: CameraEvent; lens: Lens })
                         tone={offline ? "candle" : "ash"}
                         align="center"
                         numberOfLines={1}
+                        maxScale={CHROME_SCALE}
                     >
                         {topLine}
                     </Text>
@@ -512,7 +524,7 @@ export function CameraFrame({ event, lens }: { event: CameraEvent; lens: Lens })
                         {...(flash === "on" ? { weight: "fill" as const } : {})}
                     />
                     {flash === "auto" && lens.flash !== "none" ? (
-                        <Text variant="caption" style={styles.flashAuto}>
+                        <Text variant="caption" style={styles.flashAuto} maxScale={CHROME_SCALE}>
                             {flashLabel}
                         </Text>
                     ) : null}
@@ -640,6 +652,7 @@ function Zoom({ zoom }: { zoom: Lens["zoom"] }) {
                         <Text
                             variant="caption"
                             style={[styles.zoomText, { color: on ? color.white : color.ash }]}
+                            maxScale={CHROME_SCALE}
                         >
                             {label}
                         </Text>
@@ -693,22 +706,23 @@ function Counter({
             accessibilityLiveRegion="polite"
         >
             {left === null ? (
-                <Text serif italic style={styles.countNow}>
+                <Text serif italic style={styles.countNow} maxScale={1}>
                     ∞
                 </Text>
             ) : typeof left === "number" ? (
                 <Animated.View style={[styles.countRow, rolling]}>
-                    <Text serif italic style={[styles.countSide, styles.countFade]}>
+                    <Text serif italic style={[styles.countSide, styles.countFade]} maxScale={1}>
                         {left > 0 ? String(left - 1) : " "}
                     </Text>
                     <Text
                         serif
                         italic
                         style={[styles.countNow, last ? { color: color.candle } : null]}
+                        maxScale={1}
                     >
                         {String(left)}
                     </Text>
-                    <Text serif italic style={[styles.countSide, styles.countFade]}>
+                    <Text serif italic style={[styles.countSide, styles.countFade]} maxScale={1}>
                         {above ? String(left + 1) : " "}
                     </Text>
                 </Animated.View>

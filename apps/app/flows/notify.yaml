@@ -1,13 +1,17 @@
 # Back from a deep link lands on the events list, and the notification card on the event screen:
-# with notifications off for Linger it points to Settings; otherwise it asks with the reason.
-# Starts from a clean install state so the per-event answers from earlier runs don't hide it.
+# not asked yet, it gives the reason and Turn on shows the system prompt; with notifications off
+# for Linger it points to Settings. Each part starts from a clean install state so the per-event
+# answers from earlier runs don't hide the card. The simulator can't preset the notification
+# permission, so the system prompt sets it, and Maestro answers that prompt with the
+# NOTIFICATIONS value open.yaml launches with.
 appId: app.galleo.linger
 ---
 - launchApp:
     clearState: true
-    permissions:
-      notifications: deny
-- runFlow: open.yaml
+- runFlow:
+    file: open.yaml
+    env:
+      NOTIFICATIONS: deny
 - runFlow:
     when:
       visible: "Continue as demo host"
@@ -19,8 +23,9 @@ appId: app.galleo.linger
 
 # A deep link opens the event with the events list under it.
 - openLink: linger://e/EMMADN
+# The reveal moment covers the screen the first time this device opens the event.
 - extendedWaitUntil:
-    visible: "Emma & Daniel's Wedding day"
+    visible: "See every moment|Emma & Daniel's Wedding day"
     timeout: 20000
 - runFlow:
     when:
@@ -30,29 +35,38 @@ appId: app.galleo.linger
 - tapOn: "Back"
 - assertVisible: "Your events"
 
-# Notifications denied: the card says how to turn them on and is gone after Not now.
+# Not asked yet: the card gives the reason, and Turn on shows the system prompt, denied here.
 - openLink: linger://e/MAYA3X
+- extendedWaitUntil:
+    visible: "We'll tell you when the photos are ready."
+    timeout: 20000
+- tapOn: "Turn on"
+- extendedWaitUntil:
+    notVisible: "We'll tell you when the photos are ready."
+    timeout: 10000
+- tapOn: "Back"
+
+# Notifications now off: another event's card says how to turn them on and is gone after Not now.
+- openLink: linger://e/JNHSWM
 - extendedWaitUntil:
     visible: "Notifications are off for Linger.*"
     timeout: 20000
 - assertVisible: "Open Settings"
 - tapOn: "Not now"
 - assertNotVisible: "Notifications are off for Linger.*"
-- tapOn: "Back"
 
-# Not asked yet: the card gives the reason, and Turn on shows the system prompt once.
+# Allowed from the prompt: the card goes away.
 - launchApp:
-    permissions:
-      notifications: unset
-- runFlow: open.yaml
+    clearState: true
+- runFlow:
+    file: open.yaml
+    env:
+      NOTIFICATIONS: allow
 - openLink: linger://e/JNHSWM
 - extendedWaitUntil:
     visible: "We'll tell you when the photos are ready."
     timeout: 20000
 - tapOn: "Turn on"
-- runFlow:
-    when:
-      visible: "Allow"
-    commands:
-      - tapOn: "Allow"
-- assertNotVisible: "We'll tell you when the photos are ready."
+- extendedWaitUntil:
+    notVisible: "We'll tell you when the photos are ready."
+    timeout: 10000

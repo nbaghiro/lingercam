@@ -12,7 +12,9 @@ appId: app.galleo.linger
 - extendedWaitUntil:
     visible: "You're invited to shoot Upload check"
     timeout: 20000
-- tapOn: "Open camera"
+# The sheet grows into its content first.
+- waitForAnimationToEnd
+- tapOn: "Open camera|Join as .*"
 - runFlow:
     when:
       visible: "What should we call you?"
@@ -44,6 +46,13 @@ appId: app.galleo.linger
       COUNT: "1"
 
 # The host ends the event while the camera is still open, so the next photo is refused for good.
+# The camera rechecks the event every 60 s from when it opens, so it is opened afresh and the
+# photo is taken right after the end, inside that window.
+- openLink: linger://e/${output.code}
+- openLink: linger://e/${output.code}/camera
+- extendedWaitUntil:
+    visible: "\\d+ shots? left"
+    timeout: 20000
 - runScript:
     file: uploads.js
     env:
@@ -55,6 +64,12 @@ appId: app.galleo.linger
     commands:
       - tapOn: "Allow|Allow Access|Allow Full Access"
 - openLink: linger://e/${output.code}
+# An at-end event reveals as it ends, so the moment comes first.
+- runFlow:
+    when:
+      visible: "See every moment"
+    commands:
+      - tapOn: "See every moment"
 - extendedWaitUntil:
     visible: "1 photo couldn't be added to the event, so it was saved to your Photos."
     timeout: 30000

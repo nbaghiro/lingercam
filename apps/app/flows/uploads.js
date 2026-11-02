@@ -1,12 +1,13 @@
-/* global output, http, json, STEP, COUNT */
+/* global output, http, json, STEP, COUNT, API_URL */
 // Host-side steps for uploads.yaml, run through the dev-only demo sign-in on the local API.
 // STEP=create makes a fresh live event, STEP=end ends it, STEP=arrived waits for photos.
-var API = "http://localhost:8171";
+var API = typeof API_URL !== "undefined" && API_URL ? API_URL : "http://localhost:8171";
 
 function send(method, path, body) {
     var options = { headers: { "Content-Type": "application/json" } };
     if (output.token) options.headers.Authorization = "Bearer " + output.token;
-    if (body !== undefined) options.body = JSON.stringify(body);
+    // Maestro's http.post needs a body, even for routes that read none.
+    if (method !== "GET") options.body = JSON.stringify(body === undefined ? {} : body);
     var res = method === "GET" ? http.get(API + path, options) : http.post(API + path, options);
     if (res.ok === false || res.status >= 400) {
         throw new Error(method + " " + path + " returned " + res.status + ": " + res.body);

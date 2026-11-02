@@ -55,6 +55,7 @@ import { People } from "@/people";
 import { openPhotoSettings } from "@/save";
 import {
     Button,
+    CHROME_SCALE,
     Cover,
     Icon,
     IconButton,
@@ -842,11 +843,11 @@ function DevelopingTile({ index, name }: { index: number; name: string | undefin
             importantForAccessibility="no-hide-descendants"
             style={[styles.devTile, { width, backgroundColor: `hsl(${hue}, 20%, ${light}%)` }]}
         >
-            <Text serif italic style={styles.devText}>
+            <Text serif italic style={styles.devText} maxScale={CHROME_SCALE}>
                 {t("event.developing")}
             </Text>
             {name ? (
-                <Text serif italic style={styles.devName} numberOfLines={1}>
+                <Text serif italic style={styles.devName} numberOfLines={1} maxScale={CHROME_SCALE}>
                     {name}
                 </Text>
             ) : null}

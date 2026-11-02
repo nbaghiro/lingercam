@@ -44,6 +44,7 @@ const en = {
     "signIn.codeTitle": "Check your email",
     "signIn.codeBody": "Enter the 6-digit code we sent to {email}.",
     "signIn.codePlaceholder": "000000",
+    "signIn.codeLabel": "Sign-in code",
     "signIn.verify": "Sign in",
     "signIn.resend": "Send a new code",
     "signIn.resent": "A new code is on its way.",

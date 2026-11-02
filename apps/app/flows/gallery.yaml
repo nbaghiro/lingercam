@@ -4,9 +4,18 @@
 appId: app.galleo.linger
 ---
 - runFlow: open.yaml
-- openLink: linger://e/EMMADN
+- runFlow:
+    when:
+      visible: "Continue as demo host"
+    commands:
+      - tapOn: "Continue as demo host"
 - extendedWaitUntil:
-    visible: "Emma & Daniel's Wedding day"
+    visible: "Your events"
+    timeout: 20000
+- openLink: linger://e/EMMADN
+# The reveal moment covers the screen the first time this device opens the event.
+- extendedWaitUntil:
+    visible: "See every moment|Emma & Daniel's Wedding day"
     timeout: 20000
 - runFlow:
     when:
@@ -18,6 +27,10 @@ appId: app.galleo.linger
     timeout: 20000
 - scroll
 - scroll
+# Back to the top, so the first tile is on screen when it is tapped.
+- scrollUntilVisible:
+    element: "Watch the recap"
+    direction: UP
 - tapOn:
     text: "Photo by .*"
     index: 0
@@ -79,6 +92,12 @@ appId: app.galleo.linger
     timeout: 120000
 - launchApp:
     appId: com.apple.mobileslideshow
+# Photos shows its first-run screen once per simulator.
+- runFlow:
+    when:
+      visible: "What.s New in Photos"
+    commands:
+      - tapOn: "Continue"
 - tapOn: "Collections"
 - scrollUntilVisible:
     element: "Emma & Daniel's Wedding day"

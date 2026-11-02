@@ -662,14 +662,17 @@ function ManageSheet(props: HostToolsProps & { visible: boolean; onClose: () => 
                 {body}
             </ScrollView>
             {error ? <Notice>{error}</Notice> : null}
-            {saved ? (
-                <View style={styles.saved} accessibilityLiveRegion="polite">
-                    <Icon icon={icons.check} size={17} color={color.ash} />
-                    <Text variant="small" tone="ash" accessibilityRole="alert">
-                        {t("manage.saved")}
-                    </Text>
-                </View>
-            ) : null}
+            {/* The slot keeps its height, so the rows above don't move when "Saved" goes. */}
+            <View style={styles.saved} accessibilityLiveRegion="polite">
+                {saved ? (
+                    <>
+                        <Icon icon={icons.check} size={17} color={color.ash} />
+                        <Text variant="small" tone="ash" accessibilityRole="alert">
+                            {t("manage.saved")}
+                        </Text>
+                    </>
+                ) : null}
+            </View>
             {visible && canPrint ? <PrintQr url={url} onRef={cards.setQr} /> : null}
         </Sheet>
     );
@@ -727,6 +730,7 @@ const styles = StyleSheet.create({
     fill: { height: 3, borderRadius: radius.round, backgroundColor: color.candle },
     head: { flexDirection: "row", alignItems: "center", gap: space.m },
     saved: {
+        minHeight: 22,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",

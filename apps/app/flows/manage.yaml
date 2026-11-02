@@ -38,12 +38,15 @@ appId: app.galleo.linger
 - assertVisible: "Print table cards"
 - tapOn: "Copy link"
 - assertVisible: "Link copied"
-- tapOn: "Close"
+# The backdrop above the sheet closes it; its centre is under the sheet.
+- tapOn:
+    point: 50%, 8%
 
 # Reveal: only later once live
 - tapOn: "Manage"
 - assertVisible: "Manage"
 - tapOn: "Reveal.*"
+- waitForAnimationToEnd
 - assertVisible: "Right away, Can't move the reveal earlier once guests are shooting."
 - tapOn: "Next morning"
 - extendedWaitUntil:
@@ -53,6 +56,7 @@ appId: app.galleo.linger
 
 # Who sees the photos: Every guest to Only me, not back
 - tapOn: "Who sees the photos.*"
+- waitForAnimationToEnd
 - tapOn: "Only me"
 - extendedWaitUntil:
     visible: "Saved"
@@ -73,7 +77,7 @@ appId: app.galleo.linger
 - assertVisible: "End the event now?"
 - tapOn:
     text: "End now"
-    index: 1
+    rightOf: "Cancel"
 - extendedWaitUntil:
     notVisible: "End the event now?"
     timeout: 10000
@@ -86,7 +90,7 @@ appId: app.galleo.linger
 - assertVisible: "Delete Game night?"
 - tapOn:
     text: "Delete event"
-    index: 1
+    rightOf: "Cancel"
 - extendedWaitUntil:
     visible: "Your events"
     timeout: 15000

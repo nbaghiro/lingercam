@@ -1,14 +1,30 @@
 # Opens the development build on the local Metro server. Shared by the other flows.
+# `maestro test -e METRO_PORT=8178` points it at another Metro. Maestro grants every permission
+# on launch. NOTIFICATIONS (allow or deny) is how Maestro answers the notification prompt, which
+# the simulator can't preset.
 appId: app.galleo.linger
+env:
+  METRO_PORT: ${METRO_PORT || "8173"}
+  NOTIFICATIONS: ${NOTIFICATIONS || "allow"}
 ---
 - launchApp:
     stopApp: true
-- openLink: exp+linger://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8173
+    permissions:
+      all: allow
+      notifications: ${NOTIFICATIONS}
+- openLink: exp+linger://expo-development-client/?url=http%3A%2F%2Flocalhost%3A${METRO_PORT}
 - runFlow:
     when:
       visible: "This is the developer menu.*"
     commands:
       - tapOn: "Continue"
+# After a cleared install the dev menu opens as a sheet of tools instead.
+- runFlow:
+    when:
+      visible: "Toggle performance monitor"
+    commands:
+      - tapOn:
+          id: "xmark"
 - extendedWaitUntil:
     visible: "Your events|Continue as demo host"
     timeout: 60000

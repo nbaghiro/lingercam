@@ -532,6 +532,13 @@ Filled in as phases complete.
   returns the plain app page when the code-miss limit is reached, instead of a 429. Copy link
   uses `expo-clipboard` (a dev client rebuild is needed). Open question for Naib: moving Ends
   earlier on an at-end event also moves the reveal earlier, which `lockedSettings` allows.
+- 2026-11-02, polish native pass: Dynamic Type stops at 2x for body, small and caption text and at
+  1.3x (`CHROME_SCALE`) for labels inside fixed-size chrome (stats, tiles, segments, camera
+  controls); the camera counter and the wordmark don't scale. A `Sheet` closes when its screen
+  loses focus, so a link or notification never opens a screen under it. The join sheet treats a
+  right-away event as open, not revealed, while its camera can open. The Maestro flows take
+  `METRO_PORT` and `API_URL`, because the pass ran on 8178 and 8179 beside Naib's servers.
+  Results and the device and Android lists are in `.docs/qa.md`.
 ### Status by phase
 
 Checked at hand-off on 2026-11-01. "Passed" means the command was run in that phase and passed.

@@ -1,4 +1,4 @@
-import { EMAIL_MAX, NAME_MAX } from "@linger/core/events";
+import { EMAIL_MAX, NAME_MAX, firstName } from "@linger/core/events";
 import { shootingPhase } from "@linger/core/shots";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
@@ -101,7 +101,9 @@ export function JoinScreen() {
     const gone = isGone(event, summary.error);
     const member = event !== undefined && event.viewer.role !== "none";
     const phase = event ? shootingPhase(event, now) : null;
-    const revealed = event !== undefined && isRevealed(event, now);
+    // A right-away event is revealed from its start, but while the camera can open the sheet
+    // still invites guests to shoot.
+    const revealed = event !== undefined && isRevealed(event, now) && phase === "closed";
     const full = event !== undefined && event.full && !member && phase === "open";
 
     // The event sits under the camera, so leaving the camera lands on the event.
@@ -491,7 +493,9 @@ function Invite({
             <View style={styles.by}>
                 <Mark size={16} tint={color.ash} />
                 <Text variant="small" tone="ash" style={{ fontSize: 14 }}>
-                    {event.hostName ? t("join.byHost", { name: event.hostName }) : t("join.by")}
+                    {event.hostName
+                        ? t("join.byHost", { name: firstName(event.hostName) })
+                        : t("join.by")}
                 </Text>
             </View>
             <Title>{title}</Title>

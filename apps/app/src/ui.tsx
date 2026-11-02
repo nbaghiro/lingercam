@@ -1,6 +1,7 @@
 import { FontDisplay, type FontSource } from "expo-font";
 import * as Haptics from "expo-haptics";
 import { Image, type ImageSource } from "expo-image";
+import { useFocusEffect } from "expo-router";
 import type { Occasion } from "@linger/core/events";
 import { AirplaneTiltIcon } from "phosphor-react-native/src/icons/AirplaneTilt";
 import { ArrowLeftIcon } from "phosphor-react-native/src/icons/ArrowLeft";
@@ -32,7 +33,15 @@ import { TrashIcon } from "phosphor-react-native/src/icons/Trash";
 import { WarningCircleIcon } from "phosphor-react-native/src/icons/WarningCircle";
 import { XIcon } from "phosphor-react-native/src/icons/X";
 import type { Icon as PhosphorIcon, IconWeight } from "phosphor-react-native";
-import { useEffect, useId, useState, useSyncExternalStore, type ReactNode } from "react";
+import {
+    useCallback,
+    useEffect,
+    useId,
+    useRef,
+    useState,
+    useSyncExternalStore,
+    type ReactNode,
+} from "react";
 import {
     AccessibilityInfo,
     ActivityIndicator,
@@ -197,6 +206,9 @@ const SANS = {
     bold: family("Pretendard-Bold", "sans"),
 } as const;
 
+/** The Dynamic Type cap for labels inside fixed-size chrome: stats, tiles, camera controls. */
+export const CHROME_SCALE = 1.3;
+
 /** Serif text from this size up uses the Display cut. */
 const DISPLAY_FROM = 24;
 
@@ -232,11 +244,11 @@ const VARIANTS = {
     /** Serif italic 27, numbers in the stat row. */
     number: { serif: true, italic: true, fontSize: 27, lineHeight: 30, maxScale: 1.3 },
     /** Sans 17, rows and controls. */
-    body: { serif: false, fontSize: 17, lineHeight: 23 },
+    body: { serif: false, fontSize: 17, lineHeight: 23, maxScale: 2 },
     /** Sans 15, supporting text. */
-    small: { serif: false, fontSize: 15, lineHeight: 21.75 },
+    small: { serif: false, fontSize: 15, lineHeight: 21.75, maxScale: 2 },
     /** Sans 13, captions and tick labels. */
-    caption: { serif: false, fontSize: 13, lineHeight: 17 },
+    caption: { serif: false, fontSize: 13, lineHeight: 17, maxScale: 2 },
 } as const satisfies Record<string, Variant>;
 
 export type TextVariant = keyof typeof VARIANTS;
@@ -270,6 +282,8 @@ export interface TextProps {
     numberOfLines?: number;
     style?: StyleProp<TextStyle>;
     accessibilityRole?: "header" | "text" | "link" | "alert";
+    /** Overrides the variant's Dynamic Type cap, for labels inside fixed-size chrome. */
+    maxScale?: number;
     /** Announces changes on the web; native screens announce through `useAnnounce`. */
     accessibilityLiveRegion?: "polite" | "assertive";
 }
@@ -286,8 +300,10 @@ export function Text({
     style,
     accessibilityRole,
     accessibilityLiveRegion,
+    maxScale,
 }: TextProps) {
     const v: Variant = VARIANTS[variant];
+    const cap = maxScale ?? v.maxScale;
     const isSerif = serif ?? v.serif;
     const isItalic = italic ?? v.italic ?? false;
     const fontSize = StyleSheet.flatten(style)?.fontSize ?? v.fontSize;
@@ -303,7 +319,7 @@ export function Text({
             {...(numberOfLines !== undefined ? { numberOfLines } : {})}
             {...(accessibilityRole ? { accessibilityRole } : {})}
             {...(accessibilityLiveRegion ? { accessibilityLiveRegion } : {})}
-            {...(v.maxScale ? { maxFontSizeMultiplier: v.maxScale } : {})}
+            {...(cap ? { maxFontSizeMultiplier: cap } : {})}
             {...(title && Platform.OS === "ios"
                 ? { lineBreakStrategyIOS: "push-out" as const }
                 : {})}
@@ -465,7 +481,9 @@ export function Wordmark({ size = 40 }: { size?: number }) {
             accessibilityLabel="Linger"
         >
             <Mark size={size * 0.9} />
+            {/* A logo, drawn at its size whatever the text setting. */}
             <RNText
+                allowFontScaling={false}
                 style={{
                     fontFamily: serifFamily(size),
                     fontSize: size,
@@ -630,7 +648,8 @@ export function Segmented<T extends string>({
                             tone={on ? "paper" : "ash"}
                             weight={on ? "medium" : "regular"}
                             align="center"
-                            numberOfLines={1}
+                            numberOfLines={2}
+                            maxScale={CHROME_SCALE}
                         >
                             {option.label}
                         </Text>
@@ -984,8 +1003,28 @@ export interface SheetProps {
     children: ReactNode;
 }
 
-/** A bottom sheet on a dimmed backdrop, as in the join screen. */
-export function Sheet({ visible, onClose, children }: SheetProps) {
+/**
+ * A bottom sheet on a dimmed backdrop, as in the join screen. It closes when its screen loses
+ * focus, since a modal would otherwise stay on top of the screen a link or notification opens.
+ */
+export function Sheet(props: SheetProps) {
+    const latest = useRef(props);
+    useEffect(() => {
+        latest.current = props;
+    });
+    useFocusEffect(
+        useCallback(
+            () => () => {
+                if (latest.current.visible) latest.current.onClose();
+            },
+            [],
+        ),
+    );
+    return <ModalSheet {...props} />;
+}
+
+/** The sheet itself, for the root layout's confirm, which sits outside any screen. */
+function ModalSheet({ visible, onClose, children }: SheetProps) {
     const insets = useSafeAreaInsets();
     const still = useReduceMotion();
     return (
@@ -1108,7 +1147,7 @@ export function Stats({ items }: { items: readonly Stat[] }) {
                         {item.value}
                     </Text>
                     <View style={styles.statLabel}>
-                        <Text variant="caption" tone="soft" align="center">
+                        <Text variant="caption" tone="soft" align="center" maxScale={CHROME_SCALE}>
                             {item.label}
                         </Text>
                         {item.onPress ? (
@@ -1186,7 +1225,13 @@ export function Tile({
                     </Text>
                 </View>
             ) : name ? (
-                <Text serif italic style={styles.tileName} numberOfLines={1}>
+                <Text
+                    serif
+                    italic
+                    style={styles.tileName}
+                    numberOfLines={1}
+                    maxScale={CHROME_SCALE}
+                >
                     {name}
                 </Text>
             ) : null}
@@ -1242,7 +1287,7 @@ export function ConfirmHost() {
     );
     const close = () => setConfirm(null);
     return (
-        <Sheet visible={asking !== null} onClose={close}>
+        <ModalSheet visible={asking !== null} onClose={close}>
             {asking ? (
                 <View style={{ gap: space.m }}>
                     <Text variant="heading" accessibilityRole="header">
@@ -1261,7 +1306,7 @@ export function ConfirmHost() {
                     </View>
                 </View>
             ) : null}
-        </Sheet>
+        </ModalSheet>
     );
 }
 
@@ -1461,7 +1506,13 @@ const styles = StyleSheet.create({
         borderRadius: 15,
         padding: 4,
     },
-    segment: { flex: 1, paddingVertical: 11, paddingHorizontal: 4, borderRadius: 12 },
+    segment: {
+        flex: 1,
+        justifyContent: "center",
+        paddingVertical: 11,
+        paddingHorizontal: 4,
+        borderRadius: 12,
+    },
     row: {
         flexDirection: "row",
         alignItems: "center",

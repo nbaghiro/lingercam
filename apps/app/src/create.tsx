@@ -18,7 +18,7 @@ import { revealTime, wallTime, zonedInstant } from "@linger/core/reveal";
 import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
-import { useLocalSearchParams, useNavigation, usePreventRemove, useRouter } from "expo-router";
+import { useLocalSearchParams, usePreventRemove, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
@@ -373,7 +373,6 @@ type CoverState = "idle" | "uploading" | "done" | "failed";
 
 function Create() {
     const router = useRouter();
-    const navigation = useNavigation();
     const session = useSession();
     const still = useReduceMotion();
     const params = useLocalSearchParams<{ event?: string }>();
@@ -441,7 +440,7 @@ function Create() {
 
     const dirty = step !== 6 && fingerprint(draft) !== baseline;
 
-    usePreventRemove(dirty && leaving === null, ({ data }) => {
+    usePreventRemove(dirty && leaving === null, ({ repeat }) => {
         haptic("warning");
         Alert.alert(
             t("create.discardTitle"),
@@ -458,7 +457,7 @@ function Create() {
                                 .then(() => invalidate("events:"))
                                 .catch(() => null);
                         }
-                        navigation.dispatch(data.action);
+                        repeat();
                     },
                 },
             ],
