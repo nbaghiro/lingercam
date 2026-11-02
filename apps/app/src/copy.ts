@@ -524,6 +524,15 @@ const en = {
     // End of W1.
 
     // W2, hosting tools and invite. Add strings below this line.
+    "invite.shareText": "Join {title} on Linger and take photos with everyone.",
+    "print.point": "Point your phone's camera at the code. No download needed.",
+    "print.rulesRightAway":
+        "{shots, plural, one {# shot} other {# shots}} each. Photos appear as soon as they're developed.",
+    "print.rulesRightAwayUnlimited": "Unlimited shots. Photos appear as soon as they're developed.",
+    "manage.save": "Save",
+    "manage.whoLocked": "Photos can't go back to every guest once the event is live.",
+    "host.makeRoomFor": "Make room for {price}",
+    "host.roomMade": "There's room for up to {count, number} guests now.",
     // End of W2.
 
     // W3, guest join, camera and Live Activity. Add strings below this line.

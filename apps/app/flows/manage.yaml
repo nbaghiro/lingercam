@@ -1,0 +1,93 @@
+# The demo host makes room at Game night (GAMENT, nine of ten guests) through the development
+# claim, moves the reveal later, limits who sees the photos, shows the code, ends the event and
+# deletes it. It changes the seed, so reseed before running it again.
+appId: app.galleo.linger
+---
+- runFlow: open.yaml
+- runFlow:
+    when:
+      visible: "Continue as demo host"
+    commands:
+      - tapOn: "Continue as demo host"
+- extendedWaitUntil:
+    visible: "Your events"
+    timeout: 20000
+- openLink: linger://e/GAMENT
+- extendedWaitUntil:
+    visible: "Game night"
+    timeout: 20000
+
+# Make room
+- assertVisible: "9 of 10 guests"
+- tapOn: "Make room"
+- assertVisible: "One payment for this event. No subscription."
+- tapOn: "Up to 30 guests.*"
+- tapOn: "Make room for .*"
+- extendedWaitUntil:
+    visible: "There's room for up to 30 guests now."
+    timeout: 15000
+- extendedWaitUntil:
+    visible: "9 of 30 guests"
+    timeout: 15000
+
+# The invite sheet shows the code, Copy link and, for the host, Print table cards
+- tapOn: "Show join code"
+- assertVisible: ".*Code G A M E N T.*"
+- assertVisible: "Copy link"
+- assertVisible: "Share link"
+- assertVisible: "Print table cards"
+- tapOn: "Copy link"
+- assertVisible: "Link copied"
+- tapOn: "Close"
+
+# Reveal: only later once live
+- tapOn: "Manage"
+- assertVisible: "Manage"
+- tapOn: "Reveal.*"
+- assertVisible: "Right away, Can't move the reveal earlier once guests are shooting."
+- tapOn: "Next morning"
+- extendedWaitUntil:
+    visible: "Saved"
+    timeout: 10000
+- assertVisible: "Reveal, Next morning"
+
+# Who sees the photos: Every guest to Only me, not back
+- tapOn: "Who sees the photos.*"
+- tapOn: "Only me"
+- extendedWaitUntil:
+    visible: "Saved"
+    timeout: 10000
+- tapOn: "Who sees the photos, Only me"
+- assertVisible: "Every guest, Photos can't go back to every guest once the event is live."
+- tapOn: "Back"
+
+# Show code and copy link
+- tapOn: "Show code"
+- assertVisible: ".*Code G A M E N T.*"
+- tapOn: "Back"
+- tapOn: "Copy link"
+- assertVisible: "Link copied"
+
+# End now
+- tapOn: "End now"
+- assertVisible: "End the event now?"
+- tapOn:
+    text: "End now"
+    index: 1
+- extendedWaitUntil:
+    notVisible: "End the event now?"
+    timeout: 10000
+- tapOn: "Manage"
+- assertNotVisible: "End now"
+- assertNotVisible: "Ends.*"
+
+# Delete
+- tapOn: "Delete event"
+- assertVisible: "Delete Game night?"
+- tapOn:
+    text: "Delete event"
+    index: 1
+- extendedWaitUntil:
+    visible: "Your events"
+    timeout: 15000
+- assertNotVisible: "Game night.*"
