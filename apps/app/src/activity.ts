@@ -1,11 +1,12 @@
 import { revealCountdown } from "@linger/core/reveal";
 import { requireOptionalNativeModule } from "expo";
 
-import { api, type EventSummary } from "@/api";
+import type { EventSummary } from "@/api";
 import { formatTime, revealLabel, t } from "@/copy";
 
-// The Live Activity on the lock screen and in the Dynamic Island while a guest shoots. It starts
-// with the first photo, moves with each one and ends at the reveal. The native side lives in
+// The Live Activity on the lock screen and in the Dynamic Island while a guest shoots. Its job is
+// the shooting window: it starts with the first photo, moves with each one, goes stale at the
+// end and then reads "The camera has closed. Photos at 10:00." The native side lives in
 // modules/live-activity and the views in targets/activity; elsewhere these calls do nothing.
 
 interface ActivityState {
@@ -13,27 +14,23 @@ interface ActivityState {
     progress: number | null;
     moments: string;
     reveal: string;
+    /** Shown once the camera has closed. */
+    closed: string;
+    endsAt: number;
     revealsAt: number;
 }
 
 interface LiveActivity {
-    show(code: string, title: string, ready: string, state: ActivityState): Promise<void>;
+    show(code: string, title: string, state: ActivityState): Promise<void>;
+    /** Ends with the closed line, which the system keeps on the lock screen for a while. */
+    close(code: string, state: ActivityState): Promise<void>;
     end(code: string): Promise<void>;
     endPast(): Promise<void>;
 }
 
 const native = requireOptionalNativeModule<LiveActivity>("LiveActivity");
 const moments = new Map<string, number>();
-
-async function eventMoments(code: string): Promise<number> {
-    const counted = (moments.get(code) ?? 0) + 1;
-    try {
-        const page = await api.guest.gallery(code);
-        return page.kind === "developing" ? Math.max(page.total, counted) : counted;
-    } catch {
-        return counted;
-    }
-}
+const lastState = new Map<string, ActivityState>();
 
 function revealPhrase(summary: EventSummary, now: Date): string {
     const at = new Date(summary.revealsAt);
@@ -44,22 +41,48 @@ function revealPhrase(summary: EventSummary, now: Date): string {
     return revealLabel(now, at, summary.timeZone);
 }
 
-/** Starts or moves the activity after a photo. `left` is what remains after it. */
-export async function trackShot(summary: EventSummary, left: number | null): Promise<void> {
-    if (!native) return;
-    const count = await eventMoments(summary.code);
-    moments.set(summary.code, count);
+function stateFor(summary: EventSummary, left: number | null, count: number): ActivityState {
     const total = summary.shotsPerGuest;
     const limited = total !== null && left !== null;
-    await native.show(summary.code, summary.title, t("notify.revealBody"), {
-        left: limited
-            ? t("activity.shotsLeft", { left: Math.min(left, total), total })
-            : t("camera.unlimited"),
-        progress: limited && total > 0 ? (total - Math.min(left, total)) / total : null,
+    const shotsLeft = limited ? Math.min(left, total) : null;
+    return {
+        left:
+            shotsLeft === 0
+                ? t("activity.rollDone")
+                : shotsLeft !== null && total !== null
+                  ? t("activity.shotsLeft", { left: shotsLeft, total })
+                  : t("camera.unlimited"),
+        progress:
+            shotsLeft !== null && total !== null && total > 0 ? (total - shotsLeft) / total : null,
         moments: t("activity.moments", { count }),
         reveal: revealPhrase(summary, new Date()),
+        closed: t("activity.closed", {
+            time: formatTime(new Date(summary.revealsAt), summary.timeZone),
+        }),
+        endsAt: Date.parse(summary.endsAt),
         revealsAt: Date.parse(summary.revealsAt),
-    });
+    };
+}
+
+/**
+ * Starts or moves the activity after a photo. `left` is what remains after it. The moments count
+ * comes from the summary the camera already has, plus the photos taken here since.
+ */
+export async function trackShot(summary: EventSummary, left: number | null): Promise<void> {
+    if (!native) return;
+    const count = Math.max((moments.get(summary.code) ?? 0) + 1, summary.photoCount + 1);
+    moments.set(summary.code, count);
+    const state = stateFor(summary, left, count);
+    lastState.set(summary.code, state);
+    await native.show(summary.code, summary.title, state);
+}
+
+/** The camera closed while the app was open: the activity says so and leaves on its own. */
+export async function closeActivity(summary: EventSummary): Promise<void> {
+    const state = lastState.get(summary.code);
+    if (!native || !state) return;
+    lastState.delete(summary.code);
+    await native.close(summary.code, { ...state, reveal: revealPhrase(summary, new Date()) });
 }
 
 /** Ends the activity once the photos are out. */
@@ -67,7 +90,7 @@ export async function endActivity(code: string): Promise<void> {
     await native?.end(code);
 }
 
-/** Ends any activity whose reveal passed while the app was closed. */
+/** Closes any activity whose camera closed while the app wasn't running. */
 export async function endPastActivities(): Promise<void> {
     await native?.endPast();
 }
