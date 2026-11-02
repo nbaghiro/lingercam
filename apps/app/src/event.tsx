@@ -1,7 +1,7 @@
 import { normalizeJoinCode } from "@linger/core/events";
-import { canShoot, type GalleryItem } from "@linger/core/shots";
-import { useLocalSearchParams, useRouter, type Href } from "expo-router";
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { shootingPhase, type GalleryItem } from "@linger/core/shots";
+import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from "expo-router";
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -10,20 +10,43 @@ import {
     StyleSheet,
     View,
 } from "react-native";
+import Animated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { api, storage, useLoad, useSession, type Event, type Person } from "@/api";
-import { dayLabel, formatCount, formatDuration, t } from "@/copy";
+import {
+    api,
+    joinLink,
+    serverNow,
+    storage,
+    useLoad,
+    useOnForeground,
+    useSession,
+    type Event,
+    type GalleryPage,
+    type Person,
+} from "@/api";
+import {
+    dayLabel,
+    formatCount,
+    formatDuration,
+    formatTime,
+    momentsFromPeople,
+    problem,
+    revealLabel,
+    revealModeLabel,
+    t,
+} from "@/copy";
 import { loadMoreGallery, loadWholeGallery, refreshGallery, useGallery } from "@/gallery";
-import { InviteSheet } from "@/invite";
+import { InviteSheet, shareLink } from "@/invite";
 import { HostRow, ManageButton } from "@/manage";
-import { Moment } from "@/moment";
-import { remindAtReveal } from "@/notify";
+import { Moment, type TileTarget } from "@/moment";
+import { EmailCard, NotifyCard, cancelReminder, remindAtReveal, useEventOnScreen } from "@/notify";
 import { People } from "@/people";
 import { saveAll as saveAllPhotos } from "@/save";
 import {
     Button,
     Cover,
+    Icon,
     IconButton,
     Notice,
     Screen,
@@ -31,8 +54,14 @@ import {
     Text,
     Tile,
     color,
+    grid,
     gutter,
     icons,
+    photoSource,
+    radius,
+    space,
+    useReduceMotion,
+    useTileWidth,
     type Stat,
 } from "@/ui";
 import { dismissFailed, useShots } from "@/uploads";
@@ -55,91 +84,263 @@ export function useHostEvent(code: string): Event | undefined {
 // The event screen
 
 const POLL_MS = 30_000;
-/** Right-away events show photos while the camera is open; new ones are checked for less often. */
-const LIVE_POLL_MS = 60_000;
+/** Polling in the last minute before the reveal and until the photos arrive. */
+const REVEAL_POLL_MS = 5_000;
+/** The server's reveal job gets this long before the screen asks for the photos. */
+const REVEAL_GRACE_MS = 3_000;
 const MAX_DEVELOPING = 40;
-// Developing tiles show different parts of the blurred cover, so the grid doesn't repeat itself.
-const SHIFTS = [
-    { x: 30, y: 10 },
-    { x: -30, y: -20 },
-    { x: 10, y: 35 },
-    { x: -20, y: 25 },
-    { x: 25, y: -30 },
-    { x: -5, y: 0 },
-];
+/** Two caption lines, so upload and saving lines never move the grid. */
+const STATUS_HEIGHT = 40;
+
+/**
+ * The time by the server's clock, ticking every minute in step with the nearest boundary and
+ * every second in the last minute before it, so countdowns change when their text does.
+ */
+function useNow(boundaries: readonly number[]): Date {
+    const [now, setNow] = useState(() => serverNow());
+    const key = boundaries.join(",");
+    useEffect(() => {
+        const ms = now.getTime();
+        const next = key
+            .split(",")
+            .map(Number)
+            .filter((b) => Number.isFinite(b) && b > ms)
+            .sort((a, b) => a - b)[0];
+        let delay = 60_000 - (ms % 60_000);
+        if (next !== undefined) {
+            const left = next - ms;
+            delay = left <= 61_000 ? 1000 - (ms % 1000) : left % 60_000 || 60_000;
+        }
+        const id = setTimeout(() => setNow(serverNow()), Math.max(delay, 50));
+        return () => clearTimeout(id);
+    }, [now, key]);
+    return now;
+}
+
+/** Another person's roll, a page at a time, through the gallery's `guest` filter. */
+function useRoll(code: string, guestId: string | null) {
+    const firstPage = useLoad(guestId ? `roll:${code}:${guestId}` : null, () =>
+        api.guest.gallery(code, undefined, guestId ?? undefined),
+    );
+    const [more, setMore] = useState<{
+        guestId: string | null;
+        items: GalleryItem[];
+        cursor: string | null;
+        loading: boolean;
+    }>({ guestId: null, items: [], cursor: null, loading: false });
+
+    const page = firstPage.data?.kind === "photos" ? firstPage.data : null;
+    const current = more.guestId === guestId;
+    const items = page ? [...page.items, ...(current ? more.items : [])] : [];
+    const cursor = current && more.guestId ? more.cursor : (page?.nextCursor ?? null);
+
+    return {
+        items: guestId ? items : [],
+        loading: firstPage.loading || (current && more.loading),
+        more: () => {
+            if (!guestId || !cursor || (current && more.loading)) return;
+            setMore((s) => ({
+                ...(s.guestId === guestId ? s : { items: [] }),
+                guestId,
+                cursor,
+                loading: true,
+            }));
+            api.guest
+                .gallery(code, cursor, guestId)
+                .then((next) =>
+                    setMore((s) => {
+                        if (s.guestId !== guestId || next.kind !== "photos") return s;
+                        const seen = new Set([...(page?.items ?? []), ...s.items].map((i) => i.id));
+                        return {
+                            guestId,
+                            items: [...s.items, ...next.items.filter((i) => !seen.has(i.id))],
+                            cursor: next.nextCursor,
+                            loading: false,
+                        };
+                    }),
+                )
+                .catch(() => setMore((s) => ({ ...s, loading: false })));
+        },
+    };
+}
+
+/** Upload progress over an offline spell: how many were waiting, for "All 12 of your photos are in." */
+interface Spell {
+    last: number;
+    peak: number;
+    offline: boolean;
+    allIn: number | null;
+}
 
 type Row =
-    { kind: "developing"; key: string; index: number } | { kind: "photo"; item: GalleryItem };
+    | { kind: "developing"; key: string; index: number; name: string | undefined }
+    | { kind: "photo"; item: GalleryItem };
 
 export function EventScreen() {
     const code = useCode();
     const router = useRouter();
     const insets = useSafeAreaInsets();
+    const reduceMotion = useReduceMotion();
+    const tileWidth = useTileWidth();
     const summary = useLoad(`summary:${code}`, () => api.guest.summary(code));
     const gallery = useGallery(code);
-    const [round, setRound] = useState(0);
-    const people = useLoad(`people:${code}:${round}`, () => api.guest.people(code));
+    const people = useLoad(`people:${code}`, () => api.guest.people(code));
     const shots = useShots(code);
-    const [now, setNow] = useState(() => new Date());
     const [inviting, setInviting] = useState(false);
     const [showPeople, setShowPeople] = useState(false);
     const [roll, setRoll] = useState<Person | null>(null);
     const [saving, setSaving] = useState<{ done: number; total: number } | null>(null);
     const [saved, setSaved] = useState<number | null>(null);
+    const [refreshing, setRefreshing] = useState(false);
+    const [headerHeight, setHeaderHeight] = useState(0);
     const [momentSeen, setMomentSeen] = useState(
         () => storage.getBoolean(`moment:${code}`) ?? false,
     );
+    const [returnedSeen, setReturnedSeen] = useState(
+        () => storage.getNumber(`returnedSeen:${code}`) ?? 0,
+    );
 
-    const refresh = () => {
-        refreshGallery(code).catch(() => null);
-        setRound((n) => n + 1);
-        setNow(new Date());
-    };
+    const event = summary.data;
+    const role = event?.viewer.role ?? "none";
+    const me = useLoad(role === "none" ? null : `me:${code}`, () => api.guest.me(code));
+    const rollItems = useRoll(code, roll?.id ?? null);
 
-    useEffect(() => {
-        refreshGallery(code).catch(() => null);
-    }, [code, shots.pending]);
+    const endsAt = event ? Date.parse(event.endsAt) : NaN;
+    const startsAt = event ? Date.parse(event.startsAt) : NaN;
+    const revealsAt = event ? Date.parse(event.revealsAt) : NaN;
+    const now = useNow([startsAt, endsAt, revealsAt]);
 
     const first = gallery.first;
     const developing = first?.kind === "developing";
     const photos = first?.kind === "photos";
-    const shooting = summary.data !== undefined && canShoot(summary.data, now);
+    const phase = event ? shootingPhase(event, now) : "closed";
+    const shooting = phase === "open";
+    const rightAway = event?.revealMode === "right-away";
+    // Revealed once the photos are here and the camera has closed; until then the stat says "Now".
+    const revealed =
+        photos && !shooting
+            ? true
+            : first === undefined && (event?.state === "revealed" || event?.state === "archived");
 
-    // Poll while photos are developing, and slowly while a right-away event is still shooting.
-    // The summary is reloaded too, so the state and the stats move with the gallery.
-    const pollMs = developing ? POLL_MS : photos && shooting ? LIVE_POLL_MS : null;
-    const tick = useEffectEvent(() => {
+    const reloadAll = () => {
         refreshGallery(code).catch(() => null);
         summary.reload();
-        setNow(new Date());
-    });
+    };
+    const tick = useEffectEvent(reloadAll);
+
+    // The gallery reloads whenever the screen comes into view or the app comes back, so late
+    // photos slot in and signed URLs are fresh.
+    useFocusEffect(
+        useCallback(() => {
+            refreshGallery(code).catch(() => null);
+        }, [code]),
+    );
+    useOnForeground(reloadAll);
+    useEventOnScreen(code, reloadAll);
+
+    // Polling. Developing: every 30 s, then every 5 s from a minute before the reveal until the
+    // photos arrive. A right-away event that is shooting checks for new photos every 30 s.
+    const nearReveal = revealsAt - now.getTime() <= 60_000;
+    const pollMs = developing
+        ? nearReveal
+            ? REVEAL_POLL_MS
+            : POLL_MS
+        : photos && shooting
+          ? POLL_MS
+          : null;
     useEffect(() => {
         if (pollMs === null) return;
         const id = setInterval(tick, pollMs);
         return () => clearInterval(id);
     }, [pollMs]);
 
+    // One refresh just after the reveal, so the moment doesn't wait for the next poll.
+    useEffect(() => {
+        if (!Number.isFinite(revealsAt) || photos) return;
+        const wait = revealsAt + REVEAL_GRACE_MS - serverNow().getTime();
+        if (wait < 0) return;
+        const id = setTimeout(tick, wait);
+        return () => clearTimeout(id);
+    }, [revealsAt, photos]);
+
     // When the reveal lands while the screen is open, the summary catches up at once.
     const lastKind = useRef(first?.kind);
-    const reloadSummary = useEffectEvent(() => summary.reload());
     useEffect(() => {
-        if (lastKind.current === "developing" && first?.kind === "photos") reloadSummary();
+        if (lastKind.current === "developing" && first?.kind === "photos") tick();
         lastKind.current = first?.kind;
     }, [first?.kind]);
+
+    // Each photo this device finishes sending shows up without a pull to refresh.
+    const lastPending = useRef(shots.pending);
+    useEffect(() => {
+        if (shots.pending < lastPending.current) tick();
+        lastPending.current = shots.pending;
+    }, [shots.pending]);
+    useEffect(() => {
+        if (shots.drained > 0) tick();
+    }, [shots.drained]);
+
+    const [spell, setSpell] = useState<Spell>({
+        last: shots.pending,
+        peak: 0,
+        offline: false,
+        allIn: null,
+    });
+    if (shots.pending !== spell.last || (shots.retrying && !spell.offline && shots.pending > 0)) {
+        if (shots.pending > 0) {
+            setSpell({
+                last: shots.pending,
+                peak: Math.max(spell.peak, shots.pending),
+                offline: spell.offline || shots.retrying,
+                allIn: null,
+            });
+        } else {
+            setSpell({
+                last: 0,
+                peak: 0,
+                offline: false,
+                allIn: spell.offline && spell.peak > 0 ? spell.peak : null,
+            });
+        }
+    }
 
     useEffect(() => {
         if (gallery.error?.code === "not-joined") router.replace(`/j/${code}` as Href);
     }, [code, gallery.error, router]);
 
+    // A reminder only when notifications are already allowed; the card asks otherwise.
+    const remind = useEffectEvent(() => {
+        if (event && developing) remindAtReveal(event).catch(() => null);
+    });
     useEffect(() => {
-        if (summary.data && developing) remindAtReveal(summary.data).catch(() => null);
-    }, [summary.data, developing]);
+        remind();
+    }, [event?.revealsAt, developing]);
 
-    const event = summary.data;
-    if (!event) {
+    const gone =
+        event !== undefined &&
+        (summary.error?.code === "not-found" || gallery.error?.code === "not-found");
+    useEffect(() => {
+        if (gone) cancelReminder(code).catch(() => null);
+    }, [gone, code]);
+
+    const goHome = () => {
+        if (router.canGoBack()) router.back();
+        else router.replace("/" as Href);
+    };
+
+    if (!event || gone) {
         return (
             <Screen>
-                {summary.error ? (
+                {gone ? (
+                    <View style={styles.center}>
+                        <Notice>{t("event.gone")}</Notice>
+                        <Button
+                            label={t("event.backToEvents")}
+                            variant="dark"
+                            onPress={() => router.replace("/" as Href)}
+                        />
+                    </View>
+                ) : summary.error ? (
                     <View style={styles.center}>
                         <Notice>
                             {summary.error.code === "not-found"
@@ -156,42 +357,36 @@ export function EventScreen() {
     }
 
     const tz = event.timeZone;
-    const endsAt = Date.parse(event.endsAt);
-    const revealsAt = Date.parse(event.revealsAt);
-    // Photos with the camera closed means the reveal has happened, even before the summary says so.
-    const revealed =
-        event.state === "revealed" || event.state === "archived" || (photos && !shooting);
     const items = first?.kind === "photos" ? gallery.items : [];
+    const host = role === "host";
+    const member = role !== "none";
+    const viewer = event.viewer;
 
-    if (photos && revealed && !momentSeen && items.length > 0) {
-        return (
-            <Moment
-                items={items}
-                total={first.total}
-                photographers={first.photographers}
-                onDone={() => {
-                    storage.set(`moment:${code}`, true);
-                    setMomentSeen(true);
-                }}
-            />
-        );
-    }
+    const momentCandidate = photos && revealed && !rightAway && !momentSeen && items.length > 0;
 
-    const time: Stat = revealed
-        ? { value: t("event.revealed"), label: dayLabel(new Date(revealsAt), now, tz) }
-        : shooting
-          ? { value: formatDuration(endsAt - now.getTime()), label: t("event.left") }
-          : { value: formatDuration(revealsAt - now.getTime()), label: t("event.toReveal") };
-    const peopleCount = people.data?.people.length ?? event.guestCount;
+    const time: Stat =
+        rightAway && shooting
+            ? { value: t("event.live"), label: revealModeLabel("right-away") }
+            : revealed
+              ? { value: t("event.revealed"), label: dayLabel(new Date(revealsAt), now, tz) }
+              : shooting
+                ? { value: formatDuration(endsAt - now.getTime()), label: t("event.left") }
+                : { value: formatDuration(revealsAt - now.getTime()), label: t("event.toReveal") };
+    // The count from the polled summary, plus the host, as the people sheet lists them.
+    const peopleCount = event.guestCount + 1;
+    // A gallery that failed falls back to the summary's count instead of a "0" that isn't real.
+    const momentCount = first?.total ?? event.photoCount;
 
-    const shown = roll ? items.filter((item) => item.photographer.id === roll.id) : items;
+    const shown = roll ? rollItems.items : items;
     const developingCount = first?.kind === "developing" ? first.total : 0;
+    const names = first?.kind === "developing" ? first.names : [];
     const rows: Row[] = photos
         ? shown.map((item) => ({ kind: "photo", item }))
         : Array.from({ length: Math.min(developingCount, MAX_DEVELOPING) }, (_, index) => ({
               kind: "developing",
               key: `d${index}`,
               index,
+              name: names[index],
           }));
 
     const saveAll = async () => {
@@ -206,91 +401,200 @@ export function EventScreen() {
         setSaved(done);
     };
 
-    const primary = shooting
+    // The roll line: allowance from the server, shots left counting photos not yet reserved.
+    const serverLeft = viewer.shotsLeft;
+    const left = shots.left === undefined ? serverLeft : shots.left;
+    const taken =
+        serverLeft === null || left === null
+            ? viewer.shotsTaken + shots.pending
+            : viewer.shotsTaken + serverLeft - left;
+    const showRoll = !revealed && (role === "guest" || (host && taken > 0));
+    const hasPhoto = taken > 0 || shots.pending > 0;
+
+    const returned = me.data?.returned ?? 0;
+    const dismissReturned = () => {
+        storage.set(`returnedSeen:${code}`, returned);
+        setReturnedSeen(returned);
+    };
+
+    // One status line at a time, in a slot that keeps its height.
+    let status: { text: string; onPress?: () => void } | null = null;
+    if (saving) status = { text: t("event.downloading", saving) };
+    else if (saved !== null) status = { text: t("event.downloaded", { count: saved }) };
+    else if (shots.keptInPhotos > 0)
+        status = { text: t("uploads.kept", { count: shots.keptInPhotos }) };
+    else if (shots.failed > 0) {
+        status = {
+            text: t("uploads.failed", { count: shots.failed }),
+            onPress: () => dismissFailed(code),
+        };
+    } else if (shots.unreadable > 0) {
+        status = { text: t("uploads.unreadable", { count: shots.unreadable }) };
+    } else if (returned > returnedSeen) {
+        status = {
+            text: t("uploads.returned", { count: returned - returnedSeen }),
+            onPress: dismissReturned,
+        };
+    } else if (shots.pending > 0) {
+        status = {
+            text: revealed
+                ? t("uploads.stillSending", { count: shots.pending })
+                : shots.retrying
+                  ? t("uploads.retrying")
+                  : t("uploads.pending", { count: shots.pending }),
+        };
+    } else if (spell.allIn !== null) {
+        status = { text: t("uploads.allIn", { count: spell.allIn }) };
+    }
+    const statusSlot = member || saving !== null || saved !== null;
+
+    const primary: {
+        icon: typeof icons.camera;
+        label: string;
+        run: () => void;
+        show: boolean;
+    } | null = shooting
         ? {
               icon: icons.camera,
               label: t("event.openCamera"),
               run: () => router.push(`/e/${code}/camera` as Href),
+              show: false,
           }
         : photos && items.length > 0
           ? {
                 icon: icons.play,
                 label: t("event.recap"),
                 run: () => router.push(`/e/${code}/recap` as Href),
+                show: true,
             }
-          : { icon: icons.camera, label: t("event.openCamera"), run: undefined };
+          : null;
+    // With the camera closed and nothing to play, the button's place says what happens next.
+    const closedLine =
+        primary !== null
+            ? null
+            : phase === "before"
+              ? t("camera.opensAt", { time: formatTime(new Date(startsAt), tz) })
+              : revealed
+                ? t("event.revealed")
+                : revealsAt > now.getTime()
+                  ? revealLabel(now, new Date(revealsAt), tz)
+                  : t("revealLabel.future", { when: t("revealWhen.past") });
+
+    const shareEvent = () => {
+        const url = joinLink(code);
+        shareLink(event.title, url, t("recap.shareMessage", { title: event.title, url })).catch(
+            () => null,
+        );
+    };
 
     const header = (
-        <View>
+        <View onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}>
             <Cover source={event.coverUrl} title={event.title}>
                 <Stats
                     items={[
-                        { value: formatCount(first?.total ?? 0), label: t("event.moments") },
+                        { value: formatCount(momentCount), label: t("event.moments") },
                         time,
                         {
                             value: formatCount(peopleCount),
                             label: t("event.people"),
-                            onPress: () => setShowPeople(true),
+                            onPress: () => {
+                                people.reload();
+                                setShowPeople(true);
+                            },
                         },
                     ]}
                 />
             </Cover>
-            {router.canGoBack() ? (
-                <IconButton
-                    icon={icons.back}
-                    variant="glass"
-                    onPress={() => router.back()}
-                    accessibilityLabel={t("common.back")}
-                    style={[styles.back, { top: insets.top + 8 }]}
-                />
+            <IconButton
+                icon={icons.back}
+                variant="glass"
+                onPress={goHome}
+                accessibilityLabel={router.canGoBack() ? t("common.back") : t("event.backToEvents")}
+                style={[styles.back, { top: insets.top + 8 }]}
+            />
+            {rightAway && photos && !shooting && items.length > 0 ? (
+                <Text variant="name" align="center" style={styles.night}>
+                    {t("event.nightOver", {
+                        counts: momentsFromPeople(first.total, first.photographers),
+                    })}
+                </Text>
             ) : null}
             <View style={styles.actions}>
-                <Button
-                    icon={primary.icon}
-                    accessibilityLabel={primary.label}
-                    size="compact"
-                    style={{ flex: 1 }}
-                    disabled={!primary.run}
-                    {...(primary.run ? { onPress: primary.run } : {})}
-                />
-                <IconButton
-                    icon={icons.qr}
-                    onPress={() => setInviting(true)}
-                    accessibilityLabel={t("event.showCode")}
-                />
-                <IconButton
-                    icon={icons.download}
-                    onPress={() => {
-                        saveAll().catch(() => setSaving(null));
-                    }}
-                    disabled={!photos || items.length === 0 || saving !== null}
-                    accessibilityLabel={t("event.download")}
-                />
+                {primary ? (
+                    <Button
+                        icon={primary.icon}
+                        {...(primary.show ? { label: primary.label } : {})}
+                        accessibilityLabel={primary.label}
+                        size="compact"
+                        style={{ flex: 1 }}
+                        onPress={primary.run}
+                    />
+                ) : (
+                    <View style={styles.closed} accessibilityRole="text">
+                        <Text variant="small" tone="ash" align="center" numberOfLines={1}>
+                            {closedLine ?? ""}
+                        </Text>
+                    </View>
+                )}
+                {revealed ? (
+                    <IconButton
+                        icon={icons.share}
+                        onPress={shareEvent}
+                        accessibilityLabel={t("recap.share")}
+                    />
+                ) : (
+                    <IconButton
+                        icon={icons.qr}
+                        onPress={() => setInviting(true)}
+                        accessibilityLabel={t("event.showCode")}
+                    />
+                )}
+                {photos && items.length > 0 ? (
+                    <IconButton
+                        icon={icons.download}
+                        onPress={() => {
+                            saveAll().catch(() => setSaving(null));
+                        }}
+                        disabled={saving !== null}
+                        accessibilityLabel={t("event.download")}
+                    />
+                ) : null}
                 <ManageButton summary={event} onChanged={summary.reload} />
             </View>
             <HostRow summary={event} onChanged={summary.reload} />
-            {saving ? (
-                <Text variant="caption" tone="ash" align="center" style={styles.line}>
-                    {t("event.downloading", saving)}
-                </Text>
-            ) : saved !== null ? (
-                <Text variant="caption" tone="ash" align="center" style={styles.line}>
-                    {t("event.downloaded", { count: saved })}
+            {showRoll ? (
+                <Text variant="caption" tone="ash" align="center" style={styles.rollLine}>
+                    {left === null
+                        ? t("event.yourRollUnlimited", { taken })
+                        : t("event.yourRoll", { taken, left: left ?? 0 })}
                 </Text>
             ) : null}
-            {shots.failed > 0 ? (
-                <Pressable onPress={() => dismissFailed(code)} accessibilityRole="button">
-                    <Text variant="caption" tone="ash" align="center" style={styles.line}>
-                        {t("uploads.failed", { count: shots.failed })}
-                    </Text>
-                </Pressable>
+            {statusSlot ? (
+                <View style={styles.status}>
+                    {status ? (
+                        <Pressable
+                            onPress={status.onPress}
+                            disabled={!status.onPress}
+                            accessibilityRole={status.onPress ? "button" : "text"}
+                        >
+                            <Text
+                                variant="caption"
+                                tone="ash"
+                                align="center"
+                                numberOfLines={2}
+                                accessibilityLiveRegion="polite"
+                            >
+                                {status.text}
+                            </Text>
+                        </Pressable>
+                    ) : null}
+                </View>
             ) : null}
-            {shots.pending > 0 ? (
-                <Text variant="caption" tone="ash" align="center" style={styles.line}>
-                    {shots.retrying
-                        ? t("uploads.retrying")
-                        : t("uploads.pending", { count: shots.pending })}
-                </Text>
+            {!revealed && (role === "guest" || host) && (hasPhoto || host) ? (
+                <>
+                    <NotifyCard event={event} audience={host ? "host" : "guest"} />
+                    {role === "guest" && hasPhoto ? <EmailCard event={event} /> : null}
+                </>
             ) : null}
             {roll ? (
                 <View style={styles.roll}>
@@ -302,7 +606,7 @@ export function EventScreen() {
                     </Pressable>
                 </View>
             ) : null}
-            {first && rows.length === 0 ? (
+            {first && rows.length === 0 && !(roll && rollItems.loading) ? (
                 <Text variant="small" tone="ash" align="center" style={styles.empty}>
                     {photos
                         ? t("event.emptyRevealed")
@@ -311,70 +615,118 @@ export function EventScreen() {
                           : t("event.emptyClosed")}
                 </Text>
             ) : null}
-            {gallery.error && gallery.error.code !== "not-joined" ? (
-                <Notice>{t("event.loadFailed")}</Notice>
+            {gallery.error && gallery.error.code !== "not-joined" && !gallery.loading ? (
+                <View style={styles.error}>
+                    <Notice>
+                        {event.state === "revealed" && gallery.error.code === "network"
+                            ? t("event.readyOffline")
+                            : first
+                              ? problem(gallery.error.code)
+                              : t("event.loadFailed")}
+                    </Notice>
+                    <Button
+                        label={t("common.retry")}
+                        variant="dark"
+                        size="compact"
+                        onPress={() => {
+                            refreshGallery(code).catch(() => null);
+                        }}
+                    />
+                </View>
+            ) : null}
+            {developingCount > 0 && !photos ? (
+                // The developing tiles read as this one line to VoiceOver instead of 40 stops.
+                <View
+                    accessible
+                    accessibilityRole="text"
+                    accessibilityLabel={t("event.developingAll", { count: developingCount })}
+                    style={styles.a11yLine}
+                />
             ) : null}
         </View>
     );
 
     const extra = developingCount - MAX_DEVELOPING;
+    const fadeNew = rightAway && shooting && !reduceMotion;
+    const tileHeight = (tileWidth * 4) / 3;
+    const targets: TileTarget[] = [
+        { x: grid.side, y: headerHeight, width: tileWidth },
+        { x: grid.side + tileWidth + grid.gap, y: headerHeight, width: tileWidth },
+        { x: grid.side, y: headerHeight + tileHeight + grid.gap, width: tileWidth },
+    ];
 
     return (
         <View style={styles.screen}>
-            <FlatList
-                data={rows}
-                keyExtractor={(row) => (row.kind === "photo" ? row.item.id : row.key)}
-                numColumns={2}
-                columnWrapperStyle={styles.columns}
-                ItemSeparatorComponent={Gap}
-                ListHeaderComponent={header}
-                ListFooterComponent={
-                    <View style={{ paddingBottom: insets.bottom + 16, paddingTop: 12 }}>
-                        {!photos && extra > 0 ? (
-                            <Text variant="small" tone="ash" align="center" serif italic>
-                                {t("event.more", { count: extra })}
-                            </Text>
-                        ) : null}
-                        {gallery.loading && gallery.cursor ? (
-                            <ActivityIndicator color={color.ash} />
-                        ) : null}
-                    </View>
-                }
-                onEndReached={() => {
-                    loadMoreGallery(code).catch(() => null);
-                }}
-                onEndReachedThreshold={0.6}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={false}
-                        onRefresh={() => {
-                            summary.reload();
-                            refresh();
-                        }}
-                        tintColor={color.ash}
-                    />
-                }
-                renderItem={({ item: row }) =>
-                    row.kind === "photo" ? (
-                        <Tile
-                            source={row.item.thumbUrl}
-                            name={row.item.photographer.name}
-                            accessibilityLabel={t("event.photoBy", {
-                                name: row.item.photographer.name,
-                            })}
-                            onPress={() => router.push(`/e/${code}/${row.item.id}` as Href)}
+            <View
+                style={{ flex: 1 }}
+                accessibilityElementsHidden={momentCandidate}
+                importantForAccessibility={momentCandidate ? "no-hide-descendants" : "auto"}
+            >
+                <FlatList
+                    data={rows}
+                    keyExtractor={(row) => (row.kind === "photo" ? row.item.id : row.key)}
+                    numColumns={2}
+                    columnWrapperStyle={styles.columns}
+                    ItemSeparatorComponent={Gap}
+                    ListHeaderComponent={header}
+                    ListFooterComponent={
+                        <View style={{ paddingBottom: insets.bottom + 16, paddingTop: 12 }}>
+                            {!photos && extra > 0 ? (
+                                <Text variant="small" tone="ash" align="center" serif italic>
+                                    {t("event.more", { count: extra })}
+                                </Text>
+                            ) : null}
+                            {(gallery.loading && gallery.cursor) || (roll && rollItems.loading) ? (
+                                <ActivityIndicator color={color.ash} />
+                            ) : null}
+                        </View>
+                    }
+                    onEndReached={() => {
+                        if (roll) rollItems.more();
+                        else loadMoreGallery(code).catch(() => null);
+                    }}
+                    onEndReachedThreshold={0.6}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={() => {
+                                setRefreshing(true);
+                                summary.reload();
+                                people.reload();
+                                refreshGallery(code)
+                                    .catch(() => null)
+                                    .finally(() => setRefreshing(false));
+                            }}
+                            tintColor={color.ash}
                         />
-                    ) : (
-                        <Tile
-                            source={event.coverUrl}
-                            developing
-                            developingLabel={t("event.developing")}
-                            shift={SHIFTS[row.index % SHIFTS.length] ?? { x: 0, y: 0 }}
-                        />
-                    )
-                }
-                showsVerticalScrollIndicator={false}
-            />
+                    }
+                    renderItem={({ item: row }) =>
+                        row.kind === "photo" ? (
+                            <PhotoTile
+                                item={row.item}
+                                host={host}
+                                fade={fadeNew}
+                                onPress={() => router.push(`/e/${code}/${row.item.id}` as Href)}
+                            />
+                        ) : (
+                            <DevelopingTile index={row.index} name={row.name} />
+                        )
+                    }
+                    showsVerticalScrollIndicator={false}
+                />
+            </View>
+            {momentCandidate && first?.kind === "photos" ? (
+                <MomentOver
+                    code={code}
+                    fallback={items}
+                    page={first}
+                    targets={targets}
+                    onDone={() => {
+                        storage.set(`moment:${code}`, true);
+                        setMomentSeen(true);
+                    }}
+                />
+            ) : null}
             <InviteSheet
                 visible={inviting}
                 onClose={() => setInviting(false)}
@@ -397,14 +749,124 @@ export function EventScreen() {
     );
 }
 
+/** The moment with the server's three highlights, or the first photos if they can't load. */
+function MomentOver({
+    code,
+    fallback,
+    page,
+    targets,
+    onDone,
+}: {
+    code: string;
+    fallback: GalleryItem[];
+    page: Extract<GalleryPage, { kind: "photos" }>;
+    targets: readonly TileTarget[];
+    onDone: () => void;
+}) {
+    const highlights = useLoad(`highlights:moment:${code}`, () =>
+        api.guest.highlights(code, "moment"),
+    );
+    const cards = highlights.data?.items ?? (highlights.error ? fallback.slice(0, 3) : []);
+    return (
+        <Moment
+            items={cards}
+            total={page.total}
+            photographers={page.photographers}
+            mine={page.mine}
+            targets={targets}
+            onDone={onDone}
+        />
+    );
+}
+
+function PhotoTile({
+    item,
+    host,
+    fade,
+    onPress,
+}: {
+    item: GalleryItem;
+    host: boolean;
+    fade: boolean;
+    onPress: () => void;
+}) {
+    const width = useTileWidth();
+    const badges = host
+        ? [item.hidden ? "hidden" : null, item.reports > 0 ? "reported" : null]
+        : [];
+    const label = [
+        t("event.photoBy", { name: item.photographer.name }),
+        item.hidden && host ? t("event.hiddenBadge") : null,
+        item.reports > 0 && host ? t("event.reportedBadge") : null,
+    ]
+        .filter(Boolean)
+        .join(", ");
+    return (
+        <Animated.View {...(fade ? { entering: FadeIn.duration(400) } : {})} style={{ width }}>
+            <Tile
+                source={photoSource(item.thumbUrl, item.id, "thumb")}
+                name={item.photographer.name}
+                accessibilityLabel={label}
+                onPress={onPress}
+            />
+            {badges.some(Boolean) ? (
+                <View style={styles.badges} pointerEvents="none">
+                    {item.hidden && host ? (
+                        <View style={styles.badge}>
+                            <Icon icon={icons.hide} size={15} color={color.paper} />
+                        </View>
+                    ) : null}
+                    {item.reports > 0 && host ? (
+                        <View style={styles.badge}>
+                            <Icon icon={icons.report} size={14} color={color.paper} />
+                            <Text variant="caption" style={{ fontSize: 12, lineHeight: 15 }}>
+                                {formatCount(item.reports)}
+                            </Text>
+                        </View>
+                    ) : null}
+                </View>
+            ) : null}
+        </Animated.View>
+    );
+}
+
+/**
+ * A tile for a photo still developing, drawn from counts and names only: its tint comes from its
+ * place in the grid and the photographer's first name, so neighbouring tiles differ.
+ */
+function DevelopingTile({ index, name }: { index: number; name: string | undefined }) {
+    const width = useTileWidth();
+    let seed = 0;
+    for (const char of name ?? "") seed = (seed * 31 + char.charCodeAt(0)) % 360;
+    const hue = (seed + index * 47) % 360;
+    const light = 15 + ((index * 7 + seed) % 5) * 3;
+    return (
+        <View
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            style={[styles.devTile, { width, backgroundColor: `hsl(${hue}, 20%, ${light}%)` }]}
+        >
+            <Text serif italic style={styles.devText}>
+                {t("event.developing")}
+            </Text>
+            {name ? (
+                <Text serif italic style={styles.devName} numberOfLines={1}>
+                    {name}
+                </Text>
+            ) : null}
+        </View>
+    );
+}
+
 function Gap() {
-    return <View style={{ height: 6 }} />;
+    return <View style={{ height: grid.gap }} />;
 }
 
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: color.night },
     center: { flex: 1, justifyContent: "center", gap: 12 },
     back: { position: "absolute", left: 16 },
+    night: { paddingHorizontal: gutter, paddingTop: space.m, paddingBottom: space.xs },
     actions: {
         flexDirection: "row",
         gap: 10,
@@ -412,7 +874,21 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingBottom: 10,
     },
-    line: { marginBottom: 10, paddingHorizontal: gutter },
+    closed: {
+        flex: 1,
+        minHeight: 48,
+        borderRadius: radius.control,
+        backgroundColor: color.surface,
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: space.m,
+    },
+    rollLine: { paddingHorizontal: gutter, marginBottom: space.xs },
+    status: {
+        height: STATUS_HEIGHT,
+        justifyContent: "center",
+        paddingHorizontal: gutter,
+    },
     roll: {
         flexDirection: "row",
         justifyContent: "space-between",
@@ -422,5 +898,36 @@ const styles = StyleSheet.create({
         paddingBottom: 12,
     },
     empty: { paddingHorizontal: 40, paddingVertical: 28 },
-    columns: { justifyContent: "space-between", paddingHorizontal: 12 },
+    error: { paddingHorizontal: gutter, paddingBottom: space.l, alignItems: "center" },
+    a11yLine: { height: 1, marginHorizontal: grid.side },
+    columns: { justifyContent: "space-between", paddingHorizontal: grid.side },
+    badges: { position: "absolute", top: 8, right: 8, flexDirection: "row", gap: 4 },
+    badge: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 3,
+        paddingHorizontal: 7,
+        height: 26,
+        borderRadius: radius.round,
+        backgroundColor: color.glass,
+    },
+    devTile: {
+        aspectRatio: 3 / 4,
+        borderRadius: radius.tile,
+        overflow: "hidden",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    devText: { fontSize: 20, lineHeight: 24, color: "rgba(255, 255, 255, 0.85)" },
+    devName: {
+        position: "absolute",
+        left: 12,
+        right: 12,
+        bottom: 9,
+        fontSize: 19,
+        lineHeight: 23,
+        color: color.white,
+        textShadowColor: "rgba(0, 0, 0, 0.7)",
+        textShadowRadius: 10,
+    },
 });
