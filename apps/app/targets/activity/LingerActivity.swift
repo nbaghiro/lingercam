@@ -9,12 +9,13 @@ struct LingerActivityAttributes: ActivityAttributes {
         var progress: Double?
         var moments: String
         var reveal: String
+        var closed: String
+        var endsAt: Date
         var revealsAt: Date
     }
 
     var code: String
     var title: String
-    var ready: String
 }
 
 private enum Palette {
@@ -27,7 +28,7 @@ private enum Palette {
     static let ink = Color(red: 18 / 255, green: 18 / 255, blue: 16 / 255)
 }
 
-private func serif(_ size: CGFloat) -> Font { .custom("Newsreader-Regular", size: size) }
+private func serif(_ size: CGFloat) -> Font { .custom("NewsreaderDisplay-Regular", size: size) }
 private func sans(_ size: CGFloat) -> Font { .custom("Pretendard-Regular", size: size) }
 
 /// The two overlapping circles, drawn on the brand's 32 point grid.
@@ -89,7 +90,7 @@ struct LockScreenCard: View {
                         .font(serif(21))
                         .foregroundStyle(Palette.text)
                         .lineLimit(1)
-                    Text(context.isStale ? context.attributes.ready : state.left)
+                    Text(context.isStale ? state.closed : state.left)
                         .font(sans(14))
                         .foregroundStyle(Palette.muted)
                 }
@@ -128,7 +129,7 @@ struct LingerActivityWidget: Widget {
                             .font(serif(21))
                             .foregroundStyle(Palette.text)
                             .lineLimit(1)
-                        Text(context.isStale ? context.attributes.ready : context.state.left)
+                        Text(context.isStale ? context.state.closed : context.state.left)
                             .font(sans(14))
                             .foregroundStyle(Palette.muted)
                     }

@@ -1,12 +1,28 @@
-# A guest opens the seeded live birthday from its link, joins and takes two shots.
+# A guest opens the seeded live birthday from its link, joins and shoots, checks the camera's
+# tools, then leaves and comes back. Also opens a code by hand and the seeded states the join
+# sheet has: before the start, a draft, ended and revealed.
 appId: app.galleo.linger
 ---
 - runFlow: open.yaml
+
+# Have a code? on the welcome or home screen takes a typed code.
+- runFlow:
+    when:
+      visible: "Have a code?"
+    commands:
+      - tapOn: "Join code"
+      - inputText: "maya3x"
+      - extendedWaitUntil:
+          visible: "You're invited to shoot Maya turns thirty"
+          timeout: 20000
+
 - openLink: linger://j/MAYA3X
 - extendedWaitUntil:
     visible: "You're invited to shoot Maya turns thirty"
     timeout: 20000
-- tapOn: "Open camera"
+- assertVisible: "Alex invited you"
+- assertVisible: "Photos come from this camera only."
+- tapOn: "Open camera|Join as .*"
 - runFlow:
     when:
       visible: "What should we call you?"
@@ -14,23 +30,56 @@ appId: app.galleo.linger
       - tapOn: "Your name"
       - inputText: "Robin"
       - tapOn: "Continue"
-- runFlow:
-    when:
-      visible: "Allow camera"
-    commands:
-      - tapOn: "Allow camera"
+# Continue goes straight to the camera: no "Allow the camera" step before the system prompt.
+- assertNotVisible: "Allow the camera"
 - extendedWaitUntil:
     visible: "\\d+ shots? left"
     timeout: 20000
 - copyTextFrom: "\\d+ shots? left"
 - evalScript: ${output.before = parseInt(maestro.copiedText, 10)}
+
+# Flash cycles Auto, On, Off and is remembered when the camera opens again.
+- assertVisible:
+    text: "Flash"
+- tapOn: "Flash"
+- tapOn: "Flash"
+
 - tapOn: "Take photo"
 - waitForAnimationToEnd
 - tapOn: "Take photo"
 - waitForAnimationToEnd
 - copyTextFrom: "\\d+ shots? left"
 - assertTrue: ${parseInt(maestro.copiedText, 10) === output.before - 2}
-- tapOn: "See the event"
+
+# The last shot stays on the thumbnail after leaving and reopening the camera.
+- tapOn: "Last photo. See the event|See the event\\. \\d+ photos? (is|are) still sending"
 - extendedWaitUntil:
     visible: "Developing"
+    timeout: 20000
+- openLink: linger://e/MAYA3X/camera
+- extendedWaitUntil:
+    visible: "\\d+ shots? left"
+    timeout: 20000
+- assertVisible: "Last photo. See the event|See the event\\. \\d+ photos? (is|are) still sending"
+- assertVisible: "Flash"
+
+# The join sheet's other states, from the seed.
+- openLink: linger://j/SATWED
+- extendedWaitUntil:
+    visible: "The camera opens .*"
+    timeout: 20000
+- assertVisible: "Join now|Join as .*"
+- openLink: linger://j/TFNWKD
+- extendedWaitUntil:
+    visible: ".* isn't open yet"
+    timeout: 20000
+- assertVisible: "Try again"
+- openLink: linger://j/JNHSWM
+- extendedWaitUntil:
+    visible: "The camera has closed"
+    timeout: 20000
+- assertVisible: "See the event"
+- openLink: linger://j/EMMADN
+- extendedWaitUntil:
+    visible: "The photos are ready|These photos are for the people who were there"
     timeout: 20000

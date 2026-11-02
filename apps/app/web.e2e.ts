@@ -92,11 +92,12 @@ async function joinAndShoot(watch: Watch, code: string, name: string, shots: num
     await page.goto(`/j/${code}`);
     await page.getByRole("button", { name: "Open camera" }).click();
     await page.getByLabel("Your name").fill(name);
+    // Continue goes straight to the browser's camera prompt, which the fake UI accepts, so no
+    // "Allow the camera" step appears in between.
     await page.getByRole("button", { name: "Continue" }).click();
-    const allow = page.getByRole("button", { name: "Allow camera" });
     const shutter = page.getByRole("button", { name: "Take photo" });
-    await expect(allow.or(shutter)).toBeVisible();
-    if (await allow.isVisible()) await allow.click();
+    await expect(shutter).toBeVisible();
+    await expect(page.getByText("Allow the camera")).toHaveCount(0);
     await expect(page).toHaveURL(new RegExp(`/e/${code}/camera$`));
     await expect(page.getByLabel(`${SHOTS} shots left`)).toBeVisible();
     // The fake camera is live, not the development sample photos.

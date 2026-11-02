@@ -545,6 +545,32 @@ const en = {
     // End of W2.
 
     // W3, guest join, camera and Live Activity. Add strings below this line.
+    "join.opensWhen": "The camera opens {when}.",
+    "join.countsLine": "{counts}.",
+    "join.loading": "Loading the event",
+    "join.restoreTitle": "Find your photos",
+    "join.restoreBody":
+        "Enter the email you left at this event. Linger will send a link that opens your photos on this device.",
+    "join.restoreEmail": "Email",
+    "join.restoreSend": "Send link",
+    "join.restoreSent":
+        "If that email is on this event, a link is on its way. Open it on this device.",
+    "join.restoring": "Opening your photos on this device",
+    "join.badLink": "This link has expired or a newer one replaced it. Ask for a new link.",
+    "join.alreadyJoined":
+        "This device already joined this event under another name, so the link can't move it here.",
+    "joined.title": "Events you joined",
+    "joined.open": "Camera open",
+    "joined.before": "Camera opens {when}",
+    "joined.waiting": "Photos appear {when}",
+    "joined.ready": "Photos ready",
+    "joined.draft": "Not open yet",
+    "camera.opensIn": "Opens in {time}",
+    "camera.lastShot": "Last photo. See the event",
+    "camera.lastSending":
+        "{count, plural, one {See the event. # photo is still sending} other {See the event. # photos are still sending}}",
+    "camera.noLastShot": "See the event",
+    "camera.seePhotos": "See the photos",
     // End of W3.
 
     // W4, upload queue. Add strings below this line.
