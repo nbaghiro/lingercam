@@ -5,6 +5,8 @@ const CAMERA =
     "Linger uses the camera to take the photos you share with an event. Photos stay hidden until the reveal.";
 const PHOTOS = "Linger opens your photo library so you can choose a cover photo for an event.";
 const SAVE_PHOTOS = "Linger saves the photos you choose to your photo library.";
+/** Guests' links and printed codes point here; the app opens them when it's installed. */
+const JOIN_HOST = "join.lingercam.app";
 
 const config: ExpoConfig = {
     name: "Linger",
@@ -21,6 +23,7 @@ const config: ExpoConfig = {
         supportsTablet: false,
         config: { usesNonExemptEncryption: false },
         infoPlist: { NSCameraUsageDescription: CAMERA, NSSupportsLiveActivities: true },
+        associatedDomains: [`applinks:${JOIN_HOST}`],
     },
     android: {
         package: "app.galleo.linger",
@@ -30,6 +33,14 @@ const config: ExpoConfig = {
             backgroundColor: NIGHT,
         },
         permissions: ["android.permission.CAMERA"],
+        intentFilters: [
+            {
+                action: "VIEW",
+                autoVerify: true,
+                data: [{ scheme: "https", host: JOIN_HOST }],
+                category: ["BROWSABLE", "DEFAULT"],
+            },
+        ],
     },
     web: {
         output: "single",
@@ -46,7 +57,8 @@ const config: ExpoConfig = {
             "expo-splash-screen",
             { image: "./assets/splash-icon.png", imageWidth: 120, backgroundColor: NIGHT },
         ],
-        ["expo-notifications", { color: "#E9C99A" }],
+        // Background remote notifications let a silent push reschedule a reveal reminder.
+        ["expo-notifications", { color: "#E9C99A", enableBackgroundRemoteNotifications: true }],
         "expo-secure-store",
         [
             "expo-image-picker",

@@ -161,3 +161,22 @@ export async function waitFor<T>(
     }
     throw new Error("Timed out waiting");
 }
+
+const mailpit = process.env.MAILPIT_URL ?? "http://localhost:8176";
+
+/** The newest email Mailpit received for an address, waiting for it to arrive. */
+export async function mailTo(address: string): Promise<{ subject: string; text: string }> {
+    return waitFor(async () => {
+        const query = encodeURIComponent(`to:"${address}"`);
+        const found = (await (await fetch(`${mailpit}/api/v1/search?query=${query}`)).json()) as {
+            messages?: { ID: string }[];
+        };
+        const id = found.messages?.[0]?.ID;
+        if (!id) return null;
+        const message = (await (await fetch(`${mailpit}/api/v1/message/${id}`)).json()) as {
+            Subject: string;
+            Text: string;
+        };
+        return { subject: message.Subject, text: message.Text };
+    });
+}

@@ -65,14 +65,14 @@ describe("email sign-in", () => {
         expect(reused.body.code).toBe("code-expired");
     });
 
-    test("an expired code is refused, and so is a sixth guess", async () => {
+    test("an expired code is refused, and a sixth guess reads as locked", async () => {
         const email = `late-${randomBytes(4).toString("hex")}@example.com`;
         await call("POST", "/v1/auth/email/start", { json: { email } });
         const code = await codeFor(email);
         await db.update(emailCodes).set({ attempts: 5 }).where(eq(emailCodes.email, email));
         expect(
             (await call("POST", "/v1/auth/email/verify", { json: { email, code } })).body.code,
-        ).toBe("code-expired");
+        ).toBe("code-locked");
         await call("POST", "/v1/auth/email/start", { json: { email } });
         await db
             .update(emailCodes)
@@ -99,9 +99,9 @@ describe("email sign-in", () => {
         );
         const codes = replies.map((r) => String(r.body.code));
         expect(codes.filter((c) => c === "wrong-code")).toHaveLength(5);
-        expect(codes.filter((c) => c === "code-expired")).toHaveLength(15);
+        expect(codes.filter((c) => c === "code-locked")).toHaveLength(15);
         const late = await call("POST", "/v1/auth/email/verify", { json: { email, code: real } });
-        expect(late.body.code).toBe("code-expired");
+        expect(late.body.code).toBe("code-locked");
     });
 
     test("an address can ask for only a few codes at a time", async () => {

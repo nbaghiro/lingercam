@@ -13,17 +13,34 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 export const bucket = process.env.S3_BUCKET ?? "linger";
 
-export const s3 = new S3Client({
-    endpoint: process.env.S3_ENDPOINT ?? "http://localhost:8174",
-    region: process.env.S3_REGION ?? "auto",
-    forcePathStyle: (process.env.S3_FORCE_PATH_STYLE ?? "true") === "true",
-    credentials: {
-        accessKeyId: process.env.S3_ACCESS_KEY_ID ?? "linger",
-        secretAccessKey: process.env.S3_SECRET_ACCESS_KEY ?? "linger-local",
-    },
-    requestChecksumCalculation: "WHEN_REQUIRED",
-    responseChecksumValidation: "WHEN_REQUIRED",
-});
+export function s3Client(endpoint: string): S3Client {
+    return new S3Client({
+        endpoint,
+        region: process.env.S3_REGION ?? "auto",
+        forcePathStyle: (process.env.S3_FORCE_PATH_STYLE ?? "true") === "true",
+        credentials: {
+            accessKeyId: process.env.S3_ACCESS_KEY_ID ?? "linger",
+            secretAccessKey: process.env.S3_SECRET_ACCESS_KEY ?? "linger-local",
+        },
+        requestChecksumCalculation: "WHEN_REQUIRED",
+        responseChecksumValidation: "WHEN_REQUIRED",
+    });
+}
+
+const endpoint = process.env.S3_ENDPOINT ?? "http://localhost:8174";
+
+/** The API's own client, which reaches storage at S3_ENDPOINT. */
+export const s3 = s3Client(endpoint);
+
+/**
+ * Signs the URLs devices use. With S3_PUBLIC_ENDPOINT set (a LAN address in development, so a
+ * phone or an emulator can reach local storage), signed URLs point there; otherwise at S3_ENDPOINT.
+ */
+export function signerFor(env: Record<string, string | undefined> = process.env): S3Client {
+    return env.S3_PUBLIC_ENDPOINT ? s3Client(env.S3_PUBLIC_ENDPOINT) : s3;
+}
+
+export const signer = signerFor();
 
 /** Seconds an upload URL stays valid. */
 export const UPLOAD_SECONDS = 15 * 60;
@@ -52,14 +69,18 @@ export type ImageType = (typeof IMAGE_TYPES)[number];
  */
 export function uploadUrl(key: string, contentType: ImageType = "image/jpeg"): Promise<string> {
     return getSignedUrl(
-        s3,
+        signer,
         new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType }),
         { expiresIn: UPLOAD_SECONDS, signableHeaders: new Set(["content-type"]) },
     );
 }
 
-export function downloadUrl(key: string, seconds = PHOTO_SECONDS): Promise<string> {
-    return getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), {
+export function downloadUrl(
+    key: string,
+    seconds = PHOTO_SECONDS,
+    client: S3Client = signer,
+): Promise<string> {
+    return getSignedUrl(client, new GetObjectCommand({ Bucket: bucket, Key: key }), {
         expiresIn: seconds,
     });
 }

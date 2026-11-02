@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { trackShot } from "@/activity";
 import { api, type ApiError, type EventSummary, useLoad } from "@/api";
 import { formatDuration, revealWhen, t } from "@/copy";
-import { InviteSheet } from "@/event";
+import { InviteSheet } from "@/invite";
 import { LookImage } from "@/look";
 import { Button, Icon, IconButton, Notice, Text, color, icons } from "@/ui";
 import { enqueue, setShotsLeft, useShots, type ShotsState } from "@/uploads";

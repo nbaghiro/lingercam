@@ -29,3 +29,29 @@ export async function sharePhoto(url: string): Promise<void> {
     }
     await savePhoto(url);
 }
+
+/**
+ * Downloads each photo in turn, reporting how many are done. Stops at the first failure and
+ * resolves to the number saved.
+ */
+export async function saveAll(
+    urls: readonly string[],
+    onProgress: (done: number) => void,
+): Promise<number> {
+    let done = 0;
+    for (const url of urls) {
+        try {
+            await savePhoto(url);
+        } catch {
+            break;
+        }
+        done += 1;
+        onProgress(done);
+    }
+    return done;
+}
+
+/** Downloads a photo that is already in the browser, such as one the event refused. */
+export async function keepInPhotos(uri: string): Promise<void> {
+    await savePhoto(uri);
+}

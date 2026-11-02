@@ -14,7 +14,7 @@ import Stripe from "stripe";
 import { z } from "zod";
 import { requireHost, type Host } from "./accounts.ts";
 import { db, events, purchases } from "./db.ts";
-import { eventJson, ownedEvent, type EventRow } from "./events.ts";
+import { hostEventJson, ownedEvent, type EventRow } from "./events.ts";
 import { ApiError, body, devRoutes, errorDetail, log } from "./http.ts";
 
 type Store = (typeof purchases.$inferInsert)["store"];
@@ -189,7 +189,7 @@ billing.post("/v1/billing/claim", async (c) => {
     product(input.productId);
     const verified = await verifyWithRevenueCat(host, input.productId, input.transactionId);
     const event = await applyPurchase({ hostId: host.id, ...input, ...verified });
-    return c.json({ event: eventJson(event) });
+    return c.json({ event: await hostEventJson(event) });
 });
 
 billing.post("/v1/billing/checkout", async (c) => {
@@ -261,7 +261,7 @@ billing.post("/v1/billing/dev-claim", async (c) => {
         store: "dev",
         transactionId: randomUUID(),
     });
-    return c.json({ event: eventJson(event) });
+    return c.json({ event: await hostEventJson(event) });
 });
 
 const RevenueCatEvent = z.object({

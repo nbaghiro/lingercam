@@ -75,8 +75,9 @@ describe("prices", () => {
         expect(UNLIMITED_SHOTS.priceCents).toBe(999);
     });
 
-    test("formatPrice writes dollars, or Free", () => {
-        expect(formatPrice(0)).toBe("Free");
+    test("formatPrice writes the amount for a locale, with no words of its own", () => {
+        expect(formatPrice(0)).toBe("$0.00");
+        expect(formatPrice(999, "en-CA")).toBe("US$9.99");
         expect(formatPrice(999)).toBe("$9.99");
         expect(formatPrice(4999)).toBe("$49.99");
         expect(formatPrice(1000)).toBe("$10.00");

@@ -66,7 +66,14 @@ linger/
 │   │   │   ├── join.tsx         join sheet, name, camera permission
 │   │   │   ├── camera.tsx       native camera: VisionCamera, live film look, shot counter
 │   │   │   ├── camera.web.tsx   browser camera
-│   │   │   ├── event.tsx        cover, stats, developing grid, reveal moment, gallery, people, invite
+│   │   │   ├── event.tsx        cover, stats, actions, developing grid, gallery
+│   │   │   ├── gallery.ts       gallery store shared by the event, viewer and recap
+│   │   │   ├── moment.tsx       the reveal moment
+│   │   │   ├── people.tsx       people sheet and rolls
+│   │   │   ├── invite.tsx       invite card, invite sheet, table cards, share link
+│   │   │   ├── manage.tsx       the host row and the Manage sheet
+│   │   │   ├── joined.tsx       events this device joined, code entry
+│   │   │   ├── notify.tsx       permission card, reminders, push token, notification taps
 │   │   │   ├── photo.tsx        viewer: photographer, save, like, report
 │   │   │   ├── recap.tsx        the recap: the event's best photos as a story
 │   │   │   ├── purchase.ts      RevenueCat on iOS and Android

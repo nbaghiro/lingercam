@@ -26,6 +26,10 @@ describe("server", () => {
             });
             expect(res.headers.get("access-control-allow-origin")).toBe(origin);
         }
+        const simple = await app.request("/health", {
+            headers: { origin: "http://localhost:8173" },
+        });
+        expect(simple.headers.get("access-control-expose-headers")).toBe("Date");
         const evil = await app.request("/v1/pricing", { headers: { origin: "https://evil.test" } });
         expect(evil.headers.get("access-control-allow-origin")).toBeNull();
     });
@@ -45,7 +49,11 @@ describe("server", () => {
             ["POST", `/v1/events/${event.id}/cover`],
             ["POST", `/v1/events/${event.id}/live`],
             ["POST", `/v1/events/${event.id}/end`],
+            ["DELETE", `/v1/events/${event.id}`],
+            ["GET", "/v1/joined"],
             ["GET", `/v1/e/${event.code}/me`],
+            ["GET", `/v1/e/${event.code}/highlights`],
+            ["POST", `/v1/e/${event.code}/email`],
             ["GET", `/v1/e/${event.code}/gallery`],
             ["GET", `/v1/e/${event.code}/people`],
             ["POST", `/v1/e/${event.code}/shots`],
@@ -53,6 +61,7 @@ describe("server", () => {
             ["POST", `/v1/shots/${shot}/like`],
             ["POST", `/v1/shots/${shot}/report`],
             ["POST", `/v1/shots/${shot}/hide`],
+            ["DELETE", `/v1/shots/${shot}`],
             ["POST", "/v1/push"],
             ["POST", "/v1/billing/claim"],
             ["POST", "/v1/billing/checkout"],

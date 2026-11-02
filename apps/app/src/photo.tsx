@@ -8,14 +8,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { api, asApiError, useLoad } from "@/api";
 import { formatCount, formatTime, t } from "@/copy";
-import {
-    loadMoreGallery,
-    patchPhoto,
-    refreshGallery,
-    useCode,
-    useGallery,
-    useHostEvent,
-} from "@/event";
+import { useCode, useHostEvent } from "@/event";
+import { loadMoreGallery, patchPhoto, refreshGallery, useGallery } from "@/gallery";
 import { PhotosDenied, savePhoto, sharePhoto } from "@/save";
 import { Button, IconButton, Notice, Scrim, Text, color, confirm, icons } from "@/ui";
 

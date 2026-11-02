@@ -12,21 +12,21 @@ import {
     type Visibility,
 } from "@linger/core/events";
 import { DEFAULT_LOOK, LOOK_IDS, LOOKS, type LookId } from "@linger/core/film";
-import { TIERS, UNLIMITED_SHOTS, due, formatPrice, type TierId } from "@linger/core/pricing";
+import { TIERS, UNLIMITED_SHOTS, due, type TierId } from "@linger/core/pricing";
 import { revealTime } from "@linger/core/reveal";
 import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
-import * as Print from "expo-print";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { BackHandler, Platform, Pressable, Share, StyleSheet, View } from "react-native";
+import { BackHandler, Platform, Pressable, StyleSheet, View } from "react-native";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 
-import { api, joinLink, uploadFile, useLoad, useSession } from "@/api";
+import { api, uploadFile, useLoad, useSession } from "@/api";
 import {
     formatDay,
     formatEnds,
+    formatPrice,
     occasionLabel,
     revealModeLabel,
     revealWhen,
@@ -34,13 +34,12 @@ import {
     visibilityLabel,
 } from "@/copy";
 import { HostAppNote } from "@/home";
+import { Invite } from "@/invite";
 import { LookImage } from "@/look";
 import { claimPending, purchase } from "@/purchase";
 import {
     Button,
     Icon,
-    IconButton,
-    InviteCard,
     KeyValue,
     Label,
     Notice,
@@ -55,7 +54,6 @@ import {
     Toggle,
     Field,
     color,
-    type QrHandle,
     icons,
     occasionIcons,
 } from "@/ui";
@@ -749,110 +747,6 @@ function Footer({ step, draft, event, onNext, onCreated, onStarted }: FooterProp
     );
 }
 
-// The invite card
-
-function Invite({ event, onDone }: { event: Event; onDone: () => void }) {
-    const url = joinLink(event.code);
-    const title = event.settings.title;
-    const qr = useRef<QrHandle | null>(null);
-    const [printing, setPrinting] = useState(false);
-
-    const print = () => {
-        const ref = qr.current;
-        if (!ref) return;
-        setPrinting(true);
-        ref.toDataURL((data) => {
-            Print.printAsync({ html: tableCards(event, data) })
-                .catch(() => null)
-                .finally(() => setPrinting(false));
-        });
-    };
-
-    const share = () => {
-        Share.share({
-            message: t("create.invite.shareMessage", { title, url }),
-            ...(Platform.OS === "ios" ? { url } : {}),
-        }).catch(() => null);
-    };
-
-    return (
-        <Screen
-            footer={
-                <View style={{ gap: 10 }}>
-                    <Button
-                        label={t("create.invite.print")}
-                        icon={icons.print}
-                        loading={printing}
-                        onPress={print}
-                    />
-                    <Button
-                        label={t("create.invite.share")}
-                        icon={icons.share}
-                        variant="dark"
-                        onPress={share}
-                    />
-                </View>
-            }
-        >
-            <View style={styles.inviteHead}>
-                <Text variant="title" align="center" accessibilityRole="header">
-                    {t("create.invite.title")}
-                </Text>
-                <View style={styles.inviteClose}>
-                    <IconButton
-                        icon={icons.close}
-                        onPress={onDone}
-                        accessibilityLabel={t("create.invite.done")}
-                    />
-                </View>
-            </View>
-            <InviteCard
-                title={title}
-                url={url}
-                caption={t("create.invite.scan")}
-                qrRef={(ref) => {
-                    qr.current = ref;
-                }}
-            />
-        </Screen>
-    );
-}
-
-function escape(text: string): string {
-    return text.replace(
-        /[&<>"']/g,
-        (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c,
-    );
-}
-
-/** Four table cards on one A4 or Letter page, to cut out and fold. */
-function tableCards(event: Event, qrPng: string): string {
-    const { title, revealMode, timeZone: zone } = event.settings;
-    const how =
-        revealMode === "right-away"
-            ? t("print.howRightAway")
-            : t("print.how", { when: revealWhen(new Date(), new Date(event.revealsAt), zone) });
-    const card = `<div class="card">
-        <svg width="28" height="28" viewBox="0 0 32 32"><circle cx="12" cy="16" r="9" fill="none" stroke="#121210" stroke-width="2.2"/><circle cx="20" cy="16" r="9" fill="#121210" fill-opacity=".9"/></svg>
-        <p class="scan">${escape(t("print.scan"))}</p>
-        <img src="data:image/png;base64,${qrPng}" alt="">
-        <h2>${escape(title)}</h2>
-        <p class="how">${escape(how)}</p>
-    </div>`;
-    return `<!doctype html><html><head><meta charset="utf-8"><title>${escape(t("print.title", { title }))}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz@6..72&display=swap" rel="stylesheet">
-    <style>
-        @page { margin: 12mm; }
-        body { margin: 0; font-family: -apple-system, "Helvetica Neue", sans-serif; color: #121210; }
-        .sheet { display: grid; grid-template-columns: 1fr 1fr; gap: 10mm; }
-        .card { border: 1px dashed #c9c6bf; border-radius: 6mm; padding: 9mm 7mm; text-align: center; break-inside: avoid; }
-        .scan { font-size: 11pt; color: #6D6B65; margin: 4mm 0; }
-        img { width: 46mm; height: 46mm; }
-        h2 { font-family: Newsreader, Georgia, serif; font-weight: 400; font-size: 20pt; margin: 4mm 0 2mm; }
-        .how { font-size: 9pt; color: #6D6B65; margin: 0; }
-    </style></head><body><div class="sheet">${card.repeat(4)}</div></body></html>`;
-}
-
 const styles = StyleSheet.create({
     // The back button sits on the progress line, so the title starts where the design puts it.
     top: {
@@ -891,7 +785,4 @@ const styles = StyleSheet.create({
         paddingVertical: 17,
         marginTop: 8,
     },
-    inviteHead: { marginTop: 6, justifyContent: "center" },
-    // Beside the centred title, as the design has no row above it.
-    inviteClose: { position: "absolute", left: 0, top: -6 },
 });

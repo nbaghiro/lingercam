@@ -64,7 +64,7 @@ export default tseslint.config(
         rules: {
             "@typescript-eslint/no-require-imports": [
                 "error",
-                { allow: ["\\.(png|jpe?g|otf|ttf)$"] },
+                { allow: ["\\.(png|jpe?g|otf|ttf|woff2)$"] },
             ],
         },
     },

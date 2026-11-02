@@ -1,58 +1,32 @@
 import { normalizeJoinCode } from "@linger/core/events";
 import { canShoot, type GalleryItem } from "@linger/core/shots";
-import Constants from "expo-constants";
-import { Image } from "expo-image";
-import * as Notifications from "expo-notifications";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
-import { useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
-    Modal,
-    Platform,
     Pressable,
     RefreshControl,
-    ScrollView,
-    Share,
     StyleSheet,
     View,
 } from "react-native";
-import Animated, {
-    Easing,
-    FadeIn,
-    useAnimatedStyle,
-    useSharedValue,
-    withTiming,
-    type SharedValue,
-} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { endActivity } from "@/activity";
-import {
-    api,
-    asApiError,
-    currentHostId,
-    joinLink,
-    PUSH_KEY,
-    storage,
-    useLoad,
-    useSession,
-    type ApiError,
-    type Event,
-    type EventSummary,
-    type GalleryPage,
-    type Person,
-} from "@/api";
-import { dayLabel, formatCount, formatDuration, formatTime, t } from "@/copy";
-import { savePhoto } from "@/save";
+import { api, storage, useLoad, useSession, type Event, type Person } from "@/api";
+import { dayLabel, formatCount, formatDuration, t } from "@/copy";
+import { loadMoreGallery, loadWholeGallery, refreshGallery, useGallery } from "@/gallery";
+import { InviteSheet } from "@/invite";
+import { HostRow, ManageButton } from "@/manage";
+import { Moment } from "@/moment";
+import { remindAtReveal } from "@/notify";
+import { People } from "@/people";
+import { saveAll as saveAllPhotos } from "@/save";
 import {
     Button,
     Cover,
     IconButton,
-    InviteCard,
     Notice,
     Screen,
-    Sheet,
     Stats,
     Text,
     Tile,
@@ -62,116 +36,6 @@ import {
     type Stat,
 } from "@/ui";
 import { dismissFailed, useShots } from "@/uploads";
-
-// The gallery is kept per join code outside React, so the photo viewer and the recap page
-// through the same photos the event screen loaded.
-
-export interface GalleryState {
-    /** The latest first page: counts before the reveal, photos after. */
-    first: GalleryPage | undefined;
-    items: GalleryItem[];
-    cursor: string | null;
-    loading: boolean;
-    error: ApiError | null;
-}
-
-const EMPTY: GalleryState = {
-    first: undefined,
-    items: [],
-    cursor: null,
-    loading: false,
-    error: null,
-};
-const galleries = new Map<string, GalleryState>();
-const galleryListeners = new Set<() => void>();
-
-function setGallery(code: string, patch: Partial<GalleryState>): void {
-    galleries.set(code, { ...(galleries.get(code) ?? EMPTY), ...patch });
-    for (const listener of galleryListeners) listener();
-}
-
-// Each refresh starts a new generation; a page that arrives for an older one is dropped, so a
-// slow "load more" can't write stale photos and an old cursor over a fresh first page.
-const generations = new Map<string, number>();
-
-/** Loads the first page again, replacing what was loaded. */
-export async function refreshGallery(code: string): Promise<void> {
-    const generation = (generations.get(code) ?? 0) + 1;
-    generations.set(code, generation);
-    setGallery(code, { loading: true });
-    try {
-        const page = await api.guest.gallery(code);
-        if (generations.get(code) !== generation) return;
-        if (page.kind === "photos") endActivity(code).catch(() => null);
-        setGallery(code, {
-            first: page,
-            items: page.kind === "photos" ? page.items : [],
-            cursor: page.kind === "photos" ? page.nextCursor : null,
-            loading: false,
-            error: null,
-        });
-    } catch (error) {
-        if (generations.get(code) !== generation) return;
-        setGallery(code, { loading: false, error: asApiError(error) });
-    }
-}
-
-/** Loads the next page of photos, if there is one. */
-export async function loadMoreGallery(code: string): Promise<void> {
-    const start = galleries.get(code) ?? EMPTY;
-    if (start.loading || !start.cursor) return;
-    const generation = generations.get(code) ?? 0;
-    setGallery(code, { loading: true });
-    try {
-        const page = await api.guest.gallery(code, start.cursor);
-        if (generations.get(code) !== generation) return;
-        if (page.kind !== "photos") {
-            setGallery(code, { first: page, items: [], cursor: null, loading: false });
-            return;
-        }
-        const current = galleries.get(code) ?? EMPTY;
-        const seen = new Set(current.items.map((item) => item.id));
-        setGallery(code, {
-            items: [...current.items, ...page.items.filter((item) => !seen.has(item.id))],
-            cursor: page.nextCursor,
-            loading: false,
-            error: null,
-        });
-    } catch (error) {
-        if (generations.get(code) !== generation) return;
-        setGallery(code, { loading: false, error: asApiError(error) });
-    }
-}
-
-/** Loads every page. Used before saving all photos. */
-export async function loadWholeGallery(code: string): Promise<GalleryItem[]> {
-    for (let guard = 0; guard < 200; guard++) {
-        const state = galleries.get(code) ?? EMPTY;
-        if (!state.cursor) return state.items;
-        await loadMoreGallery(code);
-        if ((galleries.get(code) ?? EMPTY).error) break;
-    }
-    return (galleries.get(code) ?? EMPTY).items;
-}
-
-/** Changes one photo in place, such as after a like. */
-export function patchPhoto(code: string, id: string, patch: Partial<GalleryItem>): void {
-    const state = galleries.get(code) ?? EMPTY;
-    setGallery(code, {
-        items: state.items.map((item) => (item.id === id ? { ...item, ...patch } : item)),
-    });
-}
-
-export function useGallery(code: string): GalleryState {
-    return useSyncExternalStore(
-        (listener) => {
-            galleryListeners.add(listener);
-            return () => galleryListeners.delete(listener);
-        },
-        () => galleries.get(code) ?? EMPTY,
-        () => galleries.get(code) ?? EMPTY,
-    );
-}
 
 /** The join code from the route, tidied the way core normalises codes typed by hand. */
 export function useCode(): string {
@@ -186,83 +50,6 @@ export function useHostEvent(code: string): Event | undefined {
         api.events.list(),
     );
     return events.data?.find((event) => event.code === code);
-}
-
-// Notifications. The app schedules a local one for the reveal, which needs no keys, and registers
-// for push so the server can tell everyone at once.
-
-if (Platform.OS !== "web") {
-    Notifications.setNotificationHandler({
-        handleNotification: async () => ({
-            shouldShowBanner: true,
-            shouldShowList: true,
-            shouldPlaySound: true,
-            shouldSetBadge: false,
-        }),
-    });
-}
-
-async function registerPush(): Promise<void> {
-    const projectId: unknown =
-        Constants.easConfig?.projectId ?? Constants.expoConfig?.extra?.eas?.projectId;
-    // Expo push tokens need an EAS project. Until there is one, the local reminder is enough.
-    if (typeof projectId !== "string") return;
-    const { data } = await Notifications.getExpoPushTokenAsync({ projectId });
-    const owner = `${data}|${currentHostId() ?? ""}`;
-    if (storage.getString(PUSH_KEY) === owner) return;
-    await api.push(data);
-    storage.set(PUSH_KEY, owner);
-}
-
-async function remindAtReveal(summary: EventSummary): Promise<void> {
-    const at = Date.parse(summary.revealsAt);
-    if (Platform.OS === "web" || summary.revealMode === "right-away" || at <= Date.now()) return;
-    const key = `reminder:${summary.code}`;
-    if (storage.getString(key) === summary.revealsAt) return;
-    const permission = await Notifications.requestPermissionsAsync();
-    if (!permission.granted) return;
-    const identifier = `reveal-${summary.code}`;
-    await Notifications.cancelScheduledNotificationAsync(identifier).catch(() => null);
-    await Notifications.scheduleNotificationAsync({
-        identifier,
-        content: {
-            title: t("notify.revealTitle", { title: summary.title }),
-            body: t("notify.revealBody"),
-            data: { url: `/e/${summary.code}` },
-        },
-        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(at) },
-    });
-    storage.set(key, summary.revealsAt);
-    await registerPush().catch(() => null);
-}
-
-/** Opens the event when someone taps its reveal notification. Used once, in the root layout. */
-export function useRevealLinks(): void {
-    const router = useRouter();
-    useEffect(() => {
-        if (Platform.OS === "web") return;
-        const open = (response: Notifications.NotificationResponse | null) => {
-            const data = response?.notification.request.content.data;
-            const url: unknown = data?.url;
-            const code: unknown = data?.code;
-            if (typeof url === "string" && url.startsWith("/e/")) router.push(url as Href);
-            else if (typeof code === "string" && normalizeJoinCode(code)) {
-                router.push(`/e/${normalizeJoinCode(code)}` as Href);
-            }
-        };
-        open(Notifications.getLastNotificationResponse());
-        const subscription = Notifications.addNotificationResponseReceivedListener(open);
-        return () => subscription.remove();
-    }, [router]);
-}
-
-export async function shareLink(title: string, url: string, message: string): Promise<void> {
-    if (Platform.OS === "web") {
-        if (navigator.share) await navigator.share({ title, url });
-        else await navigator.clipboard?.writeText(url);
-        return;
-    }
-    await Share.share({ message, ...(Platform.OS === "ios" ? { url } : {}) });
 }
 
 // The event screen
@@ -411,16 +198,10 @@ export function EventScreen() {
         const all = await loadWholeGallery(code);
         setSaved(null);
         setSaving({ done: 0, total: all.length });
-        let done = 0;
-        for (const item of all) {
-            try {
-                await savePhoto(item.url);
-                done += 1;
-                setSaving({ done, total: all.length });
-            } catch {
-                break;
-            }
-        }
+        const done = await saveAllPhotos(
+            all.map((item) => item.url),
+            (count) => setSaving({ done: count, total: all.length }),
+        );
         setSaving(null);
         setSaved(done);
     };
@@ -485,7 +266,9 @@ export function EventScreen() {
                     disabled={!photos || items.length === 0 || saving !== null}
                     accessibilityLabel={t("event.download")}
                 />
+                <ManageButton summary={event} onChanged={summary.reload} />
             </View>
+            <HostRow summary={event} onChanged={summary.reload} />
             {saving ? (
                 <Text variant="caption" tone="ash" align="center" style={styles.line}>
                     {t("event.downloading", saving)}
@@ -618,213 +401,6 @@ function Gap() {
     return <View style={{ height: 6 }} />;
 }
 
-// The reveal moment: three photos fanned out, shown once on each device.
-
-function FanCard({ uri, index, open }: { uri: string; index: number; open: SharedValue<number> }) {
-    const side = index - 1;
-    const style = useAnimatedStyle(() => ({
-        transform: [
-            { translateX: side * (26 + 66 * open.value) },
-            { translateY: Math.abs(side) * 18 * open.value },
-            { rotate: `${side * (5 + 6 * open.value)}deg` },
-        ],
-    }));
-    return (
-        <Animated.View style={[styles.fanCard, style]}>
-            <Image source={uri} style={StyleSheet.absoluteFill} contentFit="cover" />
-        </Animated.View>
-    );
-}
-
-function Moment({
-    items,
-    total,
-    photographers,
-    onDone,
-}: {
-    items: GalleryItem[];
-    total: number;
-    photographers: number;
-    onDone: () => void;
-}) {
-    const open = useSharedValue(0);
-    const [opening, setOpening] = useState(false);
-    const cards = [items[2], items[1], items[0]].filter((item) => item !== undefined);
-
-    const reveal = () => {
-        if (opening) return;
-        setOpening(true);
-        open.set(withTiming(1, { duration: 900, easing: Easing.bezier(0.2, 0.9, 0.3, 1.15) }));
-        setTimeout(onDone, 1300);
-    };
-
-    return (
-        <Screen footer={<Button label={t("moment.cta")} onPress={reveal} />}>
-            <Animated.View entering={FadeIn.duration(500)} style={{ alignItems: "center" }}>
-                <Text variant="display" align="center" style={{ marginTop: 20 }}>
-                    {t("moment.title")}
-                </Text>
-                <Text variant="small" tone="ash" align="center" style={{ marginTop: 10 }}>
-                    {t("moment.body", { moments: total, people: photographers })}
-                </Text>
-            </Animated.View>
-            <View style={styles.fan}>
-                {cards.map((item, i) => (
-                    <FanCard
-                        key={item.id}
-                        uri={item.thumbUrl}
-                        index={cards.length === 3 ? i : i + (3 - cards.length) / 2}
-                        open={open}
-                    />
-                ))}
-            </View>
-        </Screen>
-    );
-}
-
-// The people sheet
-
-function People({
-    visible,
-    onClose,
-    people,
-    items,
-    revealed,
-    timeZone,
-    onPick,
-}: {
-    visible: boolean;
-    onClose: () => void;
-    people: Person[];
-    items: GalleryItem[];
-    revealed: boolean;
-    timeZone: string;
-    onPick: (person: Person) => void;
-}) {
-    const insets = useSafeAreaInsets();
-    const faces = new Map<string, string>();
-    for (const item of items) {
-        if (!faces.has(item.photographer.id)) faces.set(item.photographer.id, item.thumbUrl);
-    }
-    return (
-        <Modal
-            visible={visible}
-            animationType="slide"
-            presentationStyle={Platform.OS === "ios" ? "pageSheet" : "fullScreen"}
-            onRequestClose={onClose}
-        >
-            <View
-                style={[
-                    styles.screen,
-                    { paddingTop: Platform.OS === "ios" ? 18 : insets.top + 12 },
-                ]}
-            >
-                <View style={styles.peopleTop}>
-                    <IconButton
-                        icon={icons.close}
-                        onPress={onClose}
-                        accessibilityLabel={t("common.close")}
-                    />
-                </View>
-                <ScrollView
-                    contentContainerStyle={{
-                        paddingHorizontal: gutter,
-                        paddingBottom: insets.bottom + 24,
-                    }}
-                >
-                    <Text variant="title" accessibilityRole="header">
-                        {t("people.title", { count: people.length })}
-                    </Text>
-                    <Text variant="small" tone="ash" style={{ marginTop: 6 }}>
-                        {revealed ? t("people.body") : t("people.bodyBefore")}
-                    </Text>
-                    <View style={{ marginTop: 14 }}>
-                        {people.map((person) => {
-                            const face = faces.get(person.id);
-                            return (
-                                <Pressable
-                                    key={person.id}
-                                    onPress={() => onPick(person)}
-                                    disabled={!revealed || !face}
-                                    accessibilityRole={revealed && face ? "button" : "text"}
-                                    accessibilityLabel={`${person.name}, ${t("people.shots", {
-                                        count: person.shots,
-                                    })}`}
-                                    style={({ pressed }) => [
-                                        styles.person,
-                                        { opacity: pressed ? 0.7 : 1 },
-                                    ]}
-                                >
-                                    {face ? (
-                                        <Image
-                                            source={face}
-                                            style={styles.face}
-                                            contentFit="cover"
-                                        />
-                                    ) : (
-                                        <View style={[styles.face, styles.initial]}>
-                                            <Text serif variant="name">
-                                                {person.name.slice(0, 1).toUpperCase()}
-                                            </Text>
-                                        </View>
-                                    )}
-                                    <View style={{ flex: 1, minWidth: 0 }}>
-                                        <Text weight="medium" numberOfLines={1}>
-                                            {person.name}
-                                        </Text>
-                                        <Text variant="small" tone="ash" style={styles.joined}>
-                                            {t("people.joined", {
-                                                time: formatTime(
-                                                    new Date(person.joinedAt),
-                                                    timeZone,
-                                                ),
-                                            })}
-                                        </Text>
-                                    </View>
-                                    <Text serif italic style={styles.shots}>
-                                        {formatCount(person.shots)}
-                                    </Text>
-                                </Pressable>
-                            );
-                        })}
-                    </View>
-                </ScrollView>
-            </View>
-        </Modal>
-    );
-}
-
-// The invite sheet, also opened from the camera
-
-export function InviteSheet({
-    visible,
-    onClose,
-    code,
-    title,
-}: {
-    visible: boolean;
-    onClose: () => void;
-    code: string;
-    title: string;
-}) {
-    const url = joinLink(code);
-    return (
-        <Sheet visible={visible} onClose={onClose}>
-            <InviteCard title={title} url={url} caption={t("create.invite.scan")} size={200} />
-            <Button
-                label={t("create.invite.share")}
-                icon={icons.share}
-                variant="dark"
-                onPress={() => {
-                    shareLink(title, url, t("create.invite.shareMessage", { title, url })).catch(
-                        () => null,
-                    );
-                }}
-            />
-        </Sheet>
-    );
-}
-
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: color.night },
     center: { flex: 1, justifyContent: "center", gap: 12 },
@@ -847,34 +423,4 @@ const styles = StyleSheet.create({
     },
     empty: { paddingHorizontal: 40, paddingVertical: 28 },
     columns: { justifyContent: "space-between", paddingHorizontal: 12 },
-    fan: { height: 420, marginTop: 24, marginBottom: 10 },
-    fanCard: {
-        position: "absolute",
-        left: "50%",
-        top: 30,
-        width: 210,
-        marginLeft: -105,
-        aspectRatio: 3 / 4,
-        borderRadius: 18,
-        overflow: "hidden",
-        backgroundColor: color.tile,
-        shadowColor: "#000",
-        shadowOpacity: 0.6,
-        shadowRadius: 25,
-        shadowOffset: { width: 0, height: 24 },
-        elevation: 12,
-    },
-    peopleTop: { flexDirection: "row", justifyContent: "flex-end", paddingHorizontal: 16 },
-    person: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 14,
-        paddingVertical: 12,
-        borderBottomWidth: StyleSheet.hairlineWidth * 2,
-        borderBottomColor: color.line,
-    },
-    face: { width: 50, height: 50, borderRadius: 25, backgroundColor: color.raised },
-    initial: { alignItems: "center", justifyContent: "center" },
-    joined: { fontSize: 14, lineHeight: 19 },
-    shots: { fontSize: 23, lineHeight: 28, color: "#E2DFD8" },
 });

@@ -15,6 +15,13 @@
       "when": 1793583979544,
       "tag": "0001_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793650307540,
+      "tag": "0002_guests_email_host",
+      "breakpoints": true
     }
   ]
 }

@@ -74,10 +74,19 @@ export function productById(productId: string): Product | null {
     return found ? { kind: "tier", tier: found } : null;
 }
 
-/** "$9.99", or "Free" for zero. */
-export function formatPrice(cents: number): string {
-    if (cents === 0) return "Free";
-    return `$${(cents / 100).toFixed(2)}`;
+const priceFormats = new Map<string, Intl.NumberFormat>();
+
+/**
+ * An amount in CURRENCY for a locale ("$9.99" in en-US). Zero is "$0.00": the word for a free
+ * tier belongs to each app's copy, not to core.
+ */
+export function formatPrice(cents: number, locale = "en-US"): string {
+    let format = priceFormats.get(locale);
+    if (!format) {
+        format = new Intl.NumberFormat(locale, { style: "currency", currency: CURRENCY });
+        priceFormats.set(locale, format);
+    }
+    return format.format(cents / 100);
 }
 
 export interface Due {

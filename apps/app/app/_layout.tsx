@@ -1,18 +1,26 @@
+import * as Notifications from "expo-notifications";
 import { useFonts } from "expo-font";
 import { DarkTheme, Stack, ThemeProvider } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
+import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { endPastActivities } from "@/activity";
 import { loadSession } from "@/api";
-import { useRevealLinks } from "@/event";
+import { handleNotificationOpen, resyncReminders } from "@/notify";
 import { claimPending } from "@/purchase";
-import { FONTS, color } from "@/ui";
+import { ConfirmHost, FONTS, ToastHost, color } from "@/ui";
 import { resumeUploads } from "@/uploads";
 
 SplashScreen.preventAutoHideAsync().catch(() => null);
+
+// A deep link to an event opens with the events list under it, so Back has somewhere to go.
+export const unstable_settings = { initialRouteName: "index" };
+
+/** The splash waits this long for the stored session before showing the app anyway. */
+const SPLASH_TIMEOUT_MS = 3000;
 
 const theme = {
     ...DarkTheme,
@@ -22,20 +30,35 @@ const theme = {
 export default function RootLayout() {
     const [fontsLoaded, fontError] = useFonts(FONTS);
     const [sessionLoaded, setSessionLoaded] = useState(false);
-    const ready = (fontsLoaded || fontError !== null) && sessionLoaded;
+    const [timedOut, setTimedOut] = useState(false);
+    // The web shows system fonts until its own arrive, so a guest's join sheet never waits.
+    const fontsReady = Platform.OS === "web" || fontsLoaded || fontError !== null;
+    const ready = fontsReady && (sessionLoaded || timedOut);
 
     useEffect(() => {
+        const timer = setTimeout(() => setTimedOut(true), SPLASH_TIMEOUT_MS);
         loadSession()
             .then(claimPending)
             .catch(() => null)
             .finally(() => setSessionLoaded(true));
         resumeUploads();
         endPastActivities().catch(() => null);
+        resyncReminders().catch(() => null);
+        return () => clearTimeout(timer);
     }, []);
-    useRevealLinks();
 
     useEffect(() => {
         if (ready) SplashScreen.hideAsync().catch(() => null);
+    }, [ready]);
+
+    // Notification taps are handled once the navigator exists, including the tap that launched
+    // the app.
+    useEffect(() => {
+        if (!ready || Platform.OS === "web") return;
+        handleNotificationOpen(Notifications.getLastNotificationResponse());
+        const subscription =
+            Notifications.addNotificationResponseReceivedListener(handleNotificationOpen);
+        return () => subscription.remove();
     }, [ready]);
 
     if (!ready) return null;
@@ -58,6 +81,8 @@ export default function RootLayout() {
                         options={{ presentation: "fullScreenModal", animation: "fade" }}
                     />
                 </Stack>
+                <ToastHost />
+                <ConfirmHost />
             </ThemeProvider>
         </GestureHandlerRootView>
     );

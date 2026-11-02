@@ -27,3 +27,31 @@ export async function sharePhoto(url: string): Promise<void> {
     const file = await download(url);
     await Sharing.shareAsync(file.uri, { mimeType: "image/jpeg", UTI: "public.jpeg" });
 }
+
+/**
+ * Saves each photo in turn, reporting how many are done. Stops at the first failure and resolves
+ * to the number saved.
+ */
+export async function saveAll(
+    urls: readonly string[],
+    onProgress: (done: number) => void,
+): Promise<number> {
+    let done = 0;
+    for (const url of urls) {
+        try {
+            await savePhoto(url);
+        } catch {
+            break;
+        }
+        done += 1;
+        onProgress(done);
+    }
+    return done;
+}
+
+/** Adds a photo that is already on the device, such as one the event refused, to the library. */
+export async function keepInPhotos(uri: string): Promise<void> {
+    const permission = await requestPermissionsAsync(true);
+    if (!permission.granted) throw new PhotosDenied("Photo library access was not granted.");
+    await Asset.create(uri);
+}

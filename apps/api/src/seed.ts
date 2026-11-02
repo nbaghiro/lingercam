@@ -2,9 +2,11 @@ import { readFile } from "node:fs/promises";
 import type { EventSettings, EventState } from "@linger/core/events";
 import { zonedInstant, wallTime, SMALL_HOURS_END } from "@linger/core/reveal";
 import { tier, type TierId } from "@linger/core/pricing";
+import { REPORTS_TO_HIDE } from "@linger/core/shots";
 import { eq, sql } from "drizzle-orm";
 import { DEMO_EMAIL, DEMO_NAME, findOrCreateHost } from "./accounts.ts";
-import { db, events, guests, hosts, likes, shots, startQueue, stopQueue } from "./db.ts";
+import { db, events, guests, hosts, likes, reports, shots, startQueue, stopQueue } from "./db.ts";
+import { hostGuest } from "./events.ts";
 import { isProduction, log } from "./http.ts";
 import { scheduleReveal } from "./reveal.ts";
 import { developShot } from "./shots.ts";
@@ -27,6 +29,21 @@ interface SeedEvent {
     guests: string[];
     /** Photo file names, shot by guests in turn. */
     photos: string[];
+    /** Reports on photos by index; three hide a photo, as the report route would. */
+    reported?: { photo: number; reports: number }[];
+}
+
+const FIRST = ["Ana", "Ben", "Cai", "Dana", "Eli", "Fern", "Gus", "Hana", "Ines", "Jun"];
+const LAST = "ABCDEFGHJKMNPRSTVWYZ";
+
+/** A crowd for the large event: "Ana A.", "Ben A.", ... in a fixed order. */
+function crowd(size: number): string[] {
+    return Array.from({ length: size }, (_, i) => {
+        const first = FIRST[i % FIRST.length] ?? "Guest";
+        const last = LAST[Math.floor(i / FIRST.length) % LAST.length] ?? "X";
+        const round = Math.floor(i / (FIRST.length * LAST.length));
+        return `${first} ${last}.${round > 0 ? ` ${round + 1}` : ""}`;
+    });
 }
 
 function localDay(offsetDays: number, hour: number, minute = 0): Date {
@@ -167,6 +184,152 @@ function plan(now: Date): SeedEvent[] {
             ],
         },
         {
+            // Live but not started: guests can join and read the rules before the camera opens.
+            code: "SATWED",
+            state: "live",
+            tier: "tier-80",
+            cover: "w-walk.jpg",
+            revealedAt: null,
+            settings: {
+                occasion: "wedding",
+                title: "Sam & Ria's wedding",
+                startsAt: iso(localDay(3, 15)),
+                endsAt: iso(localDay(3, 23, 30)),
+                timeZone: ZONE,
+                revealMode: "next-morning",
+                shotsPerGuest: 24,
+                visibility: "everyone",
+                look: "warm-98@1",
+            },
+            guests: ["Ria's mum", "Theo P.", "Ade O."],
+            photos: [],
+        },
+        {
+            // A free event one guest short of full.
+            code: "GAMENT",
+            state: "live",
+            tier: "free",
+            cover: "p-group.jpg",
+            revealedAt: null,
+            settings: {
+                occasion: "party",
+                title: "Game night",
+                startsAt: iso(new Date(now.getTime() - HOUR)),
+                endsAt: iso(new Date(now.getTime() + 5 * HOUR)),
+                timeZone: ZONE,
+                revealMode: "at-end",
+                shotsPerGuest: 12,
+                visibility: "everyone",
+                look: "natural@1",
+            },
+            guests: [
+                "Lena W.",
+                "Tom B.",
+                "Jun K.",
+                "Ade O.",
+                "Priya R.",
+                "Marco D.",
+                "Hana S.",
+                "Sofia M.",
+                "Theo P.",
+            ],
+            photos: ["p-cheer.jpg", "p-couch.jpg", "p-hug.jpg", "p-dance.jpg"],
+        },
+        {
+            // Right away: photos show as they develop while the camera is open.
+            code: "BRNCH5",
+            state: "live",
+            tier: "tier-30",
+            cover: "b-table.jpg",
+            revealedAt: null,
+            settings: {
+                occasion: "everyday",
+                title: "Sunday brunch",
+                startsAt: iso(new Date(now.getTime() - HOUR)),
+                endsAt: iso(new Date(now.getTime() + 3 * HOUR)),
+                timeZone: ZONE,
+                revealMode: "right-away",
+                shotsPerGuest: 12,
+                visibility: "everyone",
+                look: "warm-98@1",
+            },
+            guests: ["Ines L.", "Marco D.", "Hana S.", "Jun K.", "Lena W."],
+            photos: [
+                "b-cup.jpg",
+                "b-laugh.jpg",
+                "b-cake.jpg",
+                "b-hug.jpg",
+                "b-table.jpg",
+                "p-cheer.jpg",
+            ],
+        },
+        {
+            // Revealed, with one reported photo and one hidden by three reports.
+            code: "BKCB27",
+            state: "revealed",
+            tier: "free",
+            cover: "p-couch.jpg",
+            revealedAt: localDay(-2, 10),
+            settings: {
+                occasion: "everyday",
+                title: "Book club",
+                startsAt: iso(localDay(-3, 19)),
+                endsAt: iso(localDay(-3, 22)),
+                timeZone: ZONE,
+                revealMode: "next-morning",
+                shotsPerGuest: 12,
+                visibility: "everyone",
+                look: "mono@1",
+            },
+            guests: ["Priya R.", "Tom B.", "Sofia M.", "Ade O."],
+            photos: [
+                "p-couch.jpg",
+                "b-cup.jpg",
+                "p-hug.jpg",
+                "b-laugh.jpg",
+                "p-group.jpg",
+                "b-table.jpg",
+            ],
+            reported: [
+                { photo: 1, reports: 1 },
+                { photo: 3, reports: 3 },
+            ],
+        },
+        {
+            // A large revealed event, for the people list.
+            code: "FSTV28",
+            state: "revealed",
+            tier: "tier-250",
+            cover: "e-fiesta.jpg",
+            revealedAt: localDay(-3, 10),
+            settings: {
+                occasion: "party",
+                title: "Street festival",
+                startsAt: iso(localDay(-4, 12)),
+                endsAt: iso(localDay(-4, 23)),
+                timeZone: ZONE,
+                revealMode: "next-morning",
+                shotsPerGuest: 12,
+                visibility: "everyone",
+                look: "natural@1",
+            },
+            guests: crowd(250),
+            photos: [
+                "e-fiesta.jpg",
+                "e-couple.jpg",
+                "e-hero.jpg",
+                "p-dance.jpg",
+                "p-cheer.jpg",
+                "w-crowd.jpg",
+                "w-lights.jpg",
+                "p-group.jpg",
+                "t-van.jpg",
+                "w-dance.jpg",
+                "b-laugh.jpg",
+                "p-hug.jpg",
+            ],
+        },
+        {
             code: "TFNWKD",
             state: "draft",
             tier: "free",
@@ -222,23 +385,26 @@ async function seedEvent(hostId: string, spec: SeedEvent): Promise<typeof events
         })
         .returning();
     if (!event) throw new Error(`Could not seed ${spec.code}`);
+    await hostGuest(event);
     await put(keys.cover(event.id), await photo(spec.cover));
 
-    const people = [];
-    for (const [i, name] of spec.guests.entries()) {
-        const [guest] = await db
-            .insert(guests)
-            .values({
-                eventId: event.id,
-                device: `seed-${spec.code.toLowerCase()}-guest-${i}`,
-                name,
-                joinedAt: new Date(Date.parse(spec.settings.startsAt) + i * 4 * 60_000),
-            })
-            .returning();
-        if (guest) people.push(guest);
-    }
-
     const start = Date.parse(spec.settings.startsAt);
+    const spacing = spec.guests.length > 50 ? 60_000 : 4 * 60_000;
+    const people =
+        spec.guests.length === 0
+            ? []
+            : await db
+                  .insert(guests)
+                  .values(
+                      spec.guests.map((name, i) => ({
+                          eventId: event.id,
+                          device: `seed-${spec.code.toLowerCase()}-guest-${i}`,
+                          name,
+                          joinedAt: new Date(Math.min(start + i * spacing, Date.now() - 60_000)),
+                      })),
+                  )
+                  .returning();
+
     const end = Math.min(Date.parse(spec.settings.endsAt), Date.now() - 5 * 60_000);
     const step = (end - start) / Math.max(1, spec.photos.length);
     const ids: string[] = [];
@@ -266,7 +432,18 @@ async function seedEvent(hostId: string, spec: SeedEvent): Promise<typeof events
         })
         .where(eq(guests.eventId, event.id));
 
-    if (spec.state === "revealed" && people.length > 0) {
+    for (const { photo: index, reports: n } of spec.reported ?? []) {
+        const shotId = ids[index];
+        const by = people.slice(-n);
+        if (!shotId || by.length < n) continue;
+        await db.insert(reports).values(by.map((g) => ({ shotId, who: `guest:${g.id}` })));
+        await db
+            .update(shots)
+            .set({ reports: n, hidden: n >= REPORTS_TO_HIDE })
+            .where(eq(shots.id, shotId));
+    }
+
+    if (spec.state === "revealed" && people.length > 0 && spec.guests.length <= 50) {
         for (const [i, shotId] of ids.entries()) {
             const fans = people.filter((_, j) => (i * 3 + j * 7) % 5 < 2);
             if (fans.length === 0) continue;
@@ -280,7 +457,7 @@ async function seedEvent(hostId: string, spec: SeedEvent): Promise<typeof events
     return event;
 }
 
-/** Puts the demo host and their four events in place. Running it again resets them. */
+/** Puts the demo host and their events in place. Running it again resets them. */
 export async function seed(now = new Date()): Promise<{ hostId: string; codes: string[] }> {
     const host = await findOrCreateHost(DEMO_EMAIL, DEMO_NAME);
     await db.update(hosts).set({ name: DEMO_NAME }).where(eq(hosts.id, host.id));

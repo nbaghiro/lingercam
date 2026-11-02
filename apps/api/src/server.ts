@@ -8,6 +8,7 @@ import { billing } from "./billing.ts";
 import { migrate, sql, startQueue, stopQueue } from "./db.ts";
 import { eventRoutes } from "./events.ts";
 import { ApiError, errorDetail, isProduction, log, productionProblems } from "./http.ts";
+import { startNotifyWorkers } from "./notify.ts";
 import { revealOverdue, startRevealWorker } from "./reveal.ts";
 import { releaseExpired, shotRoutes, startShotWorkers } from "./shots.ts";
 import { healthy as storageHealthy } from "./storage.ts";
@@ -38,6 +39,8 @@ export function createApp(): Hono {
         cors({
             origin: origins,
             allowHeaders: ["Authorization", "Content-Type", "X-Device"],
+            // The app reads the server's clock from Date for countdowns.
+            exposeHeaders: ["Date"],
             allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
             maxAge: 600,
         }),
@@ -89,6 +92,7 @@ export function createApp(): Hono {
 export async function startWorkers(): Promise<void> {
     await startQueue();
     await startAccountWorkers();
+    await startNotifyWorkers();
     await startShotWorkers();
     await startRevealWorker();
     const revealed = await revealOverdue();

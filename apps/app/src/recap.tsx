@@ -13,7 +13,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { api, joinLink, useLoad } from "@/api";
 import { t } from "@/copy";
-import { loadWholeGallery, refreshGallery, shareLink, useCode, useGallery } from "@/event";
+import { useCode } from "@/event";
+import { loadWholeGallery, refreshGallery, useGallery } from "@/gallery";
+import { shareLink } from "@/invite";
 import { PhotosDenied, savePhoto } from "@/save";
 import { Button, IconButton, Notice, Scrim, Text, color, icons } from "@/ui";
 

@@ -65,6 +65,8 @@ export const events = pgTable(
         coverVersion: integer("cover_version").notNull().default(0),
         createdAt: now("created_at"),
         revealedAt: time("revealed_at"),
+        /** The guest limit the host was last told about, so "is full" is sent once per limit. */
+        fullNoticeLimit: integer("full_notice_limit"),
     },
     (t) => [index("events_host_idx").on(t.hostId, t.createdAt)],
 );
@@ -76,13 +78,26 @@ export const guests = pgTable(
         eventId: uuid("event_id")
             .notNull()
             .references(() => events.id, { onDelete: "cascade" }),
+        /** The device id, or "host:<host id>" for the host's own row, which no device can send. */
         device: text("device").notNull(),
         name: text("name").notNull(),
         /** Reserved and confirmed shots; the allowance is checked against this in one UPDATE. */
         shotsTaken: integer("shots_taken").notNull().default(0),
         joinedAt: now("joined_at"),
+        /** The host shoots under this row without taking a guest place. One per event. */
+        isHost: boolean("is_host").notNull().default(false),
+        /** Optional, for the reveal email and for moving to another device. */
+        email: text("email"),
+        emailedAt: time("emailed_at"),
+        /** Hash of the token in the latest email link; the link moves this guest to a device. */
+        restoreHash: text("restore_hash").unique(),
     },
-    (t) => [uniqueIndex("guests_event_device_idx").on(t.eventId, t.device)],
+    (t) => [
+        uniqueIndex("guests_event_device_idx").on(t.eventId, t.device),
+        uniqueIndex("guests_event_host_idx")
+            .on(t.eventId)
+            .where(raw`${t.isHost}`),
+    ],
 );
 
 export const shots = pgTable(
@@ -192,7 +207,13 @@ export const db = drizzle(sql, { schema });
 export type Db = typeof db;
 export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
-export const QUEUES = ["develop", "reveal", "release-reservations", "expire-sessions"] as const;
+export const QUEUES = [
+    "develop",
+    "reveal",
+    "release-reservations",
+    "expire-sessions",
+    "push-receipts",
+] as const;
 
 export const boss = new PgBoss({ connectionString: databaseUrl, max: 4 });
 

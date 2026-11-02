@@ -1,7 +1,20 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { db, pushTokens, startQueue, stopQueue } from "./db.ts";
-import { call, join, newDevice, newEvent, newHost, settings } from "./testing.ts";
+import { db, events, pushTokens, shots, startQueue, stopQueue } from "./db.ts";
+import { joinPage } from "./events.ts";
+import { developShot } from "./shots.ts";
+import { list } from "./storage.ts";
+import {
+    call,
+    join,
+    newDevice,
+    newEvent,
+    newHost,
+    samplePhoto,
+    settings,
+    shoot,
+    upload,
+} from "./testing.ts";
 
 beforeAll(startQueue);
 afterAll(stopQueue);
@@ -187,7 +200,8 @@ describe("joining", () => {
         const stranger = await call("POST", `/v1/e/${event.code}/join`, {
             json: { name: "Stranger", device: newDevice() },
         });
-        expect(stranger.body.code).toBe("not-open");
+        expect(stranger.status).toBe(403);
+        expect(stranger.body.code).toBe("not-member");
     });
 
     test("people lists guests with their confirmed shot counts", async () => {
@@ -195,7 +209,8 @@ describe("joining", () => {
         const event = await newEvent(token, { live: true });
         const guest = await join(event.code, "Lena");
         const people = await call("GET", `/v1/e/${event.code}/people`, { device: guest.device });
-        expect(people.body.people?.[0]).toMatchObject({ name: "Lena", shots: 0 });
+        expect(people.body.people?.[0]).toMatchObject({ name: "Test Host", host: true });
+        expect(people.body.people?.[1]).toMatchObject({ name: "Lena", shots: 0, host: false });
         expect(people.body.guestLimit).toBe(10);
     });
 });
@@ -235,9 +250,9 @@ describe("auth", () => {
             expect((await call(method, path, { device: stranger })).status, path).toBe(403);
             expect((await call(method, path, { device: "short" })).status, path).toBe(401);
         }
-        // The host may look at the gallery and people but can't shoot without joining.
+        // The host may look at the gallery and people, and shoots under their own row.
         expect((await call("GET", `/v1/e/${event.code}/gallery`, { token })).status).toBe(200);
-        expect((await call("POST", `/v1/e/${event.code}/shots`, { token })).status).toBe(401);
+        expect((await call("POST", `/v1/e/${event.code}/shots`, { token })).status).toBe(201);
     });
 
     test("a stored push token only moves for its owner", async () => {
@@ -262,6 +277,239 @@ describe("auth", () => {
             (await call("POST", "/v1/push", { json: { token: "nope" }, device: newDevice() }))
                 .status,
         ).toBe(400);
+    });
+});
+
+describe("the summary and lists", () => {
+    test("the summary says who is viewing, with counts and the server's clock", async () => {
+        const { token } = await newHost("Alex");
+        const event = await newEvent(token, { live: true, settings: { shotsPerGuest: 12 } });
+        const priya = await join(event.code, "Priya R.");
+        await shoot(event.code, priya.device);
+        await shoot(event.code, priya.device);
+
+        const anyone = (await call("GET", `/v1/e/${event.code}`)).body.event;
+        expect(anyone?.viewer).toEqual({
+            role: "none",
+            guestId: null,
+            shotsTaken: 0,
+            shotsLeft: 12,
+        });
+        expect(anyone).toMatchObject({ photoCount: 2, photographerCount: 1, guestLimit: null });
+        expect(Math.abs(Date.parse(String(anyone?.now)) - Date.now())).toBeLessThan(5000);
+
+        const guest = (await call("GET", `/v1/e/${event.code}`, { device: priya.device })).body
+            .event;
+        expect(guest?.viewer).toEqual({
+            role: "guest",
+            guestId: priya.guestId,
+            shotsTaken: 2,
+            shotsLeft: 10,
+        });
+
+        const host = (await call("GET", `/v1/e/${event.code}`, { token })).body.event;
+        expect(host?.viewer?.role).toBe("host");
+        expect(host?.guestLimit).toBe(10);
+        expect(host?.guestCount).toBe(1);
+    });
+
+    test("the summary's state follows the clock before the reveal job runs", async () => {
+        const { token } = await newHost();
+        const event = await newEvent(token, { live: true, settings: { revealMode: "at-end" } });
+        const [row] = await db.select().from(events).where(eq(events.code, event.code));
+        if (!row) throw new Error("missing");
+        const past = new Date(Date.now() - 60_000).toISOString();
+        await db
+            .update(events)
+            .set({ settings: { ...row.settings, endsAt: past } })
+            .where(eq(events.id, row.id));
+        const summary = await call("GET", `/v1/e/${event.code}`);
+        expect(summary.body.event?.state).toBe("revealed");
+    });
+
+    test("the host's list carries photo and guest counts", async () => {
+        const { token } = await newHost();
+        const event = await newEvent(token, { live: true });
+        const a = await join(event.code, "A");
+        await join(event.code, "B");
+        await shoot(event.code, a.device);
+        await shoot(event.code, a.device);
+        const list = await call("GET", "/v1/events", { token });
+        expect(list.body.events?.[0]).toMatchObject({ photoCount: 2, guestCount: 2 });
+    });
+
+    test("a device's joined events come back as summaries, newest first", async () => {
+        const { token } = await newHost();
+        const first = await newEvent(token, { live: true, settings: { title: "First" } });
+        const second = await newEvent(token, { live: true, settings: { title: "Second" } });
+        const device = newDevice();
+        for (const e of [first, second]) {
+            await call("POST", `/v1/e/${e.code}/join`, { json: { name: "Sam", device } });
+        }
+        const joined = await call("GET", "/v1/joined", { device });
+        expect(Object.values(joined.body.events ?? {}).map((e) => e.title)).toEqual([
+            "Second",
+            "First",
+        ]);
+        expect(joined.body.events?.[0]?.viewer?.role).toBe("guest");
+        expect((await call("GET", "/v1/joined")).status).toBe(401);
+        expect((await call("GET", "/v1/joined", { device: newDevice() })).body.events).toEqual([]);
+    });
+});
+
+describe("scheduled events", () => {
+    test("guests join a live event before its start, and the camera opens at the start", async () => {
+        const { token } = await newHost();
+        const hour = 3_600_000;
+        const event = await newEvent(token, {
+            live: true,
+            settings: {
+                startsAt: new Date(Date.now() + 2 * hour).toISOString(),
+                endsAt: new Date(Date.now() + 6 * hour).toISOString(),
+            },
+        });
+        const guest = await join(event.code, "Early");
+        const early = await call("POST", `/v1/e/${event.code}/shots`, { device: guest.device });
+        expect(early.body.code).toBe("not-shooting");
+        const [row] = await db.select().from(events).where(eq(events.code, event.code));
+        if (!row) throw new Error("missing");
+        const started = new Date(Date.now() - 60_000).toISOString();
+        await db
+            .update(events)
+            .set({ settings: { ...row.settings, startsAt: started } })
+            .where(eq(events.id, row.id));
+        const open = await call("POST", `/v1/e/${event.code}/shots`, { device: guest.device });
+        expect(open.status).toBe(201);
+    });
+});
+
+describe("the host's place", () => {
+    test("the host shoots at a full free event without taking a guest place", async () => {
+        const { token } = await newHost("Alex Morgan");
+        const event = await newEvent(token, { live: true });
+        for (let i = 0; i < 10; i++) await join(event.code, `Guest ${i}`);
+        const joined = await call("POST", `/v1/e/${event.code}/join`, { token });
+        expect(joined.status).toBe(200);
+        expect(joined.body.guest?.name).toBe("Alex Morgan");
+        const reserved = await call("POST", `/v1/e/${event.code}/shots`, { token });
+        expect(reserved.status).toBe(201);
+        expect(await upload(String(reserved.body.uploadUrl), await samplePhoto())).toBe(200);
+        const id = String(reserved.body.shotId);
+        expect((await call("POST", `/v1/shots/${id}/confirm`, { token })).status).toBe(200);
+        const summary = await call("GET", `/v1/e/${event.code}`, { token });
+        expect(summary.body.event).toMatchObject({ guestCount: 10, full: true });
+        expect(summary.body.event?.viewer?.shotsTaken).toBe(1);
+        const me = await call("GET", `/v1/e/${event.code}/me`, { token });
+        expect(me.body).toMatchObject({ shotsLeft: 4, returned: 0 });
+    });
+
+    test("people lists the host first, even before they shoot, and follows their name", async () => {
+        const { token } = await newHost("Alex");
+        const event = await newEvent(token, { live: true });
+        const lena = await join(event.code, "Lena");
+        await shoot(event.code, lena.device);
+        await call("PATCH", "/v1/me", { token, json: { name: "Alex M." } });
+        const people = await call("GET", `/v1/e/${event.code}/people`, { device: lena.device });
+        expect(people.body.people?.[0]).toMatchObject({ name: "Alex M.", host: true, shots: 0 });
+        expect(people.body.people?.[1]).toMatchObject({ name: "Lena", host: false, shots: 1 });
+    });
+
+    test("after the reveal, people counts leave out photos hidden from guests", async () => {
+        const { token } = await newHost();
+        const event = await newEvent(token, { live: true, settings: { revealMode: "right-away" } });
+        const ana = await join(event.code, "Ana");
+        const kept = await shoot(event.code, ana.device);
+        const hidden = await shoot(event.code, ana.device);
+        await developShot(kept);
+        await developShot(hidden);
+        await call("POST", `/v1/shots/${hidden}/hide`, { token, json: { hidden: true } });
+        const asGuest = await call("GET", `/v1/e/${event.code}/people`, { device: ana.device });
+        expect(asGuest.body.people?.[1]).toMatchObject({ name: "Ana", shots: 1 });
+        const asHost = await call("GET", `/v1/e/${event.code}/people`, { token });
+        expect(asHost.body.people?.[1]).toMatchObject({ name: "Ana", shots: 2 });
+    });
+
+    test("a photo the server couldn't develop is counted as returned", async () => {
+        const { token } = await newHost();
+        const event = await newEvent(token, { live: true });
+        const guest = await join(event.code);
+        const r = await call("POST", `/v1/e/${event.code}/shots`, { device: guest.device });
+        await upload(String(r.body.uploadUrl), Buffer.from("not a photo"));
+        await call("POST", `/v1/shots/${String(r.body.shotId)}/confirm`, {
+            device: guest.device,
+        });
+        await developShot(String(r.body.shotId));
+        const me = await call("GET", `/v1/e/${event.code}/me`, { device: guest.device });
+        expect(me.body.returned).toBe(1);
+    });
+});
+
+describe("deleting an event", () => {
+    test("removes its rows and every stored file, and only its host can", async () => {
+        const { token } = await newHost();
+        const other = await newHost();
+        const event = await newEvent(token, { live: true });
+        await call("POST", `/v1/events/${event.id}/cover`, { token });
+        const guest = await join(event.code);
+        await shoot(event.code, guest.device);
+        expect((await list(`events/${event.id}/`)).length).toBeGreaterThan(0);
+        const path = `/v1/events/${event.id}`;
+        expect((await call("DELETE", path, { token: other.token })).status).toBe(404);
+        expect((await call("DELETE", path, { token })).status).toBe(204);
+        expect(await list(`events/${event.id}/`)).toEqual([]);
+        expect(await db.select().from(events).where(eq(events.id, event.id))).toEqual([]);
+        expect(await db.select().from(shots).where(eq(shots.eventId, event.id))).toEqual([]);
+        expect((await call("GET", `/v1/e/${event.code}`)).status).toBe(404);
+    });
+});
+
+describe("the shared link", () => {
+    test("the page carries the event's preview tags, escaped", async () => {
+        const { token } = await newHost();
+        const event = await newEvent(token, {
+            live: true,
+            settings: { title: "Maya <turns> thirty" },
+        });
+        await call("POST", `/v1/events/${event.id}/cover`, { token });
+        const index = joinPage.index;
+        joinPage.index = async () =>
+            '<!doctype html><html><head><title>Linger</title></head><body><div id="root"></div></body></html>';
+        try {
+            const res = await call("GET", `/v1/e/${event.code}/page`);
+            const html = String(res.body.text);
+            expect(html).toContain(
+                "<title>You&#39;re invited to shoot Maya &lt;turns&gt; thirty</title>",
+            );
+            expect(html).toContain(
+                '<meta property="og:description" content="Scan to join. No download needed.">',
+            );
+            expect(html).toMatch(/<meta property="og:image" content="http[^"]+\/cover\?v=1">/);
+            expect(html).toContain('<div id="root"></div>');
+            const unknown = await call("GET", "/v1/e/ZZZZZZ/page");
+            expect(String(unknown.body.text)).toContain("<title>Linger</title>");
+        } finally {
+            joinPage.index = index;
+        }
+    });
+
+    test("the calendar file has one entry at the reveal with the event link", async () => {
+        const { token } = await newHost();
+        const event = await newEvent(token, {
+            live: true,
+            settings: {
+                title: "Maya turns thirty, again",
+                endsAt: "2030-06-21T05:00:00Z",
+                revealMode: "at-end",
+            },
+        });
+        const res = await call("GET", `/v1/e/${event.code}/calendar.ics`);
+        const ics = String(res.body.text);
+        expect(ics).toContain("BEGIN:VEVENT\r\n");
+        expect(ics).toContain("DTSTART:20300621T050000Z");
+        expect(ics).toContain("SUMMARY:Maya turns thirty\\, again: the photos are ready");
+        expect(ics.replace(/\r\n /g, "")).toContain(`/j/${event.code}`);
+        for (const line of ics.split("\r\n"))
+            expect(Buffer.byteLength(line)).toBeLessThanOrEqual(75);
     });
 });
 

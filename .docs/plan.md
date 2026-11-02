@@ -53,6 +53,18 @@ the decisions every part of the code has to agree on.
   revealMode, revealAt (only for custom), shotsPerGuest (5 to 36, or `null` for unlimited when the
   add-on is bought), visibility, look.
 - `Event`, `EventSummary` (what a guest may see before joining) and `Guest` types.
+  - `Event` also carries `photoCount` (photos taken, hidden ones included) and `guestCount`
+    (guests who joined, not the host), so the host's list can say what matters per state.
+  - `EventSummary.state` is the time-driven state from `dueState`, so it reads `revealed` the moment
+    the reveal passes. It also carries `viewer` (`SummaryViewer`: `role` host, guest or none,
+    `guestId` the viewer's photos are filed under, `shotsTaken`, `shotsLeft`, null when unlimited;
+    for "none", the allowance a new guest gets), `photoCount` and `photographerCount` (every photo
+    taken before the reveal, after it the photos guests can see), `guestLimit` (the host only, null
+    for anyone else) and `now` (the server's clock). `guestCount` and `full` leave the host out.
+- `Person`: a row of the people list, `{ id, name, shots, joinedAt, host }`.
+- `firstName(name)`: the first word, for developing tiles.
+- `GuestEmailRequest` (`{ email }`, null forgets it), `RestoreSendRequest` (`{ email }`) and
+  `RestoreRequest` (`{ token, device }`) for the browser guest's email (D2).
 - `joinCode()`: 6 characters from an unambiguous alphabet. `JoinRequest`: name (1 to 40) and device.
 
 `reveal.ts`
@@ -61,9 +73,21 @@ the decisions every part of the code has to agree on.
 - `revealCountdown(now, at, timeZone?)`: how far off the reveal is, as data (a countdown in hours
   and minutes, today, tomorrow, a weekday or a date), which the app phrases as "Reveals in 10h
   18m", "Reveals tomorrow at 10:00" and so on, for screens and the Live Activity.
+- `zonesDiffer(at, eventZone, viewerZone)`: whether the two zones show a different clock at that
+  instant, so a time in the event's zone needs the zone named for this viewer.
 
 `shots.ts`
-- `Shot`, `GalleryItem` and `GalleryPage` schemas.
+- `Shot`, `GalleryItem` and `GalleryPage` schemas. `GalleryItem.reports` is the report count for the
+  host and 0 for everyone else. The developing page has `names`: the first name of whoever took
+  each photo, in the order taken, at most `PENDING_NAMES` (40). The photos page has `mine`, the
+  viewer's own photos within the page's filter.
+- `Highlights` (`{ items: GalleryItem[] }`) and `HIGHLIGHT_COUNTS` (moment 3, recap 12).
+- `shootingPhase(event, now)`: `before` (a draft, or live before `startsAt`), `open` (live from
+  `startsAt` until `endsAt`) or `closed`. `canShoot` is `open`. `ShootingWindow` is
+  `{ state, startsAt, endsAt }`, which an `EventSummary` satisfies.
+- `canReserve(window & { revealsAt }, takenAt, now)`: any photo while open; after the end, a photo
+  taken between the start and the end until `lateUploadsUntil` (`LATE_UPLOAD_DAYS`, 7 days, after
+  the reveal, or after the end when the reveal comes first). The allowance still caps it.
 - `canSeePhotos(event, viewer, now)`: true only when the event is `revealed`, or the reveal mode is
   right-away and the event is live or later. Hosts get no exception. Visibility `host-only` limits
   revealed photos to the host and the photographer.
@@ -73,6 +97,8 @@ the decisions every part of the code has to agree on.
   $49.99 up to 250. Add-on: unlimited shots $9.99. Prices in cents.
 - Store product ids: `linger.tier.30`, `linger.tier.80`, `linger.tier.150`, `linger.tier.250`,
   `linger.addon.unlimited` (consumables on both stores).
+- `formatPrice(cents, locale = "en-US")`: the amount through `Intl.NumberFormat` in USD, so zero is
+  "$0.00". The word "Free" belongs to each app's copy.
 
 `film.ts`
 - Looks `natural@1`, `warm-98@1`, `mono@1` with display names Natural, Warm '98, Mono, a one-line
@@ -93,22 +119,32 @@ JSON `{ code, message }` with codes from the concept that raised them.
 | `POST /v1/auth/email/verify` | anyone | Returns a session and the host |
 | `POST /v1/auth/demo` | development only | Session for the seeded demo host |
 | `GET /v1/me`, `DELETE /v1/me` | host | Profile; deletes the host, events, shots and stored files |
+| `PATCH /v1/me` | host | Changes the name, also on the host's own rows at their events |
 | `GET /v1/events` | host | The host's events, newest first |
 | `POST /v1/events` | host | Creates a draft from `EventSettings` |
 | `PATCH /v1/events/:id` | host | Edits settings that the current state allows |
 | `POST /v1/events/:id/cover` | host | Signed upload URL for the cover photo |
 | `POST /v1/events/:id/live` | host | Goes live on the free tier or a paid one |
 | `POST /v1/events/:id/end` | host | Ends early |
-| `GET /v1/e/:code` | anyone | `EventSummary` |
-| `POST /v1/e/:code/join` | guest | Creates or returns the guest for this device |
-| `GET /v1/e/:code/me` | guest | The guest and shots left |
-| `GET /v1/e/:code/gallery` | host or guest | Counts before the reveal; pages of photos after |
-| `GET /v1/e/:code/people` | host or guest | Guests and their shot counts |
-| `POST /v1/e/:code/shots` | guest | Reserves a shot, returns `{ shotId, uploadUrl }` |
-| `POST /v1/shots/:id/confirm` | guest | Marks the upload done and queues developing |
+| `DELETE /v1/events/:id` | host | Deletes the event, its stored files and queued jobs; 204 |
+| `GET /v1/e/:code` | anyone | `EventSummary`, with `viewer` for whoever is asking |
+| `GET /v1/joined` | device | `{ events: EventSummary[] }` this device joined as a guest, newest first |
+| `GET /v1/e/:code/page` | anyone | The join app's `index.html` with the event's link preview tags |
+| `GET /v1/e/:code/calendar.ics` | anyone | One calendar entry at the reveal with the event link |
+| `POST /v1/e/:code/join` | guest or host | Creates or returns the guest for this device; the host gets their own row |
+| `GET /v1/e/:code/me` | guest or host | `{ guest, shotsLeft, returned }`; `returned` counts photos that failed to develop |
+| `GET /v1/e/:code/gallery` | host or guest | Counts and names before the reveal; pages of photos after; `?guest=<id>` for one roll |
+| `GET /v1/e/:code/highlights?for=moment\|recap` | host or guest | `Highlights`, signed; `not-revealed` before the reveal |
+| `GET /v1/e/:code/people` | host or guest | `{ people: Person[], guestLimit }`, host first |
+| `POST /v1/e/:code/email` | guest | `{ email }` for the reveal email; null forgets it; sent at once after the reveal |
+| `POST /v1/e/:code/restore/send` | anyone | Emails a fresh link to the guest with that address; always `{ sent: true }` |
+| `POST /v1/e/:code/restore` | anyone | `{ token, device }` moves that guest to this device; `{ guest, shotsLeft }` |
+| `POST /v1/e/:code/shots` | guest or host | Reserves a shot, returns `{ shotId, uploadUrl, shotsLeft }` |
+| `POST /v1/shots/:id/confirm` | guest or host | Marks the upload done and queues developing |
 | `POST /v1/shots/:id/like` | host or guest | Toggles a like, after the reveal |
-| `POST /v1/shots/:id/report` | host or guest | Reports a photo; three reports hide it |
+| `POST /v1/shots/:id/report` | host or guest | Reports a photo; three reports hide it and push the host |
 | `POST /v1/shots/:id/hide` | host | Hides or unhides a photo |
+| `DELETE /v1/shots/:id` | photographer | Removes their own photo after the reveal; the shot isn't given back; 204 |
 | `POST /v1/push` | host or guest | Stores an Expo push token |
 | `GET /v1/pricing` | anyone | Tiers from core |
 | `POST /v1/billing/claim` | host | Verifies a store purchase with RevenueCat and applies it |
@@ -124,6 +160,26 @@ Rules the tests must prove:
 - The reveal job moves the event to `revealed` at `revealTime(settings)` and sends notifications.
 - Paid tiers raise the guest limit; joining past the limit returns `event-full`.
 - `DELETE /v1/me` removes the host's rows and stored objects.
+- The host shoots under their own guest row (`guests.is_host`, device `host:<host id>`, which no
+  `X-Device` can carry), made with the event. A bearer token for the event's host picks that row on
+  every guest route, and it never counts against the guest limit.
+- Error codes added: `not-member` (403, joining a revealed event this device never joined),
+  `code-locked` (sign-in code with too many wrong tries), `not-revealed` (highlights before the
+  reveal), `bad-link` (restore token unknown), `already-joined` (restore onto a device that shot as
+  someone else), `not-yours` (removing someone else's photo).
+- Pushes. Reveal: "Maya turns thirty: the photos are ready. 612 moments from 34 people." as the
+  body, `data { type: "revealed", url, code }`, the same line in the reveal email. Full: "Maya
+  turns thirty is full. Make room for more guests." to the host, once per guest limit. Reports:
+  "A photo at Maya turns thirty was hidden after reports." to the host. Silent
+  (`contentAvailable`, no body) to the host and every guest device: `{ type: "reveal-changed",
+  revealsAt, code }` when a PATCH or `/end` moves the reveal, `{ type: "deleted", code }` before a
+  delete. Tickets with `DeviceNotRegistered` drop the token at once; the rest are checked against
+  Expo's receipts 15 minutes later by the `push-receipts` job.
+- The reveal email and the "another device" email link to `/j/<code>?restore=<token>`. Each new
+  link replaces the last. The app posts the token to `/restore`.
+- `S3_PUBLIC_ENDPOINT` (optional) makes signed URLs point at an address phones on the network can
+  reach in development; the API still talks to `S3_ENDPOINT`.
+- CORS exposes `Date`, so the web app can read the server's clock.
 
 ## App behaviour (`apps/app`)
 
@@ -339,6 +395,90 @@ Filled in as phases complete.
   (React.framework is 70.8 MB in the prebuilt debug flavour), Skia and VisionCamera. A React Native
   clip can't fit; a native SwiftUI join and camera clip would be a separate product to build and
   keep in step. The browser join at join.lingercam.app stays the no-install path.
+- 2026-11-02, polish F2: `event.tsx` and `create.tsx` are split by concept (decision Q1), with no
+  change in behaviour: `gallery.ts` (the gallery store), `notify.tsx` (reminders, push token,
+  notification taps, plus `handleNotificationOpen` and `resyncReminders`, which the root layout
+  calls), `moment.tsx`, `people.tsx` and `invite.tsx` (invite card, invite sheet, table cards and
+  `shareLink`). `manage.tsx` (`HostRow`, `ManageButton`, already placed on the event screen) and
+  `joined.tsx` (`JoinedEvents`, `CodeEntry`) are stubs that render nothing yet. Download all is
+  `saveAll` in `save.ts` and `save.web.ts`, beside `keepInPhotos` for refused photos.
+- 2026-11-02, polish F2: `useLoad` now reads through one shared cache in `api.ts`. Data younger than
+  30 s is reused instead of fetched again, `summary:<code>` and `me:<code>` are kept in MMKV so the
+  camera and the event can open offline, and keys reload on focus, on returning to the foreground
+  and every `intervalMs` while the app is active. `invalidate(prefix)` reloads at once. Requests
+  time out after 20 s (90 s for a photo PUT) with the code `timeout`; a response the app can't
+  read is `bad-response`; `problem(code)` in `copy.ts` turns any code into a line to show.
+- 2026-11-02, polish F2: the guest device id is kept in the iOS keychain (readable after first
+  unlock) with a copy in MMKV, and an existing MMKV id moves to the keychain on first launch.
+  `serverNow()` uses the offset from each response's `Date` header. Browsers only see that header
+  if the API lists `Date` in `Access-Control-Expose-Headers`; until then the web uses the device
+  clock.
+- 2026-11-02, polish F2: Newsreader comes in two cuts made from the Google Fonts variable font with
+  fontTools: Text at optical size 16 for serif text up to 23 pt, and Display at 36 (italic at 28)
+  for 24 pt and up. They and Pretendard are Latin subsets (Basic Latin, Latin-1, Latin Extended-A,
+  general punctuation), TTF or OTF on native and woff2 on the web, about 80 KB and 30 KB per file
+  instead of 1.57 MB per Pretendard weight. `@expo-google-fonts/newsreader` is gone. The web no
+  longer waits for fonts; it shows a system font until they load. The Live Activity can bundle
+  `assets/fonts/Newsreader-Display.ttf`.
+- 2026-11-02, polish F2: times follow the device's 12 or 24-hour setting (D7) through `formatTime`,
+  and a clock time names the event's zone when the device's differs ("tomorrow at 10:00 Vancouver
+  time"). `formatDuration` returns "Now" at zero. Prices are formatted in `copy.ts`.
+- 2026-11-02, polish F2: the camera's sample photos are required only in development, so the iOS
+  export carries 6 JPEGs (the welcome photo and the create step's look samples) instead of 18.
+  `camera.tsx` keeps its import because `demo.ts` makes the switch.
+- 2026-11-02, polish F2: new dependencies, which need a dev client rebuild: `expo-keep-awake`,
+  `@react-native-community/netinfo`, and `react-native-vision-camera-skia` with
+  `react-native-vision-camera-worklets` at 5.2.3 to match VisionCamera (decision Q7). Background
+  upload needs no new package: `expo-file-system/legacy` `uploadAsync` runs in a background
+  `URLSession` by default (decision Q5, for W4). The config adds `applinks:join.lingercam.app`, a
+  verified Android intent filter for the same host, and background remote notifications for the
+  silent reveal-change push.
+- 2026-11-02, polish decisions: Naib approved every recommendation in section 4 of
+  `polish-plan.md`. D1: a photo taken while the camera was open is accepted until 7 days after the
+  reveal (`LATE_UPLOAD_DAYS`), still capped by the allowance. D2: browser guests can leave an
+  email for the reveal and add a calendar entry; the email link also restores them on another
+  device. No SMS or web push. D3: archived stays a label; photos, saving and the gallery keep
+  working and lists move the event to "Past". D4: the host shoots without using a guest place.
+  D5: an event can be live before it starts; guests join and read the rules, and the camera opens
+  at the start. D6: the app offers the custom reveal as "Pick a time". D7: times follow the
+  device's 12 or 24-hour setting. D8: the recap keeps "Save photo". D9: double-tap zooms in the
+  viewer and liking stays on the button.
+- 2026-11-02, polish decisions: Q1, `event.tsx` and `create.tsx` are split by concept before the
+  parallel work. Q2, the repo has its first commit and each workstream works from it. Q3, the EAS
+  project id is in `app.config.ts`, so devices can register for push. Q4, `join.lingercam.app/<code>`
+  is served by the API's `/v1/e/:code/page` with the event's tags, and everything else by the
+  static build; the Render routing is W7's. Q5, background uploads try `expo-file-system` first and
+  the result is recorded. Q6, Naib's QA API still uses the dev database, so foundations ran
+  migrations and the seed only on `linger_test`. Q7, the live film look goes into the native
+  viewfinder. Q8, guests are asked for notifications after they leave the camera or finish the
+  roll, hosts on the invite.
+  Q9, Android is left out of this run for a pass of its own. Q10, flash defaults to Auto,
+  remembered per device. Q11, a soft shutter sound that is silent when the device is silenced.
+  Q12, guests can remove their own photos after the reveal, from the viewer's More menu. Q13, the
+  legal placeholders and the support link for the App Store stay until a lawyer and the listing
+  are ready. Q14, reports reach the host as a push and badges on tiles; a reported list is Later.
+  Q15, right-away events get a closing line and the recap, without a separate moment.
+- 2026-11-02, polish F1: the contract above is what the app workstreams code against. One file
+  beyond the map: `api/src/notify.ts` holds Expo push (tickets, receipts, pruning) and email for
+  every concept, with the reveal, full and report lines; `reveal.ts` keeps the reveal job and
+  calls it. Highlights are picked in `api/src/shots.ts` (`pickHighlights`): the moment takes the
+  viewer's most liked photo when they have one, then the photographer picked least so far in
+  each stretch of the night; the recap does the same for 12 until anyone likes a photo, then
+  takes the 12 most liked. Both come back in the order taken. Hidden photos are never picked.
+- 2026-11-02, polish F1: migration `0002_guests_email_host` adds `guests.is_host`, `email`,
+  `emailed_at` and `restore_hash`, and `events.full_notice_limit`, and gives every existing event
+  its host row. A restore link moves the guest to the device that opens it, so the old device
+  needs a new link; a device that already shot there as someone else is refused. The reveal email
+  is sent once per address (`emailed_at`), and an address left after the reveal gets it at once.
+- 2026-11-02, polish F1: `formatPrice` no longer says "Free"; `app/src/create.tsx` and the site's
+  `tiers.astro`, `phone.astro` and `pricing.astro` need their own word for a zero price, or the
+  free tier shows "$0.00". The per-event page needs a Render rewrite from the join domain's
+  `/<code>` to `https://api.lingercam.app/v1/e/<code>/page` (W7); it fetches the static
+  `index.html` from `JOIN_INDEX_URL` (default `JOIN_URL/index.html`) and caches it for 5 minutes.
+- 2026-11-02, polish F1: the seed adds five events beside the four there were: SATWED (live,
+  starts in three days, three guests), GAMENT (free, nine of ten guests), BRNCH5 (right-away and
+  shooting, photos visible), BKCB27 (revealed, one photo with a report and one hidden by three) and
+  FSTV28 (revealed, 250 guests, 12 photos). Every seeded event has its host row.
 
 ### Status by phase
 

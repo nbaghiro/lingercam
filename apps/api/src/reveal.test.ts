@@ -1,10 +1,21 @@
 import type { ExpoPushMessage } from "expo-server-sdk";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { db, events, startQueue, stopQueue } from "./db.ts";
-import { advance, push, revealOverdue, startRevealWorker } from "./reveal.ts";
-import { startShotWorkers } from "./shots.ts";
-import { call, join, newEvent, newHost, samplePhoto, shoot, upload, waitFor } from "./testing.ts";
+import { db, events, pushTokens, startQueue, stopQueue } from "./db.ts";
+import { checkReceipts, push, sendPush } from "./notify.ts";
+import { advance, revealOverdue, startRevealWorker } from "./reveal.ts";
+import { developShot, startShotWorkers } from "./shots.ts";
+import {
+    call,
+    join,
+    mailTo,
+    newEvent,
+    newHost,
+    samplePhoto,
+    shoot,
+    upload,
+    waitFor,
+} from "./testing.ts";
 import { exists, keys } from "./storage.ts";
 
 const sent: ExpoPushMessage[] = [];
@@ -15,8 +26,14 @@ beforeAll(async () => {
     await startRevealWorker();
     push.send = async (messages) => {
         sent.push(...messages);
+        return messages.map((_, i) => ({ status: "ok" as const, id: `ticket-${sent.length + i}` }));
     };
 });
+
+/** What was pushed for one event, of one kind. */
+function pushed(code: string, type: string): ExpoPushMessage[] {
+    return sent.filter((m) => m.data?.code === code && m.data.type === type);
+}
 
 afterAll(async () => {
     await stopQueue();
@@ -98,11 +115,20 @@ describe("the full lifecycle", () => {
         });
         expect(revealed.revealedAt).not.toBeNull();
 
-        expect(sent.map((m) => m.to).sort()).toEqual([
+        // Moving the end moved the reveal, so every device heard quietly first.
+        const moved = pushed(event.code, "reveal-changed");
+        expect(moved.map((m) => m.to).sort()).toEqual([
             "ExponentPushToken[host-device]",
             "ExponentPushToken[priya-phone]",
         ]);
-        expect(sent[0]?.title).toBe("Test party");
+        expect(moved[0]?.contentAvailable).toBe(true);
+        expect(moved[0]?.body).toBeUndefined();
+        const ready = pushed(event.code, "revealed");
+        expect(ready.map((m) => m.to).sort()).toEqual([
+            "ExponentPushToken[host-device]",
+            "ExponentPushToken[priya-phone]",
+        ]);
+        expect(ready[0]?.body).toBe("Test party: the photos are ready. 3 moments from 2 people.");
 
         const gallery = await call("GET", `/v1/e/${event.code}/gallery`, { token });
         expect(gallery.body.kind).toBe("photos");
@@ -183,6 +209,141 @@ describe("advancing events", () => {
             expect(ended.body.event?.state).toBe("revealed");
         } finally {
             push.send = send;
+        }
+    });
+});
+
+describe("telling people", () => {
+    test("a browser guest's email gets the reveal line and a link that restores them", async () => {
+        const { token } = await newHost();
+        const event = await newEvent(token, {
+            live: true,
+            settings: { title: "Maya turns thirty" },
+        });
+        const sam = await join(event.code, "Sam");
+        await developShot(await shoot(event.code, sam.device));
+        const address = `sam-${event.code.toLowerCase()}@example.com`;
+        const saved = await call("POST", `/v1/e/${event.code}/email`, {
+            device: sam.device,
+            json: { email: address.toUpperCase() },
+        });
+        expect(saved.body.email).toBe(address);
+
+        await call("POST", `/v1/events/${event.id}/end`, { token });
+        const email = await mailTo(address);
+        expect(email.subject).toBe("Maya turns thirty: the photos are ready");
+        expect(email.text).toContain(
+            "Maya turns thirty: the photos are ready. 1 moment from 1 person.",
+        );
+        const link = /\/j\/([A-Z0-9]{6})\?restore=([A-Za-z0-9_-]+)/.exec(email.text);
+        expect(link?.[1]).toBe(event.code);
+
+        // The link moves Sam to a new browser, with Sam's photo.
+        const browser = "new-browser-device-01";
+        const restored = await call("POST", `/v1/e/${event.code}/restore`, {
+            json: { token: link?.[2], device: browser },
+        });
+        expect(restored.status).toBe(200);
+        expect(restored.body.guest?.id).toBe(sam.guestId);
+        const mine = await call("GET", `/v1/e/${event.code}/gallery`, { device: browser });
+        expect(mine.body.mine).toBe(1);
+        expect((await call("GET", `/v1/e/${event.code}/me`, { device: sam.device })).status).toBe(
+            403,
+        );
+        const wrong = await call("POST", `/v1/e/${event.code}/restore`, {
+            json: { token: "x".repeat(43), device: browser },
+        });
+        expect(wrong.body.code).toBe("bad-link");
+    });
+
+    test("I joined on another device: the link is emailed only to an address that joined", async () => {
+        const { token } = await newHost();
+        const event = await newEvent(token, { live: true, settings: { title: "Book club" } });
+        const ana = await join(event.code, "Ana");
+        const address = `ana-${event.code.toLowerCase()}@example.com`;
+        await call("POST", `/v1/e/${event.code}/email`, {
+            device: ana.device,
+            json: { email: address },
+        });
+        const send = (email: string) =>
+            call("POST", `/v1/e/${event.code}/restore/send`, { json: { email } });
+        expect((await send(address)).body.sent).toBe(true);
+        expect((await send(`nobody-${event.code}@example.com`)).body.sent).toBe(true);
+        const email = await mailTo(address);
+        expect(email.subject).toBe("Open Book club on this device");
+        expect(email.text).toMatch(/\?restore=[A-Za-z0-9_-]{40,}/);
+    });
+
+    test("a host hears once when the event fills, and again after making room", async () => {
+        const { token } = await newHost();
+        const event = await newEvent(token, { live: true, settings: { title: "Game night" } });
+        await call("POST", "/v1/push", { token, json: { token: "ExponentPushToken[full-host]" } });
+        for (let i = 0; i < 10; i++) await join(event.code, `Guest ${i}`);
+        const knock = () =>
+            call("POST", `/v1/e/${event.code}/join`, {
+                json: { name: "Late", device: `late-device-${Date.now()}-x` },
+            });
+        expect((await knock()).body.code).toBe("event-full");
+        expect((await knock()).body.code).toBe("event-full");
+        const full = pushed(event.code, "full");
+        expect(full).toHaveLength(1);
+        expect(full[0]?.body).toBe("Game night is full. Make room for more guests.");
+        expect(full[0]?.to).toBe("ExponentPushToken[full-host]");
+
+        await call("POST", "/v1/billing/dev-claim", {
+            token,
+            json: { eventId: event.id, productId: "linger.tier.30" },
+        });
+        for (let i = 0; i < 20; i++) await join(event.code, `More ${i}`);
+        expect((await knock()).body.code).toBe("event-full");
+        expect(pushed(event.code, "full")).toHaveLength(2);
+    });
+
+    test("deleting an event tells its devices quietly", async () => {
+        const { token } = await newHost();
+        const event = await newEvent(token, { live: true });
+        const guest = await join(event.code);
+        await call("POST", "/v1/push", {
+            device: guest.device,
+            json: { token: "ExponentPushToken[deleted-guest]" },
+        });
+        expect((await call("DELETE", `/v1/events/${event.id}`, { token })).status).toBe(204);
+        expect(pushed(event.code, "deleted").map((m) => m.to)).toEqual([
+            "ExponentPushToken[deleted-guest]",
+        ]);
+    });
+
+    test("tokens Expo says are gone are pruned, from tickets and from receipts", async () => {
+        const tokens = ["ExponentPushToken[gone-now]", "ExponentPushToken[gone-later]"];
+        for (const t of tokens) await db.insert(pushTokens).values({ token: t, device: "d" });
+        const send = push.send;
+        const receipts = push.receipts;
+        push.send = async () => [
+            {
+                status: "error",
+                message: "not registered",
+                details: { error: "DeviceNotRegistered" },
+            },
+            { status: "ok", id: "receipt-1" },
+        ];
+        push.receipts = async () => ({
+            "receipt-1": {
+                status: "error",
+                message: "not registered",
+                details: { error: "DeviceNotRegistered" },
+            },
+        });
+        try {
+            await sendPush(tokens.map((to) => ({ to, body: "hi" })));
+            const left = await db.select().from(pushTokens);
+            expect(left.map((r) => r.token)).not.toContain(tokens[0]);
+            expect(left.map((r) => r.token)).toContain(tokens[1]);
+            expect(await checkReceipts([{ id: "receipt-1", token: tokens[1] ?? "" }])).toBe(1);
+            const after = await db.select().from(pushTokens);
+            expect(after.map((r) => r.token)).not.toContain(tokens[1]);
+        } finally {
+            push.send = send;
+            push.receipts = receipts;
         }
     });
 });

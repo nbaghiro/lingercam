@@ -9,6 +9,8 @@ import {
     objectSize,
     put,
     removePrefix,
+    s3,
+    signerFor,
     uploadUrl,
 } from "./storage.ts";
 
@@ -64,5 +66,18 @@ describe("storage", () => {
         expect(await removePrefix("events/storage-test-2/")).toBe(2);
         expect(await list("events/storage-test-2/")).toEqual([]);
         expect(await exists("events/storage-test-2/cover.jpg")).toBe(false);
+    });
+
+    test("S3_PUBLIC_ENDPOINT moves signed URLs to an address devices can reach", async () => {
+        expect(signerFor({})).toBe(s3);
+        const lan = signerFor({ S3_PUBLIC_ENDPOINT: "http://127.0.0.1:8174" });
+        const key = "events/storage-test/public.jpg";
+        await put(key, Buffer.from("public"));
+        const url = await downloadUrl(key, 60, lan);
+        expect(url.startsWith("http://127.0.0.1:8174/")).toBe(true);
+        const res = await fetch(url);
+        expect(res.status).toBe(200);
+        expect(await res.text()).toBe("public");
+        await removePrefix(key);
     });
 });

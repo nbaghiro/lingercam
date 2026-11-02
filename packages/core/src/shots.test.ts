@@ -6,8 +6,11 @@ import {
     canSeeShot,
     canReserve,
     canShoot,
+    Highlights,
+    lateUploadsUntil,
     photoAccess,
-    LATE_UPLOAD_MINUTES,
+    shootingPhase,
+    LATE_UPLOAD_DAYS,
     type Viewer,
 } from "./shots.ts";
 
@@ -155,42 +158,66 @@ describe("canSeeShot", () => {
     });
 });
 
-describe("canShoot", () => {
-    const live = { state: "live" as const, endsAt };
+describe("shootingPhase and canShoot", () => {
+    const live = { state: "live" as const, startsAt, endsAt };
 
-    test("only while live and before the end", () => {
+    test("a live event opens the camera at its start and closes it at its end", () => {
+        expect(shootingPhase(live, beforeStart)).toBe("before");
+        expect(canShoot(live, beforeStart)).toBe(false);
+        expect(shootingPhase(live, new Date(startsAt))).toBe("open");
+        expect(shootingPhase(live, during)).toBe("open");
         expect(canShoot(live, during)).toBe(true);
-        expect(canShoot(live, beforeStart)).toBe(true);
-        expect(canShoot(live, new Date(endsAt))).toBe(false);
+        expect(shootingPhase(live, new Date(endsAt))).toBe("closed");
         expect(canShoot(live, after)).toBe(false);
+    });
+
+    test("a draft is before; ended and later states are closed", () => {
+        expect(shootingPhase({ ...live, state: "draft" }, during)).toBe("before");
         for (const state of ["draft", "ended", "revealed", "archived"] as const) {
-            expect(canShoot({ state, endsAt }, during)).toBe(false);
+            expect(canShoot({ ...live, state }, during)).toBe(false);
+        }
+        for (const state of ["ended", "revealed", "archived"] as const) {
+            expect(shootingPhase({ ...live, state }, beforeStart)).toBe("closed");
         }
     });
 });
 
 describe("canReserve", () => {
     const end = Date.parse(endsAt);
+    const revealsAt = "2026-06-21T10:00:00-07:00";
+    const window = { startsAt, endsAt, revealsAt };
     const takenBefore = new Date(end - 60_000);
     const takenAfter = new Date(end + 60_000);
-    const late = new Date(end + (LATE_UPLOAD_MINUTES - 1) * 60_000);
-    const tooLate = new Date(end + (LATE_UPLOAD_MINUTES + 1) * 60_000);
+    const takenBeforeStart = new Date(Date.parse(startsAt) - 60_000);
+    const dayMs = 86_400_000;
+    const late = new Date(Date.parse(revealsAt) + (LATE_UPLOAD_DAYS - 1) * dayMs);
+    const tooLate = new Date(Date.parse(revealsAt) + LATE_UPLOAD_DAYS * dayMs + 60_000);
 
-    test("anything while the camera is open", () => {
-        expect(canReserve({ state: "live", endsAt }, during, during)).toBe(true);
+    test("anything while the camera is open, nothing before it opens", () => {
+        expect(canReserve({ state: "live", ...window }, during, during)).toBe(true);
+        expect(canReserve({ state: "live", ...window }, beforeStart, beforeStart)).toBe(false);
     });
 
-    test("a photo from before the end, for a while after it, in every state after live", () => {
+    test("a photo from the shooting window, until 7 days after the reveal", () => {
         for (const state of ["live", "ended", "revealed"] as const) {
-            expect(canReserve({ state, endsAt }, takenBefore, late)).toBe(true);
-            expect(canReserve({ state, endsAt }, takenBefore, tooLate)).toBe(false);
-            expect(canReserve({ state, endsAt }, takenAfter, late)).toBe(false);
+            expect(canReserve({ state, ...window }, takenBefore, late)).toBe(true);
+            expect(canReserve({ state, ...window }, takenBefore, tooLate)).toBe(false);
+            expect(canReserve({ state, ...window }, takenAfter, late)).toBe(false);
+            expect(canReserve({ state, ...window }, takenBeforeStart, late)).toBe(false);
         }
+    });
+
+    test("right-away events count the 7 days from the end", () => {
+        const rightAway = { startsAt, endsAt, revealsAt: startsAt };
+        expect(lateUploadsUntil(rightAway).getTime()).toBe(end + LATE_UPLOAD_DAYS * dayMs);
+        expect(lateUploadsUntil(window).getTime()).toBe(
+            Date.parse(revealsAt) + LATE_UPLOAD_DAYS * dayMs,
+        );
     });
 
     test("never for drafts or archived events", () => {
         for (const state of ["draft", "archived"] as const) {
-            expect(canReserve({ state, endsAt }, takenBefore, late)).toBe(false);
+            expect(canReserve({ state, ...window }, takenBefore, late)).toBe(false);
         }
     });
 });
@@ -203,6 +230,7 @@ describe("GalleryPage", () => {
             mine: 9,
             photographers: 34,
             revealsAt: "2026-06-21T17:00:00Z",
+            names: ["Priya", "Theo", "Priya"],
         });
         expect(page).not.toHaveProperty("items");
     });
@@ -211,6 +239,7 @@ describe("GalleryPage", () => {
         const page = GalleryPage.parse({
             kind: "photos",
             total: 1,
+            mine: 0,
             photographers: 1,
             nextCursor: null,
             items: [
@@ -225,14 +254,29 @@ describe("GalleryPage", () => {
                     likes: 38,
                     likedByMe: false,
                     hidden: false,
+                    reports: 0,
                 },
             ],
         });
         expect(page.kind === "photos" && page.items[0]?.photographer.name).toBe("Priya");
     });
 
+    test("highlights are photos only", () => {
+        expect(Highlights.safeParse({ items: [] }).success).toBe(true);
+        expect(Highlights.safeParse({ kind: "developing", total: 3 }).success).toBe(false);
+    });
+
     test("a developing page with photos in it is refused", () => {
         const result = GalleryPage.safeParse({ kind: "developing", items: [] });
         expect(result.success).toBe(false);
+        const tooMany = GalleryPage.safeParse({
+            kind: "developing",
+            total: 50,
+            mine: 0,
+            photographers: 1,
+            revealsAt: "2026-06-21T17:00:00Z",
+            names: Array.from({ length: 41 }, () => "Priya"),
+        });
+        expect(tooMany.success).toBe(false);
     });
 });

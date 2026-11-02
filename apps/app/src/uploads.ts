@@ -4,7 +4,7 @@ import { useSyncExternalStore } from "react";
 import { AppState } from "react-native";
 import { z } from "zod";
 
-import { api, asApiError, storage, uploadFile } from "@/api";
+import { api, asApiError, onForgetEvents, storage, uploadFile } from "@/api";
 
 // Every photo goes through this queue: reserve a shot, PUT the file to the signed URL, confirm.
 // The queue is saved after every step, so photos taken with no signal upload after a restart.
@@ -190,6 +190,15 @@ export function resumeUploads(): void {
     pump().catch(() => null);
 }
 
+// A deleted event or account takes this device's waiting photos and counts with it.
+onForgetEvents((codes) => {
+    for (const upload of queue.filter((u) => codes.includes(u.code))) remove(upload);
+    for (const code of codes) {
+        storage.remove(leftKey(code));
+        storage.remove(failedKey(code));
+    }
+});
+
 AppState.addEventListener("change", (state) => {
     if (state !== "active") return;
     // A retry that was waiting can go now: the app has just come back, often with signal.
@@ -206,6 +215,14 @@ export interface ShotsState {
     retrying: boolean;
     /** Photos the server refused for good, such as ones sent after the camera closed. */
     failed: number;
+    /** Refused photos that were saved to the guest's photo library instead. */
+    keptInPhotos: number;
+    /** Queued photos whose local file couldn't be read, so they were dropped. */
+    unreadable: number;
+    /** True while a photo for this event is on its way to the server. */
+    sending: boolean;
+    /** When this event's queue last emptied after holding photos, in ms since the epoch, or 0. */
+    drained: number;
 }
 
 function measure(code: string): ShotsState {
@@ -217,6 +234,10 @@ function measure(code: string): ShotsState {
         pending: mine.length,
         retrying: mine.some((u) => u.attempts > 0),
         failed: storage.getNumber(failedKey(code)) ?? 0,
+        keptInPhotos: 0,
+        unreadable: 0,
+        sending: false,
+        drained: 0,
     };
 }
 

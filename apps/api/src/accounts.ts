@@ -3,10 +3,10 @@ import { NAME_MAX } from "@linger/core/events";
 import { and, eq, gt, lt, sql } from "drizzle-orm";
 import type { Context } from "hono";
 import { Hono } from "hono";
-import nodemailer from "nodemailer";
 import { z } from "zod";
-import { boss, db, emailCodes, events, hosts, pushTokens, sessions } from "./db.ts";
+import { boss, db, emailCodes, events, guests, hosts, pushTokens, sessions } from "./db.ts";
 import { ApiError, body, clientIp, deviceOf, devRoutes, limiter, log, maskEmail } from "./http.ts";
+import { mail } from "./notify.ts";
 import { keys, removePrefix } from "./storage.ts";
 
 export const DEMO_EMAIL = "demo@lingercam.app";
@@ -23,8 +23,6 @@ const startsPerIp = limiter("start-ip", 20, 15 * 60_000);
 const verifiesPerIp = limiter("verify-ip", 50, 15 * 60_000);
 
 const secret = process.env.SESSION_SECRET || "local-development-only";
-const mailFrom = process.env.MAIL_FROM ?? "Linger <hello@lingercam.app>";
-const mailer = nodemailer.createTransport(process.env.SMTP_URL ?? "smtp://localhost:8177");
 
 export type Host = typeof hosts.$inferSelect;
 
@@ -96,6 +94,11 @@ export async function startAccountWorkers(): Promise<void> {
     await boss.schedule("expire-sessions", "17 * * * *");
 }
 
+/** The device value of a host's own guest row. X-Device can't carry a colon, so no device can. */
+export function hostDevice(hostId: string): string {
+    return `host:${hostId}`;
+}
+
 export async function requireHost(c: Context): Promise<Host> {
     const host = await currentHost(c);
     if (!host) throw new ApiError(401, "signed-out", "Sign in to continue.");
@@ -146,8 +149,7 @@ accounts.post("/v1/auth/email/start", async (c) => {
             set: { codeHash, expiresAt, attempts: 0 },
         });
     try {
-        await mailer.sendMail({
-            from: mailFrom,
+        await mail.send({
             to: email,
             subject: `${code} is your Linger code`,
             text: `Your Linger sign-in code is ${code}.\n\nIt works for ${CODE_MINUTES} minutes. If you didn't ask for it, you can ignore this email.\n`,
@@ -183,6 +185,17 @@ accounts.post("/v1/auth/email/verify", async (c) => {
         )
         .returning({ codeHash: emailCodes.codeHash });
     if (!row) {
+        const [held] = await db
+            .select({ attempts: emailCodes.attempts })
+            .from(emailCodes)
+            .where(and(eq(emailCodes.email, input.email), gt(emailCodes.expiresAt, sql`now()`)));
+        if (held && held.attempts >= CODE_ATTEMPTS) {
+            throw new ApiError(
+                400,
+                "code-locked",
+                "That code had too many wrong tries. Ask for a new one.",
+            );
+        }
         throw new ApiError(400, "code-expired", "That code has expired. Ask for a new one.");
     }
     const expected = Buffer.from(row.codeHash, "hex");
@@ -225,6 +238,11 @@ accounts.patch("/v1/me", async (c) => {
     const host = await requireHost(c);
     const { name } = await body(c, z.object({ name: z.string().trim().min(1).max(NAME_MAX) }));
     const [updated] = await db.update(hosts).set({ name }).where(eq(hosts.id, host.id)).returning();
+    // The name the host shoots under at their own events follows the profile.
+    await db
+        .update(guests)
+        .set({ name })
+        .where(and(eq(guests.device, hostDevice(host.id)), eq(guests.isHost, true)));
     return c.json({ host: hostJson(updated ?? host) });
 });
 

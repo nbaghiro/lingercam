@@ -2,8 +2,16 @@ import { readFile } from "node:fs/promises";
 import { eq } from "drizzle-orm";
 import sharp from "sharp";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { db, guests, shots, startQueue, stopQueue } from "./db.ts";
-import { developImage, developShot, releaseExpired } from "./shots.ts";
+import type { ExpoPushMessage } from "expo-server-sdk";
+import { db, events, guests, pushTokens, shots, startQueue, stopQueue } from "./db.ts";
+import { push } from "./notify.ts";
+import {
+    developImage,
+    developShot,
+    pickHighlights,
+    releaseExpired,
+    type Candidate,
+} from "./shots.ts";
 import { exists, keys } from "./storage.ts";
 import { call, join, newEvent, newHost, samplePhoto, shoot, upload } from "./testing.ts";
 
@@ -364,6 +372,208 @@ describe("after the reveal", () => {
         expect(second.body.nextCursor).toBeNull();
         const [g] = await db.select().from(guests).where(eq(guests.id, a.guestId));
         expect(g?.shotsTaken).toBe(3);
+    });
+});
+
+describe("late photos", () => {
+    async function endedLongAgo(days: number) {
+        const { token } = await newHost();
+        const event = await newEvent(token, { live: true, settings: { revealMode: "at-end" } });
+        const guest = await join(event.code);
+        const day = 86_400_000;
+        const [row] = await db.select().from(events).where(eq(events.code, event.code));
+        if (!row) throw new Error("missing");
+        const ends = Date.now() - days * day;
+        await db
+            .update(events)
+            .set({
+                state: "revealed",
+                revealedAt: new Date(ends),
+                settings: {
+                    ...row.settings,
+                    startsAt: new Date(ends - 4 * 3_600_000).toISOString(),
+                    endsAt: new Date(ends).toISOString(),
+                },
+            })
+            .where(eq(events.id, row.id));
+        return { event, guest, takenAt: new Date(ends - 3_600_000).toISOString() };
+    }
+
+    test("a photo taken while the camera was open is accepted for 7 days after the reveal", async () => {
+        const recent = await endedLongAgo(6);
+        const ok = await call("POST", `/v1/e/${recent.event.code}/shots`, {
+            device: recent.guest.device,
+            json: { takenAt: recent.takenAt },
+        });
+        expect(ok.status).toBe(201);
+        const old = await endedLongAgo(8);
+        const refused = await call("POST", `/v1/e/${old.event.code}/shots`, {
+            device: old.guest.device,
+            json: { takenAt: old.takenAt },
+        });
+        expect(refused.body.code).toBe("not-shooting");
+    });
+});
+
+describe("the gallery for the app's screens", () => {
+    test("the developing page names who took each photo, in order, and no more", async () => {
+        const { token } = await newHost();
+        const event = await newEvent(token, { live: true });
+        const priya = await join(event.code, "Priya R.");
+        const theo = await join(event.code, "Theo");
+        await shoot(event.code, priya.device);
+        await shoot(event.code, theo.device);
+        await shoot(event.code, priya.device);
+        const page = await call("GET", `/v1/e/${event.code}/gallery`, { device: theo.device });
+        expect(page.body).toMatchObject({ kind: "developing", total: 3, mine: 1 });
+        expect(page.body.names).toEqual(["Priya", "Theo", "Priya"]);
+        expect(JSON.stringify(page.body)).not.toMatch(/X-Amz|\/shots\//);
+    });
+
+    test("a roll pages from the server, and the host sees report counts", async () => {
+        const { token } = await newHost();
+        const event = await newEvent(token, { live: true, settings: { revealMode: "right-away" } });
+        const a = await join(event.code, "A");
+        const b = await join(event.code, "B");
+        const first = await shoot(event.code, a.device);
+        await developShot(first);
+        await developShot(await shoot(event.code, b.device));
+        await developShot(await shoot(event.code, a.device));
+        await call("POST", `/v1/shots/${first}/report`, { device: b.device });
+
+        const roll = await call("GET", `/v1/e/${event.code}/gallery?guest=${a.guestId}`, {
+            device: b.device,
+        });
+        expect(roll.body).toMatchObject({ kind: "photos", total: 2, mine: 0 });
+        const names = Object.values(roll.body.items ?? {}).map((i) => i.photographer?.name);
+        expect(names).toEqual(["A", "A"]);
+        expect(roll.body.items?.[0]?.reports).toBe(0);
+
+        const host = await call("GET", `/v1/e/${event.code}/gallery?guest=${a.guestId}`, {
+            token,
+        });
+        expect(host.body.items?.[0]?.reports).toBe(1);
+        const mine = await call("GET", `/v1/e/${event.code}/gallery`, { device: a.device });
+        expect(mine.body.mine).toBe(2);
+        const bad = await call("GET", `/v1/e/${event.code}/gallery?guest=nope`, { token });
+        expect(bad.status).toBe(400);
+    });
+});
+
+describe("highlights", () => {
+    const shot = (id: string, guestId: string, likes = 0): Candidate => ({ id, guestId, likes });
+
+    test("the moment takes one of the viewer's own, then other people across the night", () => {
+        const night = [
+            shot("1", "ana"),
+            shot("2", "ana"),
+            shot("3", "ana"),
+            shot("4", "ben"),
+            shot("5", "ana"),
+            shot("6", "cai"),
+            shot("7", "ana"),
+            shot("8", "me"),
+            shot("9", "ana"),
+        ];
+        const picked = pickHighlights(night, "moment", "me");
+        expect(picked.map((p) => p.guestId)).toContain("me");
+        expect(new Set(picked.map((p) => p.guestId)).size).toBe(3);
+        expect(picked.map((p) => p.id)).toEqual(
+            [...picked.map((p) => p.id)].sort((x, y) => Number(x) - Number(y)),
+        );
+        const stranger = pickHighlights(night, "moment", null);
+        expect(new Set(stranger.map((p) => p.guestId)).size).toBe(3);
+    });
+
+    test("the recap spreads people over the night until someone likes a photo", () => {
+        const night = Array.from({ length: 40 }, (_, i) => shot(String(i), `g${i % 5}`));
+        const spread = pickHighlights(night, "recap", null);
+        expect(spread).toHaveLength(12);
+        const per = new Map<string, number>();
+        for (const p of spread) per.set(p.guestId, (per.get(p.guestId) ?? 0) + 1);
+        expect(Math.max(...per.values())).toBeLessThanOrEqual(3);
+        expect(Number(spread[0]?.id)).toBeLessThan(5);
+        expect(Number(spread.at(-1)?.id)).toBeGreaterThan(34);
+
+        const liked = night.map((p, i) => ({ ...p, likes: i === 7 || i === 30 ? 5 : 0 }));
+        const top = pickHighlights(liked, "recap", null);
+        expect(top.map((p) => p.id)).toContain("7");
+        expect(top.map((p) => p.id)).toContain("30");
+    });
+
+    test("the route signs the chosen photos only after the reveal", async () => {
+        const { token } = await newHost();
+        const later = await newEvent(token, { live: true });
+        const g = await join(later.code);
+        await developShot(await shoot(later.code, g.device));
+        const early = await call("GET", `/v1/e/${later.code}/highlights?for=moment`, {
+            device: g.device,
+        });
+        expect(early.body.code).toBe("not-revealed");
+        expect(JSON.stringify(early.body)).not.toMatch(/X-Amz/);
+
+        const event = await newEvent(token, { live: true, settings: { revealMode: "right-away" } });
+        const a = await join(event.code, "A");
+        for (let i = 0; i < 4; i++) await developShot(await shoot(event.code, a.device));
+        const moment = await call("GET", `/v1/e/${event.code}/highlights?for=moment`, {
+            device: a.device,
+        });
+        const items = Object.values(moment.body.items ?? {});
+        expect(items).toHaveLength(3);
+        expect(String(items[0]?.url)).toMatch(/X-Amz-Signature/);
+        const recap = await call("GET", `/v1/e/${event.code}/highlights?for=recap`, { token });
+        expect(Object.values(recap.body.items ?? {})).toHaveLength(4);
+    });
+});
+
+describe("taking a photo back", () => {
+    test("a guest removes their own photo after the reveal, nobody else's", async () => {
+        const { token } = await newHost();
+        const event = await newEvent(token, { live: true, settings: { revealMode: "right-away" } });
+        const a = await join(event.code, "A");
+        const b = await join(event.code, "B");
+        const id = await shoot(event.code, a.device);
+        await developShot(id);
+        expect((await call("DELETE", `/v1/shots/${id}`, { device: b.device })).body.code).toBe(
+            "not-yours",
+        );
+        expect((await call("DELETE", `/v1/shots/${id}`, { token })).body.code).toBe("not-yours");
+        expect((await call("DELETE", `/v1/shots/${id}`, { device: a.device })).status).toBe(204);
+        expect(await exists(keys.shot(event.id, id, "developed"))).toBe(false);
+        const gallery = await call("GET", `/v1/e/${event.code}/gallery`, { token });
+        expect(gallery.body.total).toBe(0);
+    });
+});
+
+describe("reports reach the host", () => {
+    test("a push goes to the host when reports hide a photo", async () => {
+        const { token } = await newHost();
+        const event = await newEvent(token, {
+            live: true,
+            settings: { revealMode: "right-away", title: "Maya turns thirty" },
+        });
+        await call("POST", "/v1/push", { token, json: { token: "ExponentPushToken[reports]" } });
+        const people = [];
+        for (const name of ["A", "B", "C", "D"]) people.push(await join(event.code, name));
+        const id = await shoot(event.code, people[0]?.device ?? "");
+        await developShot(id);
+        const sent: ExpoPushMessage[] = [];
+        const send = push.send;
+        push.send = async (messages) => {
+            sent.push(...messages);
+            return [];
+        };
+        try {
+            for (const p of people.slice(1)) {
+                await call("POST", `/v1/shots/${id}/report`, { device: p.device });
+            }
+        } finally {
+            push.send = send;
+        }
+        expect(sent).toHaveLength(1);
+        expect(sent[0]?.to).toBe("ExponentPushToken[reports]");
+        expect(sent[0]?.body).toBe("A photo at Maya turns thirty was hidden after reports.");
+        await db.delete(pushTokens).where(eq(pushTokens.token, "ExponentPushToken[reports]"));
     });
 });
 

@@ -194,10 +194,31 @@ export const Event = z.object({
     /** When the photos appear, worked out by the server so every device agrees. */
     revealsAt: Instant,
     revealedAt: Instant.nullable(),
+    /** Photos taken so far (confirmed uploads and developed photos), hidden ones included. */
+    photoCount: z.number().int(),
+    /** Guests who joined. The host doesn't count. */
+    guestCount: z.number().int(),
 });
 export type Event = z.infer<typeof Event>;
 
-/** What anyone with the join code may see before joining. */
+/**
+ * Who is asking, as the summary sees it. The host is "host" with the guest id their own photos
+ * are filed under; a device that joined is "guest"; anyone else is "none" with the allowance a new
+ * guest would get. `shotsLeft` is null when shots are unlimited.
+ */
+export const SummaryViewer = z.object({
+    role: z.enum(["host", "guest", "none"]),
+    guestId: z.string().nullable(),
+    shotsTaken: z.number().int(),
+    shotsLeft: z.number().int().nullable(),
+});
+export type SummaryViewer = z.infer<typeof SummaryViewer>;
+
+/**
+ * What anyone with the join code may see before joining, plus who is viewing. `state` is the
+ * time-driven state (`dueState`), so it says "revealed" the moment the reveal time passes, before
+ * the reveal job has run. `now` is the server's clock, for countdowns that don't trust the device.
+ */
 export const EventSummary = z.object({
     code: z.string(),
     title: z.string(),
@@ -212,10 +233,37 @@ export const EventSummary = z.object({
     revealsAt: Instant,
     shotsPerGuest: z.number().int().nullable(),
     look: z.enum(LOOK_IDS),
+    /** Guests who joined; the host doesn't count. */
     guestCount: z.number().int(),
     full: z.boolean(),
+    /** Only for the host; null for everyone else. */
+    guestLimit: z.number().int().nullable(),
+    /** Photos taken so far; after the reveal, the photos everyone can see. */
+    photoCount: z.number().int(),
+    photographerCount: z.number().int(),
+    viewer: SummaryViewer,
+    now: Instant,
 });
 export type EventSummary = z.infer<typeof EventSummary>;
+
+/**
+ * One row of `GET /v1/e/:code/people`. The host comes first with `host` true, even before they
+ * shoot. `shots` counts photos the viewer can see: before the reveal every photo taken, after it
+ * only developed photos, without hidden ones for guests.
+ */
+export const Person = z.object({
+    id: z.string(),
+    name: z.string(),
+    shots: z.number().int(),
+    joinedAt: Instant,
+    host: z.boolean(),
+});
+export type Person = z.infer<typeof Person>;
+
+/** The first word of a name, for developing tiles: "Priya" from "Priya R.". */
+export function firstName(name: string): string {
+    return name.trim().split(/\s+/)[0] ?? "";
+}
 
 export const Guest = z.object({
     id: z.string(),
@@ -234,6 +282,24 @@ export const JoinRequest = z.object({
     device: DeviceId,
 });
 export type JoinRequest = z.infer<typeof JoinRequest>;
+
+export const EMAIL_MAX = 254;
+const Email = z.string().trim().toLowerCase().max(EMAIL_MAX).pipe(z.email());
+
+/** `POST /v1/e/:code/email`: where a guest wants the reveal email; null forgets it. */
+export const GuestEmailRequest = z.object({ email: Email.nullable() });
+export type GuestEmailRequest = z.infer<typeof GuestEmailRequest>;
+
+/** `POST /v1/e/:code/restore/send`: "I joined on another device". */
+export const RestoreSendRequest = z.object({ email: Email });
+export type RestoreSendRequest = z.infer<typeof RestoreSendRequest>;
+
+/** `POST /v1/e/:code/restore`: the token from an email link moves that guest to this device. */
+export const RestoreRequest = z.object({
+    token: z.string().regex(/^[A-Za-z0-9_-]{20,100}$/),
+    device: DeviceId,
+});
+export type RestoreRequest = z.infer<typeof RestoreRequest>;
 
 /** Shots a guest has left, or null when the event has unlimited shots. */
 export function shotsLeft(

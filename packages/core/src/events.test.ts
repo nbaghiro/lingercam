@@ -3,16 +3,20 @@ import {
     EVENT_STATES,
     EventSettings,
     EventSettingsPatch,
+    EventSummary,
+    GuestEmailRequest,
     JOIN_ALPHABET,
     JOIN_CODE_LENGTH,
     JoinRequest,
     ARCHIVE_AFTER_DAYS,
     canTransition,
     dueState,
+    firstName,
     isTimeZone,
     joinCode,
     lockedSettings,
     normalizeJoinCode,
+    RestoreRequest,
     shotsLeft,
     type EventState,
 } from "./events.ts";
@@ -306,5 +310,62 @@ describe("shotsLeft", () => {
         expect(shotsLeft({ settings, unlimitedShots: true }, { shotsTaken: 99 })).toBeNull();
         const open = { ...settings, shotsPerGuest: null };
         expect(shotsLeft({ settings: open, unlimitedShots: false }, { shotsTaken: 5 })).toBeNull();
+    });
+});
+
+describe("EventSummary", () => {
+    const summary = {
+        code: "MAYA3X",
+        title: "Maya turns thirty",
+        occasion: "birthday",
+        state: "live",
+        hostName: "Alex",
+        coverUrl: null,
+        startsAt: "2026-06-20T15:00:00-07:00",
+        endsAt: "2026-06-20T23:00:00-07:00",
+        timeZone: "America/Vancouver",
+        revealMode: "at-end",
+        revealsAt: "2026-06-21T06:00:00Z",
+        shotsPerGuest: 24,
+        look: "warm-98@1",
+        guestCount: 7,
+        full: false,
+        guestLimit: null,
+        photoCount: 212,
+        photographerCount: 6,
+        viewer: { role: "guest", guestId: "g1", shotsTaken: 7, shotsLeft: 17 },
+        now: "2026-06-20T22:00:00Z",
+    };
+
+    test("says who is viewing", () => {
+        expect(EventSummary.parse(summary).viewer.role).toBe("guest");
+        const none = { role: "none", guestId: null, shotsTaken: 0, shotsLeft: 24 };
+        expect(EventSummary.safeParse({ ...summary, viewer: none }).success).toBe(true);
+        const bad = { ...summary, viewer: { ...none, role: "owner" } };
+        expect(EventSummary.safeParse(bad).success).toBe(false);
+    });
+});
+
+describe("guest email and restore", () => {
+    test("an email is trimmed and lowercased, and null forgets it", () => {
+        expect(GuestEmailRequest.parse({ email: " Sam@Example.com " }).email).toBe(
+            "sam@example.com",
+        );
+        expect(GuestEmailRequest.parse({ email: null }).email).toBeNull();
+        expect(GuestEmailRequest.safeParse({ email: "not an email" }).success).toBe(false);
+    });
+
+    test("a restore token is a long url-safe string", () => {
+        const device = "abcdefghijklmnop";
+        expect(RestoreRequest.safeParse({ token: "a".repeat(43), device }).success).toBe(true);
+        expect(RestoreRequest.safeParse({ token: "short", device }).success).toBe(false);
+    });
+});
+
+describe("firstName", () => {
+    test("the first word of a name", () => {
+        expect(firstName("Priya R.")).toBe("Priya");
+        expect(firstName("  Jun ")).toBe("Jun");
+        expect(firstName("")).toBe("");
     });
 });

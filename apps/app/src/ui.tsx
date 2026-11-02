@@ -1,5 +1,5 @@
-import { Newsreader_400Regular } from "@expo-google-fonts/newsreader/400Regular";
-import { Newsreader_400Regular_Italic } from "@expo-google-fonts/newsreader/400Regular_Italic";
+import { FontDisplay, type FontSource } from "expo-font";
+import * as Haptics from "expo-haptics";
 import { Image, type ImageSource } from "expo-image";
 import type { Occasion } from "@linger/core/events";
 import { AirplaneTiltIcon } from "phosphor-react-native/src/icons/AirplaneTilt";
@@ -10,6 +10,7 @@ import { CameraRotateIcon } from "phosphor-react-native/src/icons/CameraRotate";
 import { CaretRightIcon } from "phosphor-react-native/src/icons/CaretRight";
 import { ChampagneIcon } from "phosphor-react-native/src/icons/Champagne";
 import { CheckIcon } from "phosphor-react-native/src/icons/Check";
+import { DotsThreeIcon } from "phosphor-react-native/src/icons/DotsThree";
 import { DownloadSimpleIcon } from "phosphor-react-native/src/icons/DownloadSimple";
 import { EnvelopeSimpleIcon } from "phosphor-react-native/src/icons/EnvelopeSimple";
 import { ExportIcon } from "phosphor-react-native/src/icons/Export";
@@ -28,10 +29,12 @@ import { QrCodeIcon } from "phosphor-react-native/src/icons/QrCode";
 import { SignOutIcon } from "phosphor-react-native/src/icons/SignOut";
 import { SunHorizonIcon } from "phosphor-react-native/src/icons/SunHorizon";
 import { TrashIcon } from "phosphor-react-native/src/icons/Trash";
+import { WarningCircleIcon } from "phosphor-react-native/src/icons/WarningCircle";
 import { XIcon } from "phosphor-react-native/src/icons/X";
 import type { Icon as PhosphorIcon, IconWeight } from "phosphor-react-native";
-import { useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, useSyncExternalStore, type ReactNode } from "react";
 import {
+    AccessibilityInfo,
     ActivityIndicator,
     Alert,
     KeyboardAvoidingView,
@@ -43,13 +46,13 @@ import {
     StyleSheet,
     TextInput,
     View,
+    useWindowDimensions,
     type StyleProp,
     type TextInputProps,
     type TextStyle,
     type ViewStyle,
 } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import QRCode from "react-native-qrcode-svg";
 import Animated, {
     FadeIn,
     FadeOut,
@@ -95,23 +98,113 @@ export const color = {
     white: "#FFFFFF",
 } as const;
 
-export const FONTS = {
-    Newsreader_400Regular,
-    Newsreader_400Regular_Italic,
-    "Pretendard-Regular": require("../assets/fonts/Pretendard-Regular.otf"),
-    "Pretendard-Medium": require("../assets/fonts/Pretendard-Medium.otf"),
-    "Pretendard-SemiBold": require("../assets/fonts/Pretendard-SemiBold.otf"),
-    "Pretendard-Bold": require("../assets/fonts/Pretendard-Bold.otf"),
-};
-
-const SANS = {
-    regular: "Pretendard-Regular",
-    medium: "Pretendard-Medium",
-    semibold: "Pretendard-SemiBold",
-    bold: "Pretendard-Bold",
+/** Spacing, in points. Screens use these instead of literal paddings and margins. */
+export const space = {
+    xxs: 2,
+    xs: 4,
+    s: 8,
+    m: 12,
+    l: 16,
+    xl: 22,
+    xxl: 28,
+    xxxl: 40,
 } as const;
 
-export const gutter = 22;
+/** Corner radii, in points, from small tags to the sheet. */
+export const radius = {
+    tag: 7,
+    s: 12,
+    control: 15,
+    tile: 16,
+    row: 18,
+    card: 22,
+    invite: 32,
+    sheet: 52,
+    round: 999,
+} as const;
+
+/** The one divider between rows. */
+export const divider = {
+    borderBottomWidth: StyleSheet.hairlineWidth * 2,
+    borderBottomColor: color.line,
+} as const;
+
+export const gutter = space.xl;
+
+/** The gap between the two columns of tiles, and the grid's side margin. */
+export const grid = { gap: 6, side: 12 } as const;
+
+// Fonts. Newsreader comes in two cuts made from the variable font: Text (optical size 16) for
+// names and serif text up to 23 pt, Display (36, italic 28) for titles and numbers above that.
+// Both families are Latin subsets; the web loads woff2 and shows a system font until they arrive.
+
+const display = FontDisplay.SWAP;
+
+export const FONTS: Record<string, FontSource> = {
+    "Newsreader-Text":
+        Platform.OS === "web"
+            ? { uri: require("../assets/fonts/Newsreader-Text.woff2"), display }
+            : require("../assets/fonts/Newsreader-Text.ttf"),
+    "Newsreader-TextItalic":
+        Platform.OS === "web"
+            ? { uri: require("../assets/fonts/Newsreader-TextItalic.woff2"), display }
+            : require("../assets/fonts/Newsreader-TextItalic.ttf"),
+    "Newsreader-Display":
+        Platform.OS === "web"
+            ? { uri: require("../assets/fonts/Newsreader-Display.woff2"), display }
+            : require("../assets/fonts/Newsreader-Display.ttf"),
+    "Newsreader-DisplayItalic":
+        Platform.OS === "web"
+            ? { uri: require("../assets/fonts/Newsreader-DisplayItalic.woff2"), display }
+            : require("../assets/fonts/Newsreader-DisplayItalic.ttf"),
+    "Pretendard-Regular":
+        Platform.OS === "web"
+            ? { uri: require("../assets/fonts/Pretendard-Regular.woff2"), display }
+            : require("../assets/fonts/Pretendard-Regular.otf"),
+    "Pretendard-Medium":
+        Platform.OS === "web"
+            ? { uri: require("../assets/fonts/Pretendard-Medium.woff2"), display }
+            : require("../assets/fonts/Pretendard-Medium.otf"),
+    "Pretendard-SemiBold":
+        Platform.OS === "web"
+            ? { uri: require("../assets/fonts/Pretendard-SemiBold.woff2"), display }
+            : require("../assets/fonts/Pretendard-SemiBold.otf"),
+    "Pretendard-Bold":
+        Platform.OS === "web"
+            ? { uri: require("../assets/fonts/Pretendard-Bold.woff2"), display }
+            : require("../assets/fonts/Pretendard-Bold.otf"),
+};
+
+/** On the web a family falls back to a system font while its file loads. */
+function family(name: string, fallback: "serif" | "sans"): string {
+    if (Platform.OS !== "web") return name;
+    return fallback === "serif"
+        ? `${name}, Georgia, serif`
+        : `${name}, system-ui, -apple-system, sans-serif`;
+}
+
+const SERIF = {
+    text: family("Newsreader-Text", "serif"),
+    textItalic: family("Newsreader-TextItalic", "serif"),
+    display: family("Newsreader-Display", "serif"),
+    displayItalic: family("Newsreader-DisplayItalic", "serif"),
+} as const;
+
+const SANS = {
+    regular: family("Pretendard-Regular", "sans"),
+    medium: family("Pretendard-Medium", "sans"),
+    semibold: family("Pretendard-SemiBold", "sans"),
+    bold: family("Pretendard-Bold", "sans"),
+} as const;
+
+/** Serif text from this size up uses the Display cut. */
+const DISPLAY_FROM = 24;
+
+/** The serif family for a size: the Display cut for titles and numbers, Text below. */
+export function serifFamily(fontSize: number, italic = false): string {
+    if (fontSize >= DISPLAY_FROM) return italic ? SERIF.displayItalic : SERIF.display;
+    return italic ? SERIF.textItalic : SERIF.text;
+}
 
 // Text
 
@@ -121,21 +214,23 @@ interface Variant {
     fontSize: number;
     lineHeight: number;
     letterSpacing?: number;
+    /** The largest Dynamic Type scale; titles stop growing so they still fit the screen. */
+    maxScale?: number;
 }
 
 const VARIANTS = {
     /** Serif 42, screen titles like "What are we capturing?" */
-    display: { serif: true, fontSize: 42, lineHeight: 44.5, letterSpacing: -0.84 },
+    display: { serif: true, fontSize: 42, lineHeight: 44.5, letterSpacing: -0.84, maxScale: 1.2 },
     /** Serif 33, step and section titles. */
-    title: { serif: true, fontSize: 33, lineHeight: 36.3, letterSpacing: -0.5 },
+    title: { serif: true, fontSize: 33, lineHeight: 36.3, letterSpacing: -0.5, maxScale: 1.25 },
     /** Serif 38, the event name over its cover. */
-    cover: { serif: true, fontSize: 38, lineHeight: 40, letterSpacing: -0.57 },
+    cover: { serif: true, fontSize: 38, lineHeight: 40, letterSpacing: -0.57, maxScale: 1.2 },
     /** Serif 30, the name on the invite card and sheet titles. */
-    heading: { serif: true, fontSize: 30, lineHeight: 33, letterSpacing: -0.3 },
+    heading: { serif: true, fontSize: 30, lineHeight: 33, letterSpacing: -0.3, maxScale: 1.3 },
     /** Serif 21, card titles and the camera header. */
-    name: { serif: true, fontSize: 21, lineHeight: 25 },
+    name: { serif: true, fontSize: 21, lineHeight: 25, maxScale: 1.5 },
     /** Serif italic 27, numbers in the stat row. */
-    number: { serif: true, italic: true, fontSize: 27, lineHeight: 30 },
+    number: { serif: true, italic: true, fontSize: 27, lineHeight: 30, maxScale: 1.3 },
     /** Sans 17, rows and controls. */
     body: { serif: false, fontSize: 17, lineHeight: 23 },
     /** Sans 15, supporting text. */
@@ -146,6 +241,22 @@ const VARIANTS = {
 
 export type TextVariant = keyof typeof VARIANTS;
 export type Tone = "paper" | "ash" | "faint" | "candle" | "ink" | "soft" | "white";
+
+/** Faint on Night is about 3.6:1, so text smaller than this reads in Ash instead. */
+const FAINT_FROM = 15;
+
+/** Serif variants whose last two words are kept on one line. */
+const TITLES: ReadonlySet<TextVariant> = new Set(["display", "title", "cover", "heading", "name"]);
+
+/**
+ * Joins the last two words with a no-break space, so a title never ends on one short word. iOS
+ * does this itself with the push-out line break strategy.
+ */
+export function keepLastWordsTogether(text: string): string {
+    const words = text.trim().split(" ");
+    if (words.length < 3) return text;
+    return `${words.slice(0, -1).join(" ")}\u00a0${words[words.length - 1] ?? ""}`;
+}
 
 export interface TextProps {
     children: ReactNode;
@@ -158,7 +269,9 @@ export interface TextProps {
     align?: "left" | "center" | "right";
     numberOfLines?: number;
     style?: StyleProp<TextStyle>;
-    accessibilityRole?: "header" | "text" | "link";
+    accessibilityRole?: "header" | "text" | "link" | "alert";
+    /** Announces changes on the web; native screens announce through `useAnnounce`. */
+    accessibilityLiveRegion?: "polite" | "assertive";
 }
 
 export function Text({
@@ -172,34 +285,105 @@ export function Text({
     numberOfLines,
     style,
     accessibilityRole,
+    accessibilityLiveRegion,
 }: TextProps) {
     const v: Variant = VARIANTS[variant];
     const isSerif = serif ?? v.serif;
     const isItalic = italic ?? v.italic ?? false;
-    const fontFamily = isSerif
-        ? isItalic
-            ? "Newsreader_400Regular_Italic"
-            : "Newsreader_400Regular"
-        : SANS[weight];
+    const fontSize = StyleSheet.flatten(style)?.fontSize ?? v.fontSize;
+    const fontFamily = isSerif ? serifFamily(fontSize, isItalic) : SANS[weight];
+    const shown = tone === "faint" && fontSize < FAINT_FROM ? "ash" : tone;
+    const title = isSerif && TITLES.has(variant);
+    const content =
+        title && Platform.OS !== "ios" && typeof children === "string"
+            ? keepLastWordsTogether(children)
+            : children;
     return (
         <RNText
             {...(numberOfLines !== undefined ? { numberOfLines } : {})}
             {...(accessibilityRole ? { accessibilityRole } : {})}
+            {...(accessibilityLiveRegion ? { accessibilityLiveRegion } : {})}
+            {...(v.maxScale ? { maxFontSizeMultiplier: v.maxScale } : {})}
+            {...(title && Platform.OS === "ios"
+                ? { lineBreakStrategyIOS: "push-out" as const }
+                : {})}
             style={[
                 {
                     fontFamily,
                     fontSize: v.fontSize,
                     lineHeight: v.lineHeight,
                     letterSpacing: v.letterSpacing ?? 0,
-                    color: color[tone === "white" ? "white" : tone],
+                    color: color[shown === "white" ? "white" : shown],
                 },
                 align ? { textAlign: align } : null,
                 style,
             ]}
         >
-            {children}
+            {content}
         </RNText>
     );
+}
+
+// Haptics and motion
+
+export type HapticKind = "selection" | "light" | "medium" | "success" | "warning";
+
+/** One haptic. Does nothing on the web. */
+export function haptic(kind: HapticKind): void {
+    if (Platform.OS === "web") return;
+    const done = () => null;
+    switch (kind) {
+        case "selection":
+            Haptics.selectionAsync().catch(done);
+            return;
+        case "light":
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(done);
+            return;
+        case "medium":
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(done);
+            return;
+        case "success":
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(done);
+            return;
+        case "warning":
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(done);
+            return;
+    }
+}
+
+let reduceMotion = false;
+const motionListeners = new Set<() => void>();
+
+AccessibilityInfo.isReduceMotionEnabled()
+    .then((on) => {
+        reduceMotion = on;
+        for (const listener of motionListeners) listener();
+    })
+    .catch(() => null);
+AccessibilityInfo.addEventListener("reduceMotionChanged", (on) => {
+    reduceMotion = on;
+    for (const listener of motionListeners) listener();
+});
+
+/** True when the person asked the system for less motion: cross-fades instead of slides. */
+export function useReduceMotion(): boolean {
+    return useSyncExternalStore(
+        (listener) => {
+            motionListeners.add(listener);
+            return () => {
+                motionListeners.delete(listener);
+            };
+        },
+        () => reduceMotion,
+        () => reduceMotion,
+    );
+}
+
+/** Reads a line aloud with VoiceOver or TalkBack whenever it changes. The web uses live regions. */
+export function useAnnounce(message: string | null | undefined): void {
+    useEffect(() => {
+        if (message && Platform.OS !== "web") AccessibilityInfo.announceForAccessibility(message);
+    }, [message]);
 }
 
 // Icons. Regular for controls, duotone for occasions and features, fill for selected states.
@@ -228,6 +412,8 @@ export const icons = {
     hide: EyeSlashIcon,
     show: EyeIcon,
     play: PlayIcon,
+    more: DotsThreeIcon,
+    warning: WarningCircleIcon,
 } as const;
 
 export const occasionIcons: Record<Occasion, PhosphorIcon> = {
@@ -281,7 +467,7 @@ export function Wordmark({ size = 40 }: { size?: number }) {
             <Mark size={size * 0.9} />
             <RNText
                 style={{
-                    fontFamily: "Newsreader_400Regular",
+                    fontFamily: serifFamily(size),
                     fontSize: size,
                     lineHeight: size * 1.1,
                     letterSpacing: -0.01 * size,
@@ -324,7 +510,8 @@ export function Button({
     style,
 }: ButtonProps) {
     const primary = variant === "primary";
-    const fg = primary ? color.ink : color.paper;
+    // A disabled button is Raised with Faint text, so it can't be mistaken for a pressable one.
+    const fg = disabled ? color.faint : primary ? color.ink : color.paper;
     const inactive = disabled || loading;
     return (
         <Pressable
@@ -337,12 +524,14 @@ export function Button({
                 styles.button,
                 size === "compact" ? styles.buttonCompact : null,
                 {
-                    backgroundColor: primary
-                        ? color.cream
-                        : variant === "glass"
-                          ? color.glass
-                          : color.raised,
-                    opacity: disabled ? 0.4 : pressed ? 0.82 : 1,
+                    backgroundColor: disabled
+                        ? color.raised
+                        : primary
+                          ? color.cream
+                          : variant === "glass"
+                            ? color.glass
+                            : color.raised,
+                    opacity: pressed && !inactive ? 0.82 : 1,
                 },
                 style,
             ]}
@@ -353,7 +542,7 @@ export function Button({
                 <>
                     {icon ? <Icon icon={icon} color={fg} weight={iconWeight} /> : null}
                     {label ? (
-                        <Text weight="semibold" style={{ color: fg }}>
+                        <Text weight="semibold" align="center" style={{ color: fg, flexShrink: 1 }}>
                             {label}
                         </Text>
                     ) : null}
@@ -391,12 +580,12 @@ export function IconButton({
                 styles.iconButton,
                 {
                     backgroundColor: variant === "glass" ? color.glass : color.raised,
-                    opacity: disabled ? 0.4 : pressed ? 0.75 : 1,
+                    opacity: pressed && !disabled ? 0.75 : 1,
                 },
                 style,
             ]}
         >
-            <Icon icon={icon} />
+            <Icon icon={icon} color={disabled ? color.faint : color.paper} />
         </Pressable>
     );
 }
@@ -427,7 +616,11 @@ export function Segmented<T extends string>({
                 return (
                     <Pressable
                         key={option.value}
-                        onPress={() => onChange(option.value)}
+                        onPress={() => {
+                            if (option.value === value) return;
+                            haptic("selection");
+                            onChange(option.value);
+                        }}
                         accessibilityRole="radio"
                         accessibilityState={{ selected: on }}
                         style={[styles.segment, on ? { backgroundColor: color.segment } : null]}
@@ -531,16 +724,20 @@ export interface ToggleProps {
 }
 
 export function Toggle({ value, onChange, accessibilityLabel }: ToggleProps) {
+    const duration = useReduceMotion() ? 0 : 180;
     const knob = useAnimatedStyle(() => ({
-        transform: [{ translateX: withTiming(value ? 20 : 0, { duration: 180 }) }],
-        backgroundColor: withTiming(value ? color.night : color.white, { duration: 180 }),
+        transform: [{ translateX: withTiming(value ? 20 : 0, { duration }) }],
+        backgroundColor: withTiming(value ? color.night : color.white, { duration }),
     }));
     const track = useAnimatedStyle(() => ({
-        backgroundColor: withTiming(value ? color.paper : color.rule, { duration: 180 }),
+        backgroundColor: withTiming(value ? color.paper : color.rule, { duration }),
     }));
     return (
         <Pressable
-            onPress={() => onChange(!value)}
+            onPress={() => {
+                haptic("selection");
+                onChange(!value);
+            }}
             accessibilityRole="switch"
             accessibilityState={{ checked: value }}
             accessibilityLabel={accessibilityLabel}
@@ -554,7 +751,7 @@ export function Toggle({ value, onChange, accessibilityLabel }: ToggleProps) {
 }
 
 export interface SliderProps {
-    /** Evenly spaced stops; values between two stops are spread linearly between them. */
+    /** Evenly spaced stops. The thumb snaps to them, so the value is always one of these. */
     stops: readonly { value: number; label: string }[];
     value: number;
     onChange: (value: number) => void;
@@ -563,8 +760,10 @@ export interface SliderProps {
     describe?: (value: number) => string;
 }
 
+/** Where a value sits on the track, 0 to 1. A value between stops sits between them. */
 function sliderPosition(stops: SliderProps["stops"], value: number): number {
     const segments = stops.length - 1;
+    if (segments <= 0) return 0;
     for (let i = 0; i < segments; i++) {
         const a = stops[i]!.value;
         const b = stops[i + 1]!.value;
@@ -573,19 +772,22 @@ function sliderPosition(stops: SliderProps["stops"], value: number): number {
     return 1;
 }
 
-function sliderValue(stops: SliderProps["stops"], position: number): number {
+/** The index of the stop nearest a position on the track. */
+function nearestStop(stops: SliderProps["stops"], position: number): number {
     const segments = stops.length - 1;
-    const p = Math.min(1, Math.max(0, position)) * segments;
-    const i = Math.min(segments - 1, Math.floor(p));
-    const a = stops[i]!.value;
-    const b = stops[i + 1]!.value;
-    return Math.round(a + (b - a) * (p - i));
+    return Math.round(Math.min(1, Math.max(0, position)) * segments);
 }
 
 export function Slider({ stops, value, onChange, accessibilityLabel, describe }: SliderProps) {
     const [width, setWidth] = useState(0);
+    const pick = (index: number) => {
+        const stop = stops[Math.min(stops.length - 1, Math.max(0, index))];
+        if (!stop || stop.value === value) return;
+        haptic("selection");
+        onChange(stop.value);
+    };
     const seek = (x: number) => {
-        if (width > 0) onChange(sliderValue(stops, x / width));
+        if (width > 0) pick(nearestStop(stops, x / width));
     };
     const pan = Gesture.Pan()
         .runOnJS(true)
@@ -593,9 +795,10 @@ export function Slider({ stops, value, onChange, accessibilityLabel, describe }:
         .onBegin((e) => seek(e.x))
         .onUpdate((e) => seek(e.x));
 
-    const min = stops[0]?.value ?? 0;
-    const max = stops[stops.length - 1]?.value ?? 0;
     const position = sliderPosition(stops, value);
+    const segments = Math.max(1, stops.length - 1);
+    const above = stops.findIndex((stop) => stop.value > value);
+    const below = stops.findLastIndex((stop) => stop.value < value);
 
     return (
         <View>
@@ -608,8 +811,8 @@ export function Slider({ stops, value, onChange, accessibilityLabel, describe }:
                     accessibilityValue={{ text: describe ? describe(value) : String(value) }}
                     accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
                     onAccessibilityAction={(e) => {
-                        const step = e.nativeEvent.actionName === "increment" ? 1 : -1;
-                        onChange(Math.min(max, Math.max(min, value + step)));
+                        if (e.nativeEvent.actionName === "increment" && above >= 0) pick(above);
+                        if (e.nativeEvent.actionName === "decrement" && below >= 0) pick(below);
                     }}
                     style={styles.sliderHit}
                 >
@@ -619,11 +822,16 @@ export function Slider({ stops, value, onChange, accessibilityLabel, describe }:
                     </View>
                 </View>
             </GestureDetector>
-            <View style={styles.ticks}>
-                {stops.map((stop) => (
-                    <Text key={stop.value} variant="caption" tone="faint">
-                        {stop.label}
-                    </Text>
+            <View style={styles.ticks} aria-hidden>
+                {stops.map((stop, i) => (
+                    <View
+                        key={stop.value}
+                        style={[styles.tick, { left: `${(i / segments) * 100}%` }]}
+                    >
+                        <Text variant="caption" tone="ash" align="center">
+                            {stop.label}
+                        </Text>
+                    </View>
                 ))}
             </View>
         </View>
@@ -689,6 +897,7 @@ export function Progress({ step, total = 5 }: { step: number; total?: number }) 
             style={styles.progress}
             accessible
             accessibilityRole="progressbar"
+            accessibilityLabel={t("a11y.step", { step, total })}
             accessibilityValue={{ min: 0, max: total, now: step }}
         >
             {Array.from({ length: total }, (_, i) => (
@@ -769,6 +978,7 @@ export interface SheetProps {
 /** A bottom sheet on a dimmed backdrop, as in the join screen. */
 export function Sheet({ visible, onClose, children }: SheetProps) {
     const insets = useSafeAreaInsets();
+    const still = useReduceMotion();
     return (
         <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
             {visible ? (
@@ -789,8 +999,8 @@ export function Sheet({ visible, onClose, children }: SheetProps) {
                         />
                     </Animated.View>
                     <Animated.View
-                        entering={SlideInDown.duration(280)}
-                        exiting={SlideOutDown.duration(200)}
+                        entering={still ? FadeIn.duration(200) : SlideInDown.duration(280)}
+                        exiting={still ? FadeOut.duration(150) : SlideOutDown.duration(200)}
                         style={[styles.sheet, { marginBottom: Math.max(insets.bottom - 24, 10) }]}
                     >
                         <View style={styles.grab} />
@@ -888,9 +1098,14 @@ export function Stats({ items }: { items: readonly Stat[] }) {
                     <Text variant="number" align="center" numberOfLines={1}>
                         {item.value}
                     </Text>
-                    <Text variant="caption" tone="soft" align="center">
-                        {item.label}
-                    </Text>
+                    <View style={styles.statLabel}>
+                        <Text variant="caption" tone="soft" align="center">
+                            {item.label}
+                        </Text>
+                        {item.onPress ? (
+                            <Icon icon={icons.chevron} size={11} color={color.soft} />
+                        ) : null}
+                    </View>
                 </Pressable>
             ))}
         </View>
@@ -910,22 +1125,30 @@ export interface TileProps {
     accessibilityLabel?: string;
 }
 
+/** The width of one tile in the two-column grid, which keeps a fixed gap at any screen width. */
+export function useTileWidth(): number {
+    const { width } = useWindowDimensions();
+    return Math.floor((width - grid.side * 2 - grid.gap) / 2);
+}
+
 export function Tile({
     source = null,
     name,
     developing = false,
-    developingLabel = "Developing",
+    developingLabel,
     shift = { x: 0, y: 0 },
     onPress,
     accessibilityLabel,
 }: TileProps) {
+    const width = useTileWidth();
+    const label = developingLabel ?? t("event.developing");
     return (
         <Pressable
             onPress={onPress}
             disabled={!onPress}
             accessibilityRole={onPress ? "button" : "image"}
-            accessibilityLabel={accessibilityLabel ?? (developing ? developingLabel : name)}
-            style={styles.tile}
+            accessibilityLabel={accessibilityLabel ?? (developing ? label : name)}
+            style={[styles.tile, { width }]}
         >
             {source !== null ? (
                 <Image
@@ -950,7 +1173,7 @@ export function Tile({
             {developing ? (
                 <View style={[StyleSheet.absoluteFill, styles.developing]}>
                     <Text serif italic style={styles.developingText}>
-                        {developingLabel}
+                        {label}
                     </Text>
                 </View>
             ) : name ? (
@@ -965,47 +1188,29 @@ export function Tile({
 // iOS blurs in points at a smaller scale than CSS, so it needs a larger radius to look the same.
 const DEVELOPING_BLUR = Platform.OS === "web" ? 18 : 42;
 
-/** The QR code's drawing, which can render itself to a base64 PNG for printing. */
-export interface QrHandle {
-    toDataURL: (callback: (base64Png: string) => void) => void;
-}
+// Confirmations. Native screens use the system alert; the browser gets the app's own sheet
+// instead of window.confirm. Either way a warning haptic marks the moment.
 
-export interface InviteCardProps {
+interface Confirmation {
     title: string;
-    url: string;
-    caption: string;
-    size?: number;
-    qrRef?: (ref: QrHandle | null) => void;
+    body: string;
+    action: string;
+    onConfirm: () => void;
 }
 
-/** The cream card with the mark, a real QR code for the join link, and the event name. */
-export function InviteCard({ title, url, caption, size = 220, qrRef }: InviteCardProps) {
-    return (
-        <View style={styles.inviteCard} accessible accessibilityLabel={`${title}. ${caption}`}>
-            <Mark size={26} tint={color.ink} />
-            <View style={{ marginTop: 18, marginBottom: 16 }}>
-                <QRCode
-                    value={url}
-                    size={size}
-                    color={color.ink}
-                    backgroundColor={color.cream}
-                    {...(qrRef ? { getRef: (ref: QrHandle | null) => qrRef(ref) } : {})}
-                />
-            </View>
-            <Text variant="heading" align="center" style={{ color: color.ink }}>
-                {title}
-            </Text>
-            <Text variant="small" tone="faint" align="center" style={{ marginTop: 8 }}>
-                {caption}
-            </Text>
-        </View>
-    );
+let pendingConfirm: Confirmation | null = null;
+const confirmListeners = new Set<() => void>();
+
+function setConfirm(next: Confirmation | null): void {
+    pendingConfirm = next;
+    for (const listener of confirmListeners) listener();
 }
 
-/** Asks before something that can't be undone. The browser has no styled alert, so it uses its own. */
+/** Asks before something that can't be undone. */
 export function confirm(title: string, body: string, action: string, onConfirm: () => void): void {
+    haptic("warning");
     if (Platform.OS === "web") {
-        if (globalThis.confirm?.(`${title}\n\n${body}`)) onConfirm();
+        setConfirm({ title, body, action, onConfirm });
         return;
     }
     Alert.alert(title, body, [
@@ -1014,25 +1219,218 @@ export function confirm(title: string, body: string, action: string, onConfirm: 
     ]);
 }
 
-/** A short line for a failure, in Candle so it stands apart from body text. */
-export function Notice({ children }: { children: string }) {
-    return (
-        <Text
-            variant="small"
-            tone="candle"
-            align="center"
-            style={{ marginVertical: 10 }}
-            accessibilityRole="text"
-        >
-            {children}
-        </Text>
+/** Shows web confirmations. Rendered once, in the root layout. */
+export function ConfirmHost() {
+    const asking = useSyncExternalStore(
+        (listener) => {
+            confirmListeners.add(listener);
+            return () => {
+                confirmListeners.delete(listener);
+            };
+        },
+        () => pendingConfirm,
+        () => pendingConfirm,
     );
+    const close = () => setConfirm(null);
+    return (
+        <Sheet visible={asking !== null} onClose={close}>
+            {asking ? (
+                <View style={{ gap: space.m }}>
+                    <Text variant="heading" accessibilityRole="header">
+                        {asking.title}
+                    </Text>
+                    <Text tone="ash">{asking.body}</Text>
+                    <View style={{ gap: space.s, marginTop: space.s }}>
+                        <Button
+                            label={asking.action}
+                            onPress={() => {
+                                close();
+                                asking.onConfirm();
+                            }}
+                        />
+                        <Button label={t("common.cancel")} variant="dark" onPress={close} />
+                    </View>
+                </View>
+            ) : null}
+        </Sheet>
+    );
+}
+
+/**
+ * A short line for a failure: Paper with a warning icon, since Candle is kept for progress and
+ * badges. It is announced when it appears.
+ */
+export function Notice({ children }: { children: string }) {
+    useAnnounce(children);
+    return (
+        <View style={styles.notice}>
+            <Icon icon={icons.warning} size={17} color={color.paper} />
+            <Text
+                variant="small"
+                align="center"
+                style={{ flexShrink: 1 }}
+                accessibilityRole="alert"
+                accessibilityLiveRegion="polite"
+            >
+                {children}
+            </Text>
+        </View>
+    );
+}
+
+// Toasts: a line that floats over the bottom of the screen for a few seconds, such as "Saved to
+// Photos" or "Hidden from guests. Undo". Announced to screen readers.
+
+export interface ToastAction {
+    label: string;
+    run: () => void;
+}
+
+interface ToastMessage {
+    id: number;
+    text: string;
+    action: ToastAction | undefined;
+}
+
+let toast: ToastMessage | null = null;
+let toastTimer: ReturnType<typeof setTimeout> | undefined;
+let toastId = 0;
+const toastListeners = new Set<() => void>();
+
+function setToast(next: ToastMessage | null): void {
+    toast = next;
+    for (const listener of toastListeners) listener();
+}
+
+/** Shows a toast for 3 s, or 5 s when it has an action. */
+export function showToast(text: string, action?: ToastAction): void {
+    if (toastTimer) clearTimeout(toastTimer);
+    toastId += 1;
+    setToast({ id: toastId, text, action });
+    toastTimer = setTimeout(() => setToast(null), action ? 5000 : 3000);
+}
+
+export function hideToast(): void {
+    if (toastTimer) clearTimeout(toastTimer);
+    setToast(null);
+}
+
+/** Shows toasts. Rendered once, in the root layout. */
+export function ToastHost() {
+    const insets = useSafeAreaInsets();
+    const current = useSyncExternalStore(
+        (listener) => {
+            toastListeners.add(listener);
+            return () => {
+                toastListeners.delete(listener);
+            };
+        },
+        () => toast,
+        () => toast,
+    );
+    useAnnounce(current?.text);
+    if (!current) return null;
+    return (
+        <View
+            pointerEvents="box-none"
+            style={[styles.toastWrap, { bottom: Math.max(insets.bottom, space.m) + space.xxxl }]}
+        >
+            <Animated.View
+                key={current.id}
+                entering={FadeIn.duration(180)}
+                exiting={FadeOut.duration(180)}
+                style={styles.toast}
+            >
+                <Text
+                    variant="small"
+                    style={{ flexShrink: 1 }}
+                    accessibilityRole="alert"
+                    accessibilityLiveRegion="polite"
+                >
+                    {current.text}
+                </Text>
+                {current.action ? (
+                    <Pressable
+                        onPress={() => {
+                            hideToast();
+                            current.action?.run();
+                        }}
+                        accessibilityRole="button"
+                        hitSlop={10}
+                    >
+                        <Text variant="small" weight="semibold">
+                            {current.action.label}
+                        </Text>
+                    </Pressable>
+                ) : null}
+            </Animated.View>
+        </View>
+    );
+}
+
+// Rows in Surface groups, as in Settings and Manage.
+
+export interface RowProps {
+    label: string;
+    /** On the right, such as "On" or the event's name. */
+    value?: string;
+    icon?: PhosphorIcon;
+    onPress?: () => void;
+    /** A destructive row: Paper text with the trash icon. Candle is never used for it. */
+    destructive?: boolean;
+    disabled?: boolean;
+    /** One line under the label, such as why a row can't change. */
+    note?: string;
+}
+
+export function Row({ label, value, icon, onPress, destructive, disabled, note }: RowProps) {
+    const glyph = destructive ? icons.trash : icon;
+    return (
+        <Pressable
+            onPress={onPress}
+            disabled={disabled || !onPress}
+            accessibilityRole={onPress ? "button" : "text"}
+            accessibilityState={{ disabled: Boolean(disabled) }}
+            accessibilityLabel={[label, value, note].filter(Boolean).join(", ")}
+            style={({ pressed }) => [styles.groupRow, { opacity: pressed ? 0.7 : 1 }]}
+        >
+            {glyph ? <Icon icon={glyph} color={disabled ? color.faint : color.paper} /> : null}
+            <View style={{ flex: 1, minWidth: 0 }}>
+                <Text tone={disabled ? "faint" : "paper"}>{label}</Text>
+                {note ? (
+                    <Text variant="small" tone="ash">
+                        {note}
+                    </Text>
+                ) : null}
+            </View>
+            {value ? <Text tone="ash">{value}</Text> : null}
+            {onPress && !destructive ? (
+                <Icon icon={icons.chevron} size={16} color={color.ash} />
+            ) : null}
+        </Pressable>
+    );
+}
+
+/** A Surface group of rows with dividers between them. */
+export function RowGroup({ children }: { children: ReactNode }) {
+    return <View style={styles.group}>{children}</View>;
+}
+
+// Images
+
+/**
+ * An image source for a signed photo URL that caches by the photo and its size, so a re-signed
+ * URL for the same photo doesn't download it again.
+ */
+export function photoSource(url: string, id: string, size: "thumb" | "full"): ImageSource {
+    return { uri: url, cacheKey: `${id}:${size}` };
 }
 
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: color.night },
     button: {
-        height: 56,
+        minHeight: 56,
+        paddingVertical: 12,
         borderRadius: 18,
         flexDirection: "row",
         alignItems: "center",
@@ -1040,7 +1438,7 @@ const styles = StyleSheet.create({
         gap: 9,
         paddingHorizontal: 18,
     },
-    buttonCompact: { height: 48, borderRadius: 15 },
+    buttonCompact: { minHeight: 48, paddingVertical: 10, borderRadius: radius.control },
     iconButton: {
         width: 48,
         height: 48,
@@ -1098,7 +1496,9 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 2 },
         elevation: 4,
     },
-    ticks: { flexDirection: "row", justifyContent: "space-between", marginTop: 2 },
+    // The labels sit under their stops: the same inset as the track, each centred on its stop.
+    ticks: { height: 17, marginHorizontal: 6, marginTop: 2 },
+    tick: { position: "absolute", top: 0, width: 40, marginLeft: -20, alignItems: "center" },
     progress: { flexDirection: "row", gap: 5 },
     progressBar: { flex: 1, height: 3.5, borderRadius: 2, backgroundColor: color.track },
     label: {
@@ -1114,11 +1514,10 @@ const styles = StyleSheet.create({
         alignItems: "center",
         gap: 16,
         paddingVertical: 17,
-        borderBottomWidth: StyleSheet.hairlineWidth * 2,
-        borderBottomColor: color.line,
+        ...divider,
     },
     field: {
-        fontFamily: "Newsreader_400Regular",
+        fontFamily: serifFamily(34),
         fontSize: 34,
         lineHeight: 39,
         letterSpacing: -0.34,
@@ -1157,8 +1556,35 @@ const styles = StyleSheet.create({
     },
     coverIn: { position: "absolute", left: 0, right: 0, bottom: 10, paddingHorizontal: 28 },
     stats: { flexDirection: "row", marginTop: 20 },
+    notice: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: space.s,
+        marginVertical: 10,
+    },
+    toastWrap: { position: "absolute", left: space.l, right: space.l, alignItems: "center" },
+    toast: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: space.l,
+        paddingVertical: space.m,
+        paddingHorizontal: space.l,
+        borderRadius: radius.control,
+        backgroundColor: color.raised,
+        maxWidth: 480,
+    },
+    group: { backgroundColor: color.surface, borderRadius: radius.row, paddingHorizontal: space.l },
+    groupRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: space.m,
+        minHeight: 52,
+        paddingVertical: space.m,
+        ...divider,
+    },
+    statLabel: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 2 },
     tile: {
-        width: "48.9%",
         aspectRatio: 3 / 4,
         borderRadius: 16,
         overflow: "hidden",
@@ -1180,14 +1606,5 @@ const styles = StyleSheet.create({
         color: color.white,
         textShadowColor: "rgba(0, 0, 0, 0.7)",
         textShadowRadius: 10,
-    },
-    inviteCard: {
-        backgroundColor: color.cream,
-        borderRadius: 32,
-        paddingTop: 28,
-        paddingHorizontal: 24,
-        paddingBottom: 24,
-        alignItems: "center",
-        marginVertical: 22,
     },
 });
