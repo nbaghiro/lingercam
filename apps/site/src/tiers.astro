@@ -1,6 +1,7 @@
 ---
 // The price list, read from core so the site, the app and the API agree.
 import { TIERS, UNLIMITED_SHOTS, formatPrice } from "@linger/core/pricing";
+import { tierPrice } from "./price.ts";
 ---
 
 <div class="tiers">
@@ -10,7 +11,7 @@ import { TIERS, UNLIMITED_SHOTS, formatPrice } from "@linger/core/pricing";
                 <span class="tier-guests">Up to {t.guests} guests</span>
                 {t.popular && <span class="tier-tag">Popular</span>}
             </div>
-            <b class="tier-price">{formatPrice(t.priceCents)}</b>
+            <b class="tier-price">{tierPrice(t.priceCents)}</b>
             <span class="tier-note">{t.priceCents === 0 ? "No card needed" : "One payment"}</span>
         </div>
     ))}

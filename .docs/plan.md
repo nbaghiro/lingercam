@@ -479,6 +479,21 @@ Filled in as phases complete.
   starts in three days, three guests), GAMENT (free, nine of ten guests), BRNCH5 (right-away and
   shooting, photos visible), BKCB27 (revealed, one photo with a report and one hidden by three) and
   FSTV28 (revealed, 250 guests, 12 photos). Every seeded event has its host row.
+- 2026-11-02, polish W7: the web app uses `output: "single"`, which never renders `+html.tsx`
+  (Expo reads it only for static output), so the guest web app's head is `app/public/index.html`,
+  the template Expo fills with the bundle, the title, `theme-color` and the favicon. It adds
+  `viewport-fit=cover`, a description, the apple-touch-icon and a Night background. Two files
+  beyond the map: `app/src/missing.tsx` (the "This page doesn't exist" screen, used by
+  `+not-found.tsx` and by `[code].tsx` for one-segment paths that can't be a join code) and
+  `site/src/price.ts` (a tier price, "Free" at zero, since core's `formatPrice` no longer says it).
+  The join domain on Render rewrites `/new` and `/settings` to `index.html`, `/:code` to the API's
+  `/v1/e/:code/page`, and everything else to `index.html`; files in the build are served first.
+  `apple-app-site-association` is served as JSON by a Render header and claims `/??????`, `/j/*`
+  and `/e/*`. Its app id carries the placeholder team `TEAMID` and `assetlinks.json` has no
+  certificate fingerprints yet; both need the real values before a device build can open links.
+  Legal placeholders left for a lawyer (decision Q13): privacy, the email provider's name, backup
+  and tax record retention, minimum ages per region, the postal address; terms, the minimum age
+  per region, the refund policy, liability per jurisdiction, the postal address and governing law.
 
 ### Status by phase
 

@@ -72,6 +72,9 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "26"
+      # The nav's App Store button; until the listing exists it goes to /support/#get-the-app.
+      - key: PUBLIC_APP_STORE_URL
+        sync: false
 
   - type: web
     name: linger-join
@@ -82,10 +85,26 @@ services:
     staticPublishPath: apps/app/dist
     domains:
       - join.lingercam.app
+    # Files in the build are served as they are; these rules cover every other path, in order.
+    # A shared /<code> link goes to the API, which returns index.html with the event's preview
+    # tags. The app's own one-segment routes skip that trip.
     routes:
+      - type: rewrite
+        source: /new
+        destination: /index.html
+      - type: rewrite
+        source: /settings
+        destination: /index.html
+      - type: rewrite
+        source: /:code
+        destination: https://api.lingercam.app/v1/e/:code/page
       - type: rewrite
         source: /*
         destination: /index.html
+    headers:
+      - path: /.well-known/apple-app-site-association
+        name: Content-Type
+        value: application/json
     envVars:
       - key: NODE_VERSION
         value: "26"
