@@ -55,6 +55,7 @@ const config: ExpoConfig = {
         ["expo-media-library", { photosPermission: PHOTOS, savePhotosPermission: SAVE_PHOTOS }],
         "@bacons/apple-targets",
     ],
+    extra: { eas: { projectId: "e22ab7d1-7ced-4349-b6be-3908cd3c8986" } },
     experiments: { typedRoutes: true, reactCompiler: true },
 };
 
