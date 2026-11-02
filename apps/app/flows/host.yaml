@@ -1,0 +1,45 @@
+# Demo host signs in, sees the seeded events and creates a free event through all five steps.
+appId: app.galleo.linger
+---
+- runFlow: open.yaml
+- runFlow:
+    when:
+      visible: "Your events"
+    commands:
+      - tapOn: "Settings"
+      - scrollUntilVisible:
+          element: "Sign out"
+      - tapOn: "Sign out"
+- tapOn: "Continue as demo host"
+- extendedWaitUntil:
+    visible: "Your events"
+    timeout: 20000
+- assertVisible: "Maya turns thirty, Live.*"
+- assertVisible: "Tofino, the long weekend, Draft.*"
+- scrollUntilVisible:
+    element: "Emma & Daniel's Wedding day, Revealed.*"
+- tapOn: "New event"
+- assertVisible: "What are we capturing?"
+- tapOn: "Party"
+- tapOn: "Continue"
+- assertVisible: "What's it called?"
+- inputText: "Maestro test party"
+- pressKey: Enter
+- tapOn: "Continue"
+- assertVisible: "How should it work?"
+- tapOn: "Continue"
+- assertVisible: "Pick a look"
+- tapOn: "Warm '98.*"
+- tapOn: "Continue"
+- assertVisible: "How many guests?"
+- tapOn: "Up to 10 guests.*"
+- tapOn: "Start my film"
+- extendedWaitUntil:
+    visible: "Your film is ready"
+    timeout: 20000
+- assertVisible: ".*Scan to join.*"
+- assertVisible: "Print table cards"
+- tapOn: "Done"
+- extendedWaitUntil:
+    visible: "Maestro test party.*"
+    timeout: 10000

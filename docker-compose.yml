@@ -1,0 +1,83 @@
+# Linger's local services. Host ports use the 8170 block (see .docs/architecture.md) and bind to
+# loopback because the local passwords are in this file.
+name: linger
+
+services:
+  postgres:
+    image: postgres:18@sha256:979bccfde35445db618c65107d27d08c6c21339d8dc3ad4c830c6633947be0e4
+    container_name: linger-pg
+    ports:
+      - "127.0.0.1:8172:5432"
+    environment:
+      POSTGRES_USER: linger
+      POSTGRES_PASSWORD: linger
+      POSTGRES_DB: linger
+    volumes:
+      # The 18 image keeps a major-version subdirectory under this mount.
+      - pgdata:/var/lib/postgresql
+      - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U linger -d linger_test"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # S3-compatible storage standing in for Cloudflare R2. MinIO no longer publishes images, so this
+  # is RustFS, pinned to the digest Clientbridge and Tondo use.
+  storage:
+    image: rustfs/rustfs@sha256:1803faef57627e2d9c2e7d89d655d712ddded5389040054987163043fecb6a3c
+    container_name: linger-s3
+    ports:
+      - "127.0.0.1:8174:9000"
+      - "127.0.0.1:8175:9001"
+    environment:
+      RUSTFS_ACCESS_KEY: linger
+      RUSTFS_SECRET_KEY: linger-local
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_CORS_ALLOWED_ORIGINS: "http://localhost:8173,http://localhost:8170"
+    volumes:
+      - s3data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/health || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # Creates the buckets and their CORS rules, then exits.
+  storage-init:
+    image: amazon/aws-cli:2.31.6
+    depends_on:
+      storage:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: linger
+      AWS_SECRET_ACCESS_KEY: linger-local
+      AWS_DEFAULT_REGION: auto
+      AWS_ENDPOINT_URL: http://storage:9000
+    volumes:
+      - ./docker/storage-cors.json:/cors.json:ro
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        set -e
+        for bucket in linger linger-test; do
+          aws s3api head-bucket --bucket "$$bucket" 2>/dev/null || aws s3api create-bucket --bucket "$$bucket"
+          aws s3api put-bucket-cors --bucket "$$bucket" --cors-configuration file:///cors.json
+        done
+        aws s3api list-buckets --query "Buckets[].Name" --output text
+
+  mailpit:
+    image: axllent/mailpit@sha256:b68349e3a014b90c5610bfb26b2ae36f3892d7b8cf25ee140c6c71c98d2fcf48
+    container_name: linger-mail
+    ports:
+      - "127.0.0.1:8176:8025"
+      - "127.0.0.1:8177:1025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  pgdata:
+  s3data:

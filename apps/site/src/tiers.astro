@@ -1,0 +1,104 @@
+---
+// The price list, read from core so the site, the app and the API agree.
+import { TIERS, UNLIMITED_SHOTS, formatPrice } from "@linger/core/pricing";
+---
+
+<div class="tiers">
+    {TIERS.map((t) => (
+        <div class:list={["tier-card", { popular: t.popular }]}>
+            <div class="tier-top">
+                <span class="tier-guests">Up to {t.guests} guests</span>
+                {t.popular && <span class="tier-tag">Popular</span>}
+            </div>
+            <b class="tier-price">{formatPrice(t.priceCents)}</b>
+            <span class="tier-note">{t.priceCents === 0 ? "No card needed" : "One payment"}</span>
+        </div>
+    ))}
+</div>
+<p class="tiers-addon">
+    <b>Unlimited shots</b> for any event, add {formatPrice(UNLIMITED_SHOTS.priceCents)}. Prices are
+    in US dollars, paid once per event, with no subscription.
+</p>
+
+<style>
+    .tiers {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 12px;
+    }
+    .tier-card {
+        display: grid;
+        gap: 6px;
+        align-content: start;
+        padding: 22px 22px 20px;
+        border-radius: 22px;
+        background: #141412;
+        border: 1px solid var(--line);
+    }
+    .tier-card.popular {
+        border-color: rgba(255, 255, 255, 0.55);
+        background: #1c1c19;
+    }
+    .tier-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        min-height: 24px;
+    }
+    .tier-guests {
+        font-weight: 500;
+        font-size: 16px;
+    }
+    .tier-tag {
+        font-size: 12px;
+        padding: 3px 8px;
+        border-radius: 7px;
+        background: var(--candle);
+        color: #1a1610;
+        font-weight: 600;
+    }
+    .tier-price {
+        font: italic 400 40px/1.1 var(--serif);
+        letter-spacing: -0.01em;
+        margin-top: 10px;
+    }
+    .tier-note {
+        font-size: 13.5px;
+        color: var(--faint);
+    }
+    .tiers-addon {
+        margin-top: 18px;
+        color: var(--muted);
+        font-size: 15px;
+    }
+    .tiers-addon b {
+        color: var(--text);
+        font-weight: 500;
+    }
+    @media (max-width: 1100px) {
+        .tiers {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+    @media (max-width: 640px) {
+        .tiers {
+            grid-template-columns: 1fr;
+            gap: 8px;
+        }
+        .tier-card {
+            grid-template-columns: 1fr auto;
+            align-items: center;
+            padding: 16px 18px;
+        }
+        .tier-top {
+            min-height: 0;
+            justify-content: flex-start;
+        }
+        .tier-price {
+            grid-row: span 2;
+            font-size: 30px;
+            margin: 0;
+        }
+    }
+</style>

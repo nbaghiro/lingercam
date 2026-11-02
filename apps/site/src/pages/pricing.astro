@@ -1,0 +1,128 @@
+---
+import { MAX_SHOTS, MIN_SHOTS } from "@linger/core/events";
+import { LOOK_IDS, LOOKS } from "@linger/core/film";
+import { TIERS, UNLIMITED_SHOTS, formatPrice } from "@linger/core/pricing";
+import Layout from "../layout.astro";
+import Tiers from "../tiers.astro";
+
+const free = TIERS[0];
+const largest = TIERS[TIERS.length - 1];
+const lookNames = LOOK_IDS.map((id) => LOOKS[id].name);
+const looks = `${lookNames.slice(0, -1).join(", ")} or ${lookNames.at(-1)}`;
+---
+
+<Layout
+    title="Pricing"
+    description={`Linger is free for events with up to ${free?.guests} guests. Larger events are one payment by guest count, with no subscription.`}
+>
+    <section class="page">
+        <h1>Pay once, by guest count</h1>
+        <p class="lead">
+            Events with up to {free?.guests} guests are free. For a larger event the host pays once
+            for that event, and the price depends only on how many guests can join. There is no
+            subscription and nothing renews.
+        </p>
+        <Tiers />
+
+        <div class="cols">
+            <div>
+                <h2>Every event includes</h2>
+                <ul>
+                    <li>A QR code and link that guests join from, with nothing to install.</li>
+                    <li>
+                        Between {MIN_SHOTS} and {MAX_SHOTS} shots per guest, set by the host.
+                    </li>
+                    <li>One film look for the whole event: {looks}.</li>
+                    <li>
+                        A reveal right away, when the event ends, the next morning at 10:00, or at a
+                        time the host picks.
+                    </li>
+                    <li>A gallery where every photo is signed by the guest who took it.</li>
+                    <li>Printable table cards with the event's code.</li>
+                </ul>
+            </div>
+            <div>
+                <h2>Questions about paying</h2>
+                <h3>How do I pay?</h3>
+                <p>
+                    In the iPhone app through the App Store, in the Android app through Google Play,
+                    or on the web through Stripe. Linger never sees your card details.
+                </p>
+                <h3>What if more guests turn up?</h3>
+                <p>
+                    Once an event reaches its guest limit, new guests can't join, so it's worth
+                    picking a size with some room. The largest size takes {largest?.guests} guests.
+                </p>
+                <h3>What does unlimited shots add?</h3>
+                <p>
+                    For {formatPrice(UNLIMITED_SHOTS.priceCents)} on any event, guests can shoot as
+                    much as they like instead of a set number of shots.
+                </p>
+                <h3>Something went wrong with a payment</h3>
+                <p>
+                    Email <a href="mailto:support@lingercam.app">support@lingercam.app</a> with the
+                    event name and the email you sign in with, and we'll sort it out.
+                </p>
+            </div>
+        </div>
+    </section>
+</Layout>
+
+<style>
+    .page {
+        max-width: 1560px;
+        margin: 0 auto;
+        padding: 64px clamp(16px, 4vw, 48px) 0;
+    }
+    h1 {
+        font: 350 clamp(42px, 5.4vw, 68px)/1.04 var(--serif);
+        letter-spacing: -0.025em;
+    }
+    .lead {
+        color: var(--muted);
+        max-width: 60ch;
+        font-size: 17px;
+        margin: 20px 0 40px;
+    }
+    .cols {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 48px;
+        margin-top: 72px;
+    }
+    h2 {
+        font: 400 30px/1.1 var(--serif);
+        letter-spacing: -0.01em;
+        margin-bottom: 14px;
+    }
+    h3 {
+        font-size: 16.5px;
+        font-weight: 600;
+        margin-top: 22px;
+    }
+    p,
+    li {
+        color: var(--muted);
+    }
+    p {
+        margin-top: 6px;
+        max-width: 60ch;
+    }
+    ul {
+        list-style: none;
+        display: grid;
+    }
+    li {
+        padding: 14px 0;
+        border-bottom: 1px solid var(--line);
+    }
+    a {
+        color: var(--text);
+        text-underline-offset: 3px;
+    }
+    @media (max-width: 860px) {
+        .cols {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>

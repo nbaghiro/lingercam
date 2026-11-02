@@ -1,0 +1,41 @@
+{
+    "cli": {
+        "version": ">= 18.0.0",
+        "appVersionSource": "remote"
+    },
+    "build": {
+        "development": {
+            "developmentClient": true,
+            "distribution": "internal",
+            "environment": "development",
+            "ios": { "simulator": true },
+            "env": {
+                "EXPO_PUBLIC_API_URL": "http://localhost:8171",
+                "EXPO_PUBLIC_JOIN_URL": "http://localhost:8173"
+            }
+        },
+        "preview": {
+            "distribution": "internal",
+            "channel": "preview",
+            "environment": "preview",
+            "env": {
+                "EXPO_PUBLIC_API_URL": "https://api.lingercam.app",
+                "EXPO_PUBLIC_JOIN_URL": "https://join.lingercam.app",
+                "EXPO_PUBLIC_SITE_URL": "https://lingercam.app"
+            }
+        },
+        "production": {
+            "channel": "production",
+            "autoIncrement": true,
+            "environment": "production",
+            "env": {
+                "EXPO_PUBLIC_API_URL": "https://api.lingercam.app",
+                "EXPO_PUBLIC_JOIN_URL": "https://join.lingercam.app",
+                "EXPO_PUBLIC_SITE_URL": "https://lingercam.app"
+            }
+        }
+    },
+    "submit": {
+        "production": {}
+    }
+}

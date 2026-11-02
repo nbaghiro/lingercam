@@ -1,0 +1,25 @@
+{
+    "name": "@linger/core",
+    "version": "0.0.0",
+    "private": true,
+    "type": "module",
+    "exports": {
+        "./events": "./src/events.ts",
+        "./shots": "./src/shots.ts",
+        "./reveal": "./src/reveal.ts",
+        "./pricing": "./src/pricing.ts",
+        "./film": "./src/film.ts"
+    },
+    "scripts": {
+        "typecheck": "tsc",
+        "test": "vitest run"
+    },
+    "dependencies": {
+        "zod": "catalog:"
+    },
+    "devDependencies": {
+        "canvaskit-wasm": "^0.42.0",
+        "typescript": "catalog:",
+        "vitest": "catalog:"
+    }
+}

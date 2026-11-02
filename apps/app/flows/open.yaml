@@ -1,0 +1,14 @@
+# Opens the development build on the local Metro server. Shared by the other flows.
+appId: app.galleo.linger
+---
+- launchApp:
+    stopApp: true
+- openLink: exp+linger://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8173
+- runFlow:
+    when:
+      visible: "This is the developer menu.*"
+    commands:
+      - tapOn: "Continue"
+- extendedWaitUntil:
+    visible: "Your events|Continue as demo host"
+    timeout: 60000

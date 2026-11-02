@@ -1,0 +1,31 @@
+{
+    "name": "linger",
+    "private": true,
+    "type": "module",
+    "packageManager": "pnpm@10.33.2",
+    "engines": {
+        "node": ">=26"
+    },
+    "prettier": "./prettier.config.json",
+    "scripts": {
+        "format": "prettier --write .",
+        "format:check": "prettier --check .",
+        "lint": "eslint . --max-warnings 0",
+        "typecheck": "pnpm -r --if-present typecheck",
+        "test": "pnpm -r --if-present test",
+        "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
+        "test:e2e": "playwright test"
+    },
+    "devDependencies": {
+        "@eslint/js": "^10.0.1",
+        "@playwright/test": "^1.64.1",
+        "@types/node": "^26.0.0",
+        "eslint": "^10.14.0",
+        "eslint-plugin-react-hooks": "^7.1.1",
+        "globals": "^17.14.0",
+        "prettier": "^3.9.10",
+        "prettier-plugin-astro": "^1.1.2",
+        "typescript": "catalog:",
+        "typescript-eslint": "^8.72.1"
+    }
+}

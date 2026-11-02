@@ -1,0 +1,36 @@
+# A guest opens the seeded live birthday from its link, joins and takes two shots.
+appId: app.galleo.linger
+---
+- runFlow: open.yaml
+- openLink: linger://j/MAYA3X
+- extendedWaitUntil:
+    visible: "You're invited to shoot Maya turns thirty"
+    timeout: 20000
+- tapOn: "Open camera"
+- runFlow:
+    when:
+      visible: "What should we call you?"
+    commands:
+      - tapOn: "Your name"
+      - inputText: "Robin"
+      - tapOn: "Continue"
+- runFlow:
+    when:
+      visible: "Allow camera"
+    commands:
+      - tapOn: "Allow camera"
+- extendedWaitUntil:
+    visible: "\\d+ shots? left"
+    timeout: 20000
+- copyTextFrom: "\\d+ shots? left"
+- evalScript: ${output.before = parseInt(maestro.copiedText, 10)}
+- tapOn: "Take photo"
+- waitForAnimationToEnd
+- tapOn: "Take photo"
+- waitForAnimationToEnd
+- copyTextFrom: "\\d+ shots? left"
+- assertTrue: ${parseInt(maestro.copiedText, 10) === output.before - 2}
+- tapOn: "See the event"
+- extendedWaitUntil:
+    visible: "Developing"
+    timeout: 20000

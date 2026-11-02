@@ -1,0 +1,97 @@
+# Render blueprint. Secrets marked sync: false are entered in the dashboard.
+databases:
+  - name: linger-db
+    databaseName: linger
+    user: linger
+    plan: basic-256mb
+    postgresMajorVersion: "18"
+
+services:
+  - type: web
+    name: linger-api
+    runtime: node
+    plan: starter
+    buildCommand: corepack enable && pnpm install --frozen-lockfile
+    startCommand: pnpm --filter api start
+    healthCheckPath: /health
+    domains:
+      - api.lingercam.app
+    envVars:
+      - key: NODE_VERSION
+        value: "26"
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: "1"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: linger-db
+          property: connectionString
+      - key: API_URL
+        value: https://api.lingercam.app
+      - key: SITE_URL
+        value: https://lingercam.app
+      - key: JOIN_URL
+        value: https://join.lingercam.app
+      - key: CORS_ORIGINS
+        value: https://join.lingercam.app,https://lingercam.app
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_REGION
+        value: auto
+      - key: S3_BUCKET
+        value: linger
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: SMTP_URL
+        sync: false
+      - key: MAIL_FROM
+        value: Linger <hello@lingercam.app>
+      - key: EXPO_ACCESS_TOKEN
+        sync: false
+      - key: REVENUECAT_SECRET_KEY
+        sync: false
+      - key: REVENUECAT_WEBHOOK_AUTH
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+
+  - type: web
+    name: linger-site
+    runtime: static
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter site build
+    staticPublishPath: apps/site/dist
+    domains:
+      - lingercam.app
+    envVars:
+      - key: NODE_VERSION
+        value: "26"
+
+  - type: web
+    name: linger-join
+    runtime: static
+    buildCommand: >-
+      corepack enable && pnpm install --frozen-lockfile &&
+      pnpm --filter app exec expo export --platform web
+    staticPublishPath: apps/app/dist
+    domains:
+      - join.lingercam.app
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: NODE_VERSION
+        value: "26"
+      - key: EXPO_PUBLIC_API_URL
+        value: https://api.lingercam.app
+      - key: EXPO_PUBLIC_JOIN_URL
+        value: https://join.lingercam.app
+      - key: EXPO_PUBLIC_SITE_URL
+        value: https://lingercam.app

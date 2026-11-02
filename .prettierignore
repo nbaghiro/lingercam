@@ -1,0 +1,11 @@
+pnpm-lock.yaml
+.docs/
+**/drizzle/
+**/.expo/
+**/.astro/
+**/dist/
+**/ios/
+**/android/
+apps/*/public/
+apps/app/assets/
+**/expo-env.d.ts

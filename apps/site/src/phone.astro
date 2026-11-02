@@ -1,0 +1,1518 @@
+---
+// An iPhone 16 Pro frame at real point size, scaled as a unit so type and spacing stay true.
+// It holds one screen for every occasion; the page script shows the selected one.
+import { DEFAULT_LOOK, LOOK_IDS, LOOKS, type LookId } from "@linger/core/film";
+import { TIERS, UNLIMITED_SHOTS, formatPrice } from "@linger/core/pricing";
+import Icon from "./icon.astro";
+import { FIRST_OCCASION, NAMES, OCCASIONS, OCCASION_KEYS, photo } from "./occasions.ts";
+
+export type Screen =
+    | "occasion"
+    | "name"
+    | "rules"
+    | "look"
+    | "price"
+    | "invite"
+    | "join"
+    | "camera"
+    | "developing"
+    | "lock"
+    | "notification"
+    | "moment"
+    | "gallery"
+    | "photo"
+    | "recap"
+    | "people";
+
+interface Props {
+    screen: Screen;
+    eager?: boolean;
+}
+
+const { screen, eager = false } = Astro.props;
+
+const SIGNAL =
+    '<svg viewBox="0 0 18 11" fill="#fff"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="6" rx="1"/><rect x="10" y="2.5" width="3" height="8.5" rx="1"/><rect x="15" y="0" width="3" height="11" rx="1"/></svg>';
+const WIFI =
+    '<svg viewBox="0 0 16 11" fill="#fff"><path d="M8 2.2c2.4 0 4.6.9 6.2 2.5l1.2-1.2A10.3 10.3 0 0 0 8 .5 10.3 10.3 0 0 0 .6 3.5l1.2 1.2A8.6 8.6 0 0 1 8 2.2Zm0 3.4c1.5 0 2.8.6 3.8 1.5L13 5.9A7.2 7.2 0 0 0 8 3.9a7.2 7.2 0 0 0-5 2l1.2 1.2c1-.9 2.3-1.5 3.8-1.5Zm0 3.4c.6 0 1.1.2 1.5.6L8 11 6.5 9.6c.4-.4.9-.6 1.5-.6Z"/></svg>';
+const BATTERY =
+    '<svg viewBox="0 0 26 12"><rect x=".5" y=".5" width="22" height="11" rx="3.2" fill="none" stroke="#fff" opacity=".5"/><rect x="2" y="2" width="17" height="8" rx="2" fill="#fff"/><rect x="23.5" y="4" width="1.6" height="4" rx=".8" fill="#fff" opacity=".5"/></svg>';
+
+const mark = (color = "#121210", size = 22) =>
+    `<svg width="${size}" height="${size}" viewBox="0 0 32 32" aria-hidden="true"><circle cx="12" cy="16" r="9" fill="none" stroke="${color}" stroke-width="3"/><circle cx="20" cy="16" r="9" fill="${color}"/></svg>`;
+
+// A deterministic QR-like pattern for the mockups, for looks only.
+function qr(seed: string): string {
+    let h = 2166136261;
+    for (const c of seed) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
+    const n = 25;
+    const cells: string[] = [];
+    const finder = (x: number, y: number) =>
+        `<rect x="${x}" y="${y}" width="7" height="7" fill="#121210"/><rect x="${x + 1}" y="${y + 1}" width="5" height="5" fill="#fff"/><rect x="${x + 2}" y="${y + 2}" width="3" height="3" fill="#121210"/>`;
+    for (let y = 0; y < n; y++) {
+        for (let x = 0; x < n; x++) {
+            if ((x < 8 && y < 8) || (x > 16 && y < 8) || (x < 8 && y > 16)) continue;
+            h ^= h << 13;
+            h ^= h >>> 17;
+            h ^= h << 5;
+            if ((h >>> 0) % 100 < 47) cells.push(`<rect x="${x}" y="${y}" width="1" height="1"/>`);
+        }
+    }
+    return `<svg viewBox="0 0 ${n} ${n}" width="100%" height="100%" shape-rendering="crispEdges" aria-hidden="true"><rect width="${n}" height="${n}" fill="#fff"/><g fill="#121210">${cells.join("")}</g>${finder(0, 0)}${finder(18, 0)}${finder(0, 18)}</svg>`;
+}
+
+const ROLES = ["Bride's side", "Guest", "Host", "Guest", "Guest", "Groom's side", "Guest"];
+const COUNTS = [38, 31, 24, 24, 19, 14, 12];
+const fanAt = (i: number) =>
+    `transform:translateX(calc(-50% + ${(i - 1) * 26}px)) rotate(${(i - 1) * 5}deg)`;
+const homeScreens: Screen[] = ["developing", "gallery"];
+const setupStep: Partial<Record<Screen, number>> = {
+    occasion: 1,
+    name: 2,
+    rules: 3,
+    look: 4,
+    price: 5,
+};
+const LOOK_CLASS: Record<LookId, string | undefined> = {
+    "natural@1": undefined,
+    "warm-98@1": "f-warm",
+    "mono@1": "f-mono",
+};
+---
+
+<div class="device">
+    <div class="phone">
+        {OCCASION_KEYS.map((k) => {
+            const E = OCCASIONS[k];
+            const loading = eager && k === FIRST_OCCASION ? "eager" : "lazy";
+            const dev = screen === "developing";
+            const step = setupStep[screen];
+            const tier = TIERS[E.tier];
+            const time = screen === "notification" || screen === "moment" ? "10:00" : "9:41";
+            const status = `<div class="sb"><span>${time}</span><span class="ic">${SIGNAL}${WIFI}${BATTERY}</span></div>`;
+            const statusFirst = !["join", "lock", "notification", "photo", "recap"].includes(
+                screen,
+            );
+            return (
+                <div class="scr" data-k={k} hidden={k !== FIRST_OCCASION}>
+                    {statusFirst && <Fragment set:html={status} />}
+
+                    {step !== undefined && (
+                        <div class="body">
+                            <div class="progress">
+                                {[0, 1, 2, 3, 4].map((i) => (
+                                    <i class:list={{ on: i < step }} />
+                                ))}
+                            </div>
+                            {screen === "occasion" && (
+                                <>
+                                    <div class="h-xl">What are we capturing?</div>
+                                    <p class="muted small" style="margin:12px 0 24px">
+                                        We'll suggest shots, timing and guest count from this.
+                                    </p>
+                                    <div class="list">
+                                        {OCCASION_KEYS.map((o) => (
+                                            <div class:list={["opt", { on: o === k }]}>
+                                                <Icon name={OCCASIONS[o].icon} weight="duotone" />
+                                                {OCCASIONS[o].label}
+                                                <span class="r">
+                                                    {o === k && <Icon name="check" />}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+                            {screen === "name" && (
+                                <>
+                                    <div class="h-l">What's it called?</div>
+                                    <div class="field" style="margin-top:20px">
+                                        {E.short}
+                                        <span class="caret" />
+                                    </div>
+                                    <div class="kv" style="margin-top:6px">
+                                        <span class="muted">Date</span>
+                                        <b>{E.date}</b>
+                                    </div>
+                                    <div class="kv">
+                                        <span class="muted">Ends</span>
+                                        <b>{E.ends}</b>
+                                    </div>
+                                    <div class="label">Cover photo</div>
+                                    <div class="cover-pick">
+                                        <img src={photo(E.hero)} alt="" loading={loading} />
+                                    </div>
+                                </>
+                            )}
+                            {screen === "rules" && (
+                                <>
+                                    <div class="h-l">How should it work?</div>
+                                    <div class="label">When do photos appear?</div>
+                                    <div class="seg">
+                                        <span>Right away</span>
+                                        <span>When it ends</span>
+                                        <span class="on">Next morning</span>
+                                    </div>
+                                    <p class="muted small" style="margin-top:10px">
+                                        Everyone sees the photos {E.when}.
+                                    </p>
+                                    <div class="label label-row">
+                                        <span>Shots per guest</span>
+                                        <span class="serif shots">24</span>
+                                    </div>
+                                    <div class="slider">
+                                        <i style="width:48%" />
+                                        <b style="left:48%" />
+                                    </div>
+                                    <div class="ticks">
+                                        <span>5</span>
+                                        <span>15</span>
+                                        <span>24</span>
+                                        <span>36</span>
+                                        <span>∞</span>
+                                    </div>
+                                    <div class="label">Who sees the photos?</div>
+                                    <div class="seg">
+                                        <span class="on">Every guest</span>
+                                        <span>Only me</span>
+                                    </div>
+                                </>
+                            )}
+                            {screen === "look" && (
+                                <>
+                                    <div class="h-l">Pick a look</div>
+                                    <p class="muted small" style="margin:8px 0 20px">
+                                        Every photo at the event gets the same film.
+                                    </p>
+                                    <div class="looks">
+                                        {LOOK_IDS.map((id) => (
+                                            <div class={id === DEFAULT_LOOK ? "look on" : "look"}>
+                                                <img
+                                                    class={LOOK_CLASS[id]}
+                                                    src={photo(E.vf)}
+                                                    alt=""
+                                                    loading={loading}
+                                                />
+                                                <span>
+                                                    {LOOKS[id].name}
+                                                    <em>{LOOKS[id].description}</em>
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+                            {screen === "price" && (
+                                <>
+                                    <div class="h-l">How many guests?</div>
+                                    <p class="muted small" style="margin:8px 0 20px">
+                                        One payment for this event. No subscription.
+                                    </p>
+                                    <div class="list">
+                                        {TIERS.map((t, i) => (
+                                            <div class:list={["tier", { on: i === E.tier }]}>
+                                                <b>
+                                                    Up to {t.guests} guests
+                                                    {t.popular && <span class="tag">Popular</span>}
+                                                </b>
+                                                <span class="p">{formatPrice(t.priceCents)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div class="kv" style="margin-top:8px;border:0">
+                                        <span>
+                                            Unlimited shots
+                                            <br />
+                                            <span class="muted small">
+                                                Add {formatPrice(UNLIMITED_SHOTS.priceCents)}
+                                            </span>
+                                        </span>
+                                        <span class="toggle" />
+                                    </div>
+                                </>
+                            )}
+                            <div class="spacer" />
+                            <button class="cta" type="button" tabindex="-1">
+                                {screen !== "price"
+                                    ? "Continue"
+                                    : !tier || tier.priceCents === 0
+                                      ? "Start my film"
+                                      : `Start my film for ${formatPrice(tier.priceCents)}`}
+                            </button>
+                        </div>
+                    )}
+
+                    {screen === "invite" && (
+                        <div class="body">
+                            <div class="h-l" style="text-align:center;margin-top:6px">
+                                Your film is ready
+                            </div>
+                            <div class="qrcard">
+                                <Fragment set:html={mark("#121210", 26)} />
+                                <div class="qr" set:html={qr(E.short)} />
+                                <b>{E.short}</b>
+                                <p class="small" style="color:#6D6B65;margin-top:8px">
+                                    Scan to join. No download needed.
+                                </p>
+                            </div>
+                            <div class="spacer" />
+                            <div style="display:grid;gap:10px">
+                                <button class="cta" type="button" tabindex="-1">
+                                    Print table cards
+                                </button>
+                                <button class="cta dark" type="button" tabindex="-1">
+                                    Share link
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {screen === "join" && (
+                        <>
+                            <div class="clip">
+                                <img src={photo(E.hero)} alt="" loading={loading} />
+                            </div>
+                            <Fragment set:html={status} />
+                            <div class="sheet">
+                                <div class="grab" />
+                                <div class="img">
+                                    <img src={photo(E.hero)} alt="" loading={loading} />
+                                </div>
+                                <div class="by">
+                                    <Fragment set:html={mark("#AAA79F", 16)} />
+                                    Linger
+                                </div>
+                                <div class="h-l" style="font-size:30px">
+                                    You're invited to shoot {E.short}
+                                </div>
+                                <p class="muted small">24 shots each. Photos appear {E.when}.</p>
+                                <button class="cta" type="button" tabindex="-1">
+                                    <Icon name="camera" />
+                                    Open camera
+                                </button>
+                            </div>
+                        </>
+                    )}
+
+                    {screen === "camera" && (
+                        <>
+                            <div class="cam-top">
+                                <span class="icon-btn">
+                                    <Icon name="arrow-left" />
+                                </span>
+                                <div class="t">
+                                    <b>{E.short}</b>
+                                    <span>{E.left} left</span>
+                                </div>
+                                <span class="icon-btn">
+                                    <Icon name="qr-code" />
+                                </span>
+                            </div>
+                            <div class="vf">
+                                <img class="f-warm" src={photo(E.vf)} alt="" loading={loading} />
+                            </div>
+                            <div class="cam-tools">
+                                <Icon name="lightning-slash" />
+                                <div class="zoom">
+                                    <span>0.5</span>
+                                    <span class="on">1×</span>
+                                </div>
+                                <Icon name="camera-rotate" />
+                            </div>
+                            <div class="cam-bot">
+                                <div class="count">
+                                    <span>20</span>
+                                    <b>21</b>
+                                    <span>22</span>
+                                </div>
+                                <div class="shutter" role="img" aria-label="Shutter" />
+                                <div class="last">
+                                    <img
+                                        src={photo(E.grid[0] ?? E.hero)}
+                                        alt=""
+                                        loading={loading}
+                                    />
+                                </div>
+                            </div>
+                        </>
+                    )}
+
+                    {homeScreens.includes(screen) && (
+                        <div class="scroll">
+                            <div class="cover">
+                                <img src={photo(E.hero)} alt="" loading={loading} />
+                                <div class="in">
+                                    <h3>{E.title}</h3>
+                                    <div class="stats">
+                                        <div>
+                                            <b>{dev ? "212" : E.moments}</b>
+                                            <span>Moments</span>
+                                        </div>
+                                        <div>
+                                            <b>{dev ? E.left : "Revealed"}</b>
+                                            <span>{dev ? "Left" : "Yesterday"}</span>
+                                        </div>
+                                        <div>
+                                            <b>{E.people}</b>
+                                            <span>People ›</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="actions">
+                                <span class="cta" aria-label="Open camera">
+                                    <Icon name="camera" />
+                                </span>
+                                <span class="icon-btn">
+                                    <Icon name="qr-code" />
+                                </span>
+                                <span class="icon-btn">
+                                    <Icon name="download-simple" />
+                                </span>
+                            </div>
+                            <div class="grid">
+                                {E.grid.map((g, i) => (
+                                    <div class:list={["tile", { dev }]}>
+                                        <img src={photo(g)} alt="" loading={loading} />
+                                        <i>{dev ? "" : NAMES[i % NAMES.length]}</i>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {(screen === "lock" || screen === "notification") && (
+                        <div class="lock">
+                            <img src={photo(E.lock)} alt="" loading={loading} />
+                            <Fragment set:html={status} />
+                            <div class="clock">
+                                <span>{E.date}</span>
+                                <b>{time}</b>
+                            </div>
+                            {screen === "lock" ? (
+                                <div class="la">
+                                    <div class="top">
+                                        <span class="mark-tile" set:html={mark()} />
+                                        <div>
+                                            <b>{E.short}</b>
+                                            <div class="muted" style="font-size:14px">
+                                                9 of 24 shots left
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="bar">
+                                        <i style="width:62%" />
+                                    </div>
+                                    <div class="meta">
+                                        <span>212 moments so far</span>
+                                        <span>Reveals {E.day.toLowerCase()}</span>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div class="note">
+                                    <span class="mark-tile" set:html={mark()} />
+                                    <div>
+                                        <div class="t">
+                                            Linger<span>now</span>
+                                        </div>
+                                        <p>
+                                            {E.short}: the photos are ready. {E.moments} moments
+                                            from {E.people} people.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                            <div class="flash">
+                                <i />
+                                <i />
+                            </div>
+                        </div>
+                    )}
+
+                    {screen === "moment" && (
+                        <div class="body" style="text-align:center">
+                            <div class="h-xl" style="margin-top:20px">
+                                It's all here.
+                            </div>
+                            <p class="muted small" style="margin-top:10px">
+                                {E.moments} moments, {E.people} photographers.
+                            </p>
+                            <div class="fan" data-fan>
+                                {[E.grid[2], E.grid[1], E.reveal].map((g, i) => (
+                                    <div class="c" style={fanAt(i)}>
+                                        <img src={photo(g ?? E.reveal)} alt="" loading={loading} />
+                                    </div>
+                                ))}
+                            </div>
+                            <div class="spacer" />
+                            <button class="cta" type="button" data-fan-btn>
+                                See every moment
+                            </button>
+                        </div>
+                    )}
+
+                    {screen === "photo" && (
+                        <>
+                            <div class="full">
+                                <img src={photo(E.reveal)} alt="" loading={loading} />
+                            </div>
+                            <Fragment set:html={status} />
+                            <div class="over viewer-top">
+                                <span class="icon-btn glass">
+                                    <Icon name="arrow-left" />
+                                </span>
+                                <span>
+                                    {E.index} of {E.moments}
+                                </span>
+                                <span class="icon-btn glass">
+                                    <Icon name="export" />
+                                </span>
+                            </div>
+                            <div class="over viewer-bot">
+                                <div class="who">
+                                    {NAMES[2]}
+                                    <span>11:42 pm, {LOOKS[DEFAULT_LOOK].name}</span>
+                                </div>
+                                <div class="acts">
+                                    <span class="cta dark glass" style="flex:1">
+                                        <Icon name="heart" />
+                                        38
+                                    </span>
+                                    <span class="cta" style="flex:2">
+                                        <Icon name="download-simple" />
+                                        Save
+                                    </span>
+                                </div>
+                            </div>
+                        </>
+                    )}
+
+                    {screen === "recap" && (
+                        <>
+                            <div class="full">
+                                <img class="f-warm" src={photo(E.hero)} alt="" loading={loading} />
+                            </div>
+                            <Fragment set:html={status} />
+                            <div class="over bars">
+                                {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+                                    <i class:list={{ on: i < 3 }} />
+                                ))}
+                            </div>
+                            <div class="over recap-title">
+                                <b>{E.title}</b>
+                                <span>The whole night in 60 seconds</span>
+                            </div>
+                            <div class="over viewer-bot">
+                                <div class="acts">
+                                    <span class="cta dark glass" style="flex:1">
+                                        Save video
+                                    </span>
+                                    <span class="cta" style="flex:1">
+                                        <Icon name="export" />
+                                        Share
+                                    </span>
+                                </div>
+                            </div>
+                        </>
+                    )}
+
+                    {screen === "people" && (
+                        <div class="body">
+                            <div class="h-l">{E.people} people</div>
+                            <p class="muted small" style="margin-top:6px">
+                                Tap anyone to see their roll.
+                            </p>
+                            <div class="people">
+                                {E.grid.slice(0, 7).map((g, i) => (
+                                    <div class="person">
+                                        <img src={photo(g)} alt="" loading={loading} />
+                                        <div>
+                                            <b>{NAMES[i]}</b>
+                                            <em>{ROLES[i]}</em>
+                                        </div>
+                                        <span>{COUNTS[i]}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        })}
+    </div>
+</div>
+
+<style is:global>
+    /* Device: an iPhone 16 Pro at real point size, scaled as a unit so type and spacing stay true. */
+    .device {
+        width: calc(430px * var(--s));
+        height: calc(902px * var(--s));
+        flex: 0 0 auto;
+    }
+    .phone {
+        position: relative;
+        width: 430px;
+        height: 902px;
+        border-radius: 76px;
+        background: #050506;
+        padding: 14px;
+        transform: scale(var(--s));
+        transform-origin: top left;
+        box-shadow:
+            0 0 0 2.5px #232323,
+            0 0 0 5px #48474a,
+            0 0 0 6.5px #171717,
+            0 50px 100px -36px rgba(0, 0, 0, 0.9);
+    }
+    .phone::before {
+        content: "";
+        position: absolute;
+        z-index: 6;
+        top: 25px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 126px;
+        height: 37px;
+        border-radius: 20px;
+        background: #000;
+    }
+    .phone::after {
+        content: "";
+        position: absolute;
+        z-index: 6;
+        bottom: 22px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 140px;
+        height: 5px;
+        border-radius: 3px;
+        background: rgba(255, 255, 255, 0.6);
+    }
+    .scr {
+        position: relative;
+        width: 402px;
+        height: 874px;
+        border-radius: 62px;
+        overflow: hidden;
+        background: var(--bg);
+        display: flex;
+        flex-direction: column;
+        text-align: left;
+        font-size: 16px;
+        line-height: 1.55;
+    }
+    .scr {
+        &[hidden] {
+            display: none;
+        }
+        img {
+            display: block;
+        }
+        .sb {
+            position: absolute;
+            z-index: 4;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 58px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 34px 0 50px;
+            font: 600 17px var(--sans);
+            color: #fff;
+        }
+        .sb .ic {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        .sb svg {
+            height: 12.5px;
+        }
+        .body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 70px 22px 44px;
+            min-height: 0;
+        }
+        .spacer {
+            flex: 1;
+        }
+
+        /* App components, in iOS points */
+        .serif {
+            font-family: var(--serif);
+        }
+        .h-xl {
+            font: 400 42px/1.06 var(--serif);
+            letter-spacing: -0.02em;
+            text-wrap: balance;
+        }
+        .h-l {
+            font: 400 33px/1.1 var(--serif);
+            letter-spacing: -0.015em;
+            text-wrap: balance;
+        }
+        .muted {
+            color: var(--muted);
+        }
+        .small {
+            font-size: 15px;
+            line-height: 1.45;
+        }
+        .cta {
+            width: 100%;
+            height: 56px;
+            border-radius: 18px;
+            background: #f7f5f0;
+            color: #121210;
+            font-weight: 600;
+            font-size: 17px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 9px;
+            cursor: default;
+        }
+        button.cta[data-fan-btn] {
+            cursor: pointer;
+        }
+        .cta.dark {
+            background: var(--raised);
+            color: var(--text);
+        }
+        .icon-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 15px;
+            background: var(--raised);
+            display: grid;
+            place-items: center;
+            flex: 0 0 auto;
+        }
+        .icon-btn svg,
+        .cta svg {
+            width: 21px;
+            height: 21px;
+        }
+        .list {
+            display: grid;
+            gap: 10px;
+        }
+        .opt {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 17px 18px;
+            border-radius: 18px;
+            background: var(--surface);
+            border: 1.5px solid transparent;
+            font-weight: 500;
+            font-size: 17px;
+        }
+        .opt svg {
+            width: 24px;
+            height: 24px;
+            color: #cfcbc3;
+        }
+        .opt .r {
+            margin-left: auto;
+            display: flex;
+        }
+        .opt.on {
+            border-color: rgba(255, 255, 255, 0.55);
+            background: #23231f;
+        }
+        .opt.on svg {
+            color: var(--text);
+        }
+        .progress {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 26px;
+        }
+        .progress i {
+            flex: 1;
+            height: 3.5px;
+            border-radius: 2px;
+            background: #2c2c28;
+        }
+        .progress i.on {
+            background: var(--text);
+        }
+        .field {
+            border-bottom: 1px solid #3a3a35;
+            padding: 8px 0 14px;
+            font: 400 34px/1.15 var(--serif);
+            letter-spacing: -0.01em;
+        }
+        .field .caret {
+            display: inline-block;
+            width: 2px;
+            height: 32px;
+            background: var(--candle);
+            vertical-align: -5px;
+            margin-left: 3px;
+            animation: blink 1s steps(1) infinite;
+        }
+        .kv {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            padding: 17px 0;
+            border-bottom: 1px solid var(--line);
+            font-size: 17px;
+        }
+        .kv b {
+            font-weight: 500;
+        }
+        .label {
+            font-size: 15px;
+            color: var(--muted);
+            margin: 26px 0 10px;
+        }
+        .label-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+        }
+        .label .shots {
+            font-size: 28px;
+            color: var(--text);
+            font-style: italic;
+        }
+        .cover-pick {
+            height: 210px;
+            border-radius: 22px;
+            overflow: hidden;
+        }
+        .cover-pick img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .seg {
+            display: grid;
+            grid-auto-flow: column;
+            grid-auto-columns: 1fr;
+            background: var(--surface);
+            border-radius: 15px;
+            padding: 4px;
+            font-size: 15px;
+        }
+        .seg span {
+            text-align: center;
+            padding: 11px 4px;
+            border-radius: 12px;
+            color: var(--muted);
+            white-space: nowrap;
+        }
+        .seg span.on {
+            background: #34342f;
+            color: var(--text);
+            font-weight: 500;
+        }
+        .slider {
+            position: relative;
+            height: 5px;
+            border-radius: 3px;
+            background: #2c2c28;
+            margin: 22px 6px 10px;
+        }
+        .slider i {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            border-radius: 3px;
+            background: var(--text);
+        }
+        .slider b {
+            position: absolute;
+            top: 50%;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #fff;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        }
+        .ticks {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            color: var(--faint);
+        }
+        .looks {
+            display: grid;
+            gap: 12px;
+        }
+        .look {
+            position: relative;
+            height: 150px;
+            border-radius: 22px;
+            overflow: hidden;
+            border: 2.5px solid transparent;
+        }
+        .look.on {
+            border-color: #fff;
+        }
+        .look img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .look::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, rgba(0, 0, 0, 0.55), transparent 60%);
+        }
+        .look span {
+            position: absolute;
+            z-index: 1;
+            left: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            font: italic 400 30px/1 var(--serif);
+            color: #fff;
+        }
+        .look em {
+            display: block;
+            font: 13px var(--sans);
+            font-style: normal;
+            color: rgba(255, 255, 255, 0.85);
+            margin-top: 6px;
+        }
+        .f-warm {
+            filter: sepia(0.28) saturate(1.15) contrast(1.06) brightness(1.02);
+        }
+        .f-mono {
+            filter: grayscale(1) contrast(1.15);
+        }
+        .tier {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 17px 18px;
+            border-radius: 18px;
+            background: var(--surface);
+            border: 1.5px solid transparent;
+            font-size: 17px;
+        }
+        .tier.on {
+            border-color: #fff;
+            background: #23231f;
+        }
+        .tier b {
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .tier .p {
+            font-weight: 600;
+        }
+        .tag {
+            font-size: 12px;
+            padding: 3px 8px;
+            border-radius: 7px;
+            background: var(--candle);
+            color: #1a1610;
+            font-weight: 600;
+        }
+        .toggle {
+            width: 51px;
+            height: 31px;
+            border-radius: 16px;
+            background: #3a3a35;
+            position: relative;
+            flex: 0 0 auto;
+        }
+        .toggle::after {
+            content: "";
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 27px;
+            height: 27px;
+            border-radius: 50%;
+            background: #fff;
+        }
+
+        /* Event home */
+        .cover {
+            position: relative;
+            height: 470px;
+            flex: 0 0 auto;
+        }
+        .cover img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .cover::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(
+                180deg,
+                rgba(13, 13, 13, 0.2) 0%,
+                rgba(13, 13, 13, 0) 32%,
+                rgba(13, 13, 13, 0.55) 62%,
+                #0d0d0d 100%
+            );
+        }
+        .cover .in {
+            position: absolute;
+            z-index: 1;
+            left: 0;
+            right: 0;
+            bottom: 10px;
+            text-align: center;
+            padding: 0 28px;
+        }
+        .cover h3 {
+            font: 400 38px/1.05 var(--serif);
+            letter-spacing: -0.015em;
+            text-wrap: balance;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            margin-top: 20px;
+        }
+        .stats b {
+            display: block;
+            font: italic 400 27px/1.1 var(--serif);
+        }
+        .stats span {
+            font-size: 13px;
+            color: #cfcbc3;
+        }
+        .actions {
+            display: flex;
+            gap: 10px;
+            padding: 8px 12px 10px;
+        }
+        .actions .cta {
+            height: 48px;
+            border-radius: 15px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            padding: 0 12px 12px;
+        }
+        .tile {
+            position: relative;
+            aspect-ratio: 3 / 4;
+            border-radius: 16px;
+            overflow: hidden;
+            background: #222;
+        }
+        .tile img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .tile i {
+            position: absolute;
+            left: 12px;
+            bottom: 9px;
+            font: italic 400 19px var(--serif);
+            color: #fff;
+            text-shadow: 0 1px 10px rgba(0, 0, 0, 0.7);
+        }
+        .tile.dev img {
+            filter: blur(18px) brightness(0.85) saturate(0.8);
+            transform: scale(1.2);
+        }
+        .tile.dev::after {
+            content: "Developing";
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            font: italic 400 20px var(--serif);
+            color: rgba(255, 255, 255, 0.85);
+        }
+        .scroll {
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Camera */
+        .cam-top {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 66px 16px 14px;
+        }
+        .cam-top .t {
+            flex: 1;
+            text-align: center;
+            min-width: 0;
+        }
+        .cam-top .t b {
+            display: block;
+            font: 400 21px/1.2 var(--serif);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .cam-top .t span {
+            font-size: 13px;
+            color: var(--muted);
+        }
+        .vf {
+            flex: 1;
+            margin: 0 12px;
+            border-radius: 28px;
+            overflow: hidden;
+            min-height: 0;
+        }
+        .vf img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .cam-tools {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 18px 30px 8px;
+            color: #ddd;
+        }
+        .cam-tools svg {
+            width: 23px;
+            height: 23px;
+        }
+        .zoom {
+            display: flex;
+            gap: 3px;
+            background: #1e1e1c;
+            border-radius: 14px;
+            padding: 4px;
+            font-size: 13.5px;
+        }
+        .zoom span {
+            padding: 6px 12px;
+            border-radius: 11px;
+            color: var(--muted);
+        }
+        .zoom span.on {
+            background: #34342f;
+            color: #fff;
+        }
+        .cam-bot {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 20px 46px;
+        }
+        .count {
+            width: 82px;
+            height: 58px;
+            border-radius: 17px;
+            background: #1e1e1c;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font: italic 400 18px var(--serif);
+            color: var(--faint);
+        }
+        .count b {
+            font: italic 400 31px var(--serif);
+            color: #fff;
+        }
+        .shutter {
+            width: 84px;
+            height: 84px;
+            border-radius: 50%;
+            border: 4px solid #3a3a35;
+            display: grid;
+            place-items: center;
+        }
+        .shutter::after {
+            content: "";
+            width: 68px;
+            height: 68px;
+            border-radius: 50%;
+            background: #2a2a27;
+        }
+        .last {
+            width: 62px;
+            height: 62px;
+            border-radius: 17px;
+            overflow: hidden;
+            border: 2px solid #444;
+        }
+        .last img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Lock screen */
+        .lock {
+            position: absolute;
+            inset: 0;
+        }
+        .lock > img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            filter: brightness(0.55) saturate(0.85);
+        }
+        .lock .clock {
+            position: absolute;
+            top: 80px;
+            left: 0;
+            right: 0;
+            text-align: center;
+        }
+        .lock .clock span {
+            font-size: 19px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.88);
+        }
+        .lock .clock b {
+            display: block;
+            font-size: 108px;
+            font-weight: 600;
+            line-height: 1;
+            letter-spacing: -0.025em;
+            color: rgba(255, 255, 255, 0.92);
+        }
+        .la {
+            position: absolute;
+            left: 14px;
+            right: 14px;
+            bottom: 120px;
+            border-radius: 30px;
+            background: rgba(18, 18, 16, 0.86);
+            backdrop-filter: blur(20px);
+            padding: 18px;
+            display: grid;
+            gap: 13px;
+        }
+        .la .top {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .mark-tile {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: #f7f5f0;
+            display: grid;
+            place-items: center;
+            color: #121210;
+            flex: 0 0 auto;
+        }
+        .la b {
+            font: 400 21px/1.15 var(--serif);
+        }
+        .la .bar {
+            height: 6px;
+            border-radius: 3px;
+            background: #333;
+            position: relative;
+            overflow: hidden;
+        }
+        .la .bar i {
+            position: absolute;
+            inset: 0 auto 0 0;
+            background: var(--candle);
+            border-radius: 3px;
+        }
+        .la .meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            color: var(--muted);
+        }
+        .note {
+            position: absolute;
+            left: 14px;
+            right: 14px;
+            top: 320px;
+            border-radius: 26px;
+            background: rgba(28, 28, 25, 0.84);
+            backdrop-filter: blur(20px);
+            padding: 15px 16px;
+            display: flex;
+            gap: 13px;
+            animation: notify 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.1) both;
+        }
+        .note .t {
+            display: flex;
+            justify-content: space-between;
+            font-size: 15px;
+            font-weight: 600;
+        }
+        .note .t span {
+            font-weight: 400;
+            color: var(--muted);
+            font-size: 14px;
+        }
+        .note p {
+            font-size: 15px;
+            color: #d8d5ce;
+            line-height: 1.35;
+            margin-top: 2px;
+            text-wrap: pretty;
+        }
+        .flash {
+            position: absolute;
+            bottom: 52px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 52px;
+        }
+        .flash i {
+            width: 54px;
+            height: 54px;
+            border-radius: 50%;
+            background: rgba(40, 40, 36, 0.7);
+        }
+
+        /* Reveal */
+        .fan {
+            position: relative;
+            height: 420px;
+            margin: 24px 0 10px;
+        }
+        .fan .c {
+            position: absolute;
+            left: 50%;
+            top: 30px;
+            width: 210px;
+            aspect-ratio: 3 / 4;
+            border-radius: 18px;
+            overflow: hidden;
+            box-shadow: 0 24px 50px rgba(0, 0, 0, 0.6);
+            transition: transform 0.9s cubic-bezier(0.2, 0.9, 0.3, 1.15);
+        }
+        .fan .c img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Join sheet */
+        .clip {
+            position: absolute;
+            inset: 0;
+        }
+        .clip > img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            filter: blur(4px) brightness(0.55);
+            transform: scale(1.08);
+        }
+        .sheet {
+            position: absolute;
+            left: 10px;
+            right: 10px;
+            bottom: 10px;
+            border-radius: 52px;
+            background: #161614;
+            padding: 12px 24px 40px;
+            display: grid;
+            gap: 14px;
+            text-align: center;
+        }
+        .sheet .grab {
+            width: 40px;
+            height: 5px;
+            border-radius: 3px;
+            background: #3a3a35;
+            margin: 0 auto 6px;
+        }
+        .sheet .img {
+            height: 220px;
+            border-radius: 26px;
+            overflow: hidden;
+        }
+        .sheet .img img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .sheet .by {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            font-size: 14px;
+            color: var(--muted);
+        }
+
+        /* QR */
+        .qrcard {
+            background: #f7f5f0;
+            color: #121210;
+            border-radius: 32px;
+            padding: 28px 24px 24px;
+            text-align: center;
+            margin: 22px 0;
+        }
+        .qrcard .qr {
+            width: 220px;
+            height: 220px;
+            margin: 18px auto 16px;
+        }
+        .qrcard b {
+            font: 400 30px/1.1 var(--serif);
+            letter-spacing: -0.01em;
+        }
+
+        /* Viewer and recap */
+        .full {
+            position: absolute;
+            inset: 0;
+        }
+        .full img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .full::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(
+                180deg,
+                rgba(0, 0, 0, 0.45),
+                transparent 22%,
+                transparent 58%,
+                rgba(0, 0, 0, 0.8)
+            );
+        }
+        .over {
+            position: absolute;
+            z-index: 2;
+            left: 0;
+            right: 0;
+        }
+        .viewer-top {
+            top: 66px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 18px;
+            font-size: 15px;
+            color: #e5e2db;
+        }
+        .viewer-bot {
+            bottom: 50px;
+            padding: 0 22px;
+            display: grid;
+            gap: 18px;
+        }
+        .viewer-bot .who {
+            font: italic 400 32px/1.1 var(--serif);
+        }
+        .viewer-bot .who span {
+            display: block;
+            font: 15px var(--sans);
+            color: #cfcbc3;
+            font-style: normal;
+            margin-top: 4px;
+        }
+        .viewer-bot .acts {
+            display: flex;
+            gap: 10px;
+        }
+        .glass {
+            background: rgba(40, 40, 36, 0.7) !important;
+            backdrop-filter: blur(12px);
+        }
+        .bars {
+            top: 66px;
+            display: flex;
+            gap: 4px;
+            padding: 0 16px;
+        }
+        .bars i {
+            flex: 1;
+            height: 3px;
+            border-radius: 2px;
+            background: rgba(255, 255, 255, 0.35);
+        }
+        .bars i.on {
+            background: #fff;
+        }
+        .recap-title {
+            bottom: 150px;
+            text-align: center;
+            padding: 0 30px;
+        }
+        .recap-title b {
+            font: 400 48px/1.02 var(--serif);
+            letter-spacing: -0.02em;
+            display: block;
+            text-wrap: balance;
+        }
+        .recap-title span {
+            display: block;
+            margin-top: 12px;
+            font-size: 15px;
+            color: #ddd;
+        }
+        .people {
+            display: grid;
+            margin-top: 14px;
+        }
+        .person {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--line);
+        }
+        .person img {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        .person b {
+            font-weight: 500;
+            font-size: 17px;
+        }
+        .person span {
+            margin-left: auto;
+            font: italic 400 23px var(--serif);
+            color: #e2dfd8;
+        }
+        .person em {
+            display: block;
+            font-style: normal;
+            font-size: 14px;
+            color: var(--muted);
+        }
+    }
+    @keyframes blink {
+        50% {
+            opacity: 0;
+        }
+    }
+    @keyframes notify {
+        from {
+            transform: translateY(-30px);
+            opacity: 0;
+        }
+    }
+</style>

@@ -1,0 +1,36 @@
+# Opens the revealed wedding, scrolls the gallery, views a photo and plays the recap.
+appId: app.galleo.linger
+---
+- runFlow: open.yaml
+- openLink: linger://e/EMMADN
+- extendedWaitUntil:
+    visible: "Emma & Daniel's Wedding day"
+    timeout: 20000
+- runFlow:
+    when:
+      visible: "See every moment"
+    commands:
+      - tapOn: "See every moment"
+- extendedWaitUntil:
+    visible: "Photo by .*"
+    timeout: 20000
+- scroll
+- scroll
+- tapOn:
+    text: "Photo by .*"
+    index: 0
+- extendedWaitUntil:
+    visible: ".* of 24"
+    timeout: 10000
+- swipe:
+    direction: LEFT
+- tapOn: "Back"
+- scrollUntilVisible:
+    element: "Watch the recap"
+    direction: UP
+- tapOn: "Watch the recap"
+- extendedWaitUntil:
+    visible: "The whole night in .* seconds"
+    timeout: 10000
+- tapOn: "Close"
+- assertVisible: "Emma & Daniel's Wedding day"

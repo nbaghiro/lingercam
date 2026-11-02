@@ -1,0 +1,11 @@
+# `maestro test flows` runs these in order. open.yaml is a shared step, not a flow of its own.
+flows:
+  - host.yaml
+  - guest.yaml
+  - gallery.yaml
+executionOrder:
+  continueOnFailure: false
+  flowsOrder:
+    - host
+    - guest
+    - gallery

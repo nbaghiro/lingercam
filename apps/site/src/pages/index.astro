@@ -1,0 +1,488 @@
+---
+import { MAX_SHOTS, MIN_SHOTS } from "@linger/core/events";
+import { LOOK_IDS, LOOKS } from "@linger/core/film";
+import { TIERS, formatPrice } from "@linger/core/pricing";
+import QRCode from "qrcode";
+import Icon from "../icon.astro";
+import Layout from "../layout.astro";
+import { FIRST_OCCASION, OCCASIONS, OCCASION_KEYS } from "../occasions.ts";
+import Phone, { type Screen } from "../phone.astro";
+import Tiers from "../tiers.astro";
+
+const free = TIERS[0];
+const smallest = TIERS[1];
+const largest = TIERS[TIERS.length - 1];
+const freeLine = `Events with up to ${free?.guests} guests are free.`;
+const [natural, warm, mono] = LOOK_IDS.map((id) => LOOKS[id]);
+
+const tryUrl = import.meta.env.PUBLIC_TRY_URL ?? "https://join.lingercam.app";
+const tryQr = await QRCode.toString(tryUrl, {
+    type: "svg",
+    margin: 0,
+    errorCorrectionLevel: "M",
+    color: { dark: "#121210", light: "#ffffff" },
+});
+
+interface Shot {
+    screen: Screen;
+    title: string;
+    caption: string;
+}
+
+const ACTS: { id: string; title: string; text: string; shots: Shot[] }[] = [
+    {
+        id: "setup",
+        title: "The host sets it up",
+        text: "Five short steps from opening the app to a printed table card. Payment happens once, by guest count, with no subscription.",
+        shots: [
+            { screen: "occasion", title: "What are we capturing?", caption: "Pick the occasion" },
+            { screen: "name", title: "Name it", caption: "Title, date and cover" },
+            { screen: "rules", title: "The rules", caption: "Reveal time and shots" },
+            { screen: "look", title: "Choose a look", caption: "One film for everyone" },
+            { screen: "price", title: "Guests and price", caption: "Pay once, by guest count" },
+            { screen: "invite", title: "Invite", caption: "One code on every table" },
+        ],
+    },
+    {
+        id: "shoot",
+        title: "Guests shoot",
+        text: "Guests join from the QR code: an App Clip on iPhone, the browser on Android. Each gets a set number of shots, counted down beside the shutter.",
+        shots: [
+            { screen: "join", title: "Join", caption: "App Clip, no install" },
+            { screen: "camera", title: "The camera", caption: "Shots counted by the shutter" },
+            {
+                screen: "developing",
+                title: "Before the reveal",
+                caption: "Every photo still developing",
+            },
+            { screen: "lock", title: "Lock screen", caption: "Live Activity while you shoot" },
+        ],
+    },
+    {
+        id: "reveal",
+        title: "The reveal",
+        text: "At the reveal time everyone gets a notification, and the gallery opens with every photo signed by the guest who took it.",
+        shots: [
+            { screen: "notification", title: "The notification", caption: "Everyone at once" },
+            { screen: "moment", title: "The moment", caption: "Tap the button to fan them out" },
+            { screen: "gallery", title: "The gallery", caption: "Signed by whoever took it" },
+            { screen: "photo", title: "One photo", caption: "Full screen, with its photographer" },
+            { screen: "recap", title: "The recap", caption: "A short film of the night" },
+            { screen: "people", title: "The people", caption: "Who shot what" },
+        ],
+    },
+];
+
+const FAQ: { q: string; a: string }[] = [
+    {
+        q: "Do guests need to download an app?",
+        a: "No. Guests scan the event's QR code and the camera opens in their browser, with nothing to install. Only the host needs the Linger app.",
+    },
+    {
+        q: "When do the photos appear?",
+        a: "The host picks the reveal when creating the event: right away, when the event ends, the next morning at 10:00, or a time of their choosing. Until then nobody sees the photos, the host included.",
+    },
+    {
+        q: "How many photos can each guest take?",
+        a: `The host sets a number between ${MIN_SHOTS} and ${MAX_SHOTS} shots per guest, and the camera counts them down beside the shutter. Unlimited shots are an add-on for any event.`,
+    },
+    {
+        q: "Who can see the photos after the reveal?",
+        a: "By default every guest sees the whole event. The host can choose Only me instead, so guests see just their own photos and the host sees everything.",
+    },
+    {
+        q: "What does it cost?",
+        a: `${freeLine} Larger events are a single payment by guest count, from ${formatPrice(smallest?.priceCents ?? 0)} for ${smallest?.guests} guests to ${formatPrice(largest?.priceCents ?? 0)} for ${largest?.guests}. There is no subscription.`,
+    },
+    {
+        q: "Can a photo be taken down?",
+        a: "Yes. The host can hide any photo, and anyone at the event can report one. A photo that three people report is hidden automatically.",
+    },
+    {
+        q: "What are the looks?",
+        a: `Each event has one film look that every photo shares: ${natural?.name}, ${warm?.name} with soft grain and a warm flash, or ${mono?.name} in high-contrast silver.`,
+    },
+];
+---
+
+<Layout>
+    <section class="hero">
+        <h1>
+            <span>Every guest gets a camera.</span> <span>Everyone gets the night.</span>
+        </h1>
+        <p>
+            <span>Guests scan a code and start shooting.</span>
+            <span>Nothing shows until the reveal.</span>
+            <span>Then the whole event arrives at once, from every angle.</span>
+        </p>
+        <div class="pills" role="group" aria-label="Occasion">
+            {OCCASION_KEYS.map((k) => (
+                <button
+                    class="pill"
+                    type="button"
+                    data-k={k}
+                    aria-pressed={k === FIRST_OCCASION ? "true" : "false"}
+                >
+                    <Icon name={OCCASIONS[k].icon} weight="duotone" />
+                    {OCCASIONS[k].label}
+                </button>
+            ))}
+        </div>
+        <div class="stage">
+            <Phone screen="join" eager />
+            <Phone screen="gallery" eager />
+            <Phone screen="camera" eager />
+        </div>
+        <aside class="try" aria-label="Try Linger">
+            <div class="t">
+                <svg width="12" height="12" viewBox="0 0 32 32" aria-hidden="true">
+                    <circle
+                        cx="12"
+                        cy="16"
+                        r="9"
+                        fill="none"
+                        stroke="#D8D5CE"
+                        stroke-width="3"
+                    ></circle>
+                    <circle cx="20" cy="16" r="9" fill="#D8D5CE"></circle>
+                </svg>
+                Try Linger
+            </div>
+            <a class="qr" href={tryUrl} aria-label="Open Linger in the browser" set:html={tryQr} />
+            Your camera is ready. No download needed.
+        </aside>
+    </section>
+
+    {ACTS.map((act) => (
+        <section class="act" id={act.id}>
+            <div class="act-head">
+                <h2>{act.title}</h2>
+                <p>{act.text}</p>
+            </div>
+            <div class="row">
+                {act.shots.map((s) => (
+                    <figure class="shot">
+                        <Phone screen={s.screen} />
+                        <figcaption>
+                            {s.title}
+                            <span>{s.caption}</span>
+                        </figcaption>
+                    </figure>
+                ))}
+            </div>
+        </section>
+    ))}
+
+    <section class="act" id="pricing">
+        <div class="act-head">
+            <h2>Pay once, by guest count</h2>
+            <p>
+                {freeLine} For a larger event the host pays once, in the app or on the web, and
+                every size gets the same camera, looks and reveal.
+            </p>
+        </div>
+        <Tiers />
+    </section>
+
+    <section class="act" id="faq">
+        <div class="act-head">
+            <h2>Questions</h2>
+            <p>
+                For anything else, email{" "}
+                <a href="mailto:support@lingercam.app">support@lingercam.app</a>.
+            </p>
+        </div>
+        <div class="faq">
+            {FAQ.map((item) => (
+                <details>
+                    <summary>
+                        {item.q}
+                        <Icon name="plus" />
+                    </summary>
+                    <p>{item.a}</p>
+                </details>
+            ))}
+        </div>
+    </section>
+</Layout>
+
+<script>
+    const pills = document.querySelectorAll<HTMLButtonElement>(".pill");
+    pills.forEach((pill) =>
+        pill.addEventListener("click", () => {
+            const current = pill.dataset.k;
+            document.querySelectorAll<HTMLElement>(".scr[data-k]").forEach((scr) => {
+                scr.hidden = scr.dataset.k !== current;
+            });
+            pills.forEach((p) => p.setAttribute("aria-pressed", String(p === pill)));
+        }),
+    );
+
+    document.querySelectorAll<HTMLButtonElement>("[data-fan-btn]").forEach((btn) =>
+        btn.addEventListener("click", () => {
+            const cards = btn.closest(".scr")?.querySelectorAll<HTMLElement>("[data-fan] .c") ?? [];
+            const open = btn.dataset.open !== "1";
+            cards.forEach((c, i) => {
+                c.style.transform = open
+                    ? `translateX(calc(-50% + ${(i - 1) * 92}px)) rotate(${(i - 1) * 11}deg) translateY(${Math.abs(i - 1) * 18}px)`
+                    : `translateX(calc(-50% + ${(i - 1) * 26}px)) rotate(${(i - 1) * 5}deg)`;
+            });
+            btn.dataset.open = open ? "1" : "0";
+        }),
+    );
+
+    // The Try card stays in view on load and steps aside once the hero scrolls away.
+    const tryCard = document.querySelector(".try");
+    const hero = document.querySelector(".hero");
+    if (tryCard && hero) {
+        new IntersectionObserver(
+            ([entry]) => tryCard.classList.toggle("away", !entry?.isIntersecting),
+            { threshold: 0.15 },
+        ).observe(hero);
+    }
+</script>
+
+<style>
+    .hero {
+        position: relative;
+        text-align: center;
+        padding: 64px 16px 0;
+    }
+    .hero h1 {
+        font: 350 clamp(42px, 6vw, 76px)/1.04 var(--serif);
+        letter-spacing: -0.025em;
+        margin: 0 auto;
+    }
+    .hero h1 span,
+    .hero p span {
+        display: block;
+        text-wrap: balance;
+    }
+    .hero p {
+        color: var(--muted);
+        max-width: 60ch;
+        line-height: 1.6;
+        margin: 22px auto 0;
+        font-size: 17px;
+    }
+    .pills {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+        margin: 34px 0 0;
+    }
+    .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 15px;
+        border-radius: 12px;
+        border: 1px solid var(--line);
+        background: #141412;
+        color: var(--muted);
+        font-size: 14px;
+        transition:
+            background 0.2s,
+            color 0.2s;
+    }
+    .pill[aria-pressed="true"] {
+        background: #2a2a26;
+        color: var(--text);
+        border-color: rgba(255, 255, 255, 0.16);
+    }
+    .pill :global(svg) {
+        width: 19px;
+        height: 19px;
+        color: #d8d5ce;
+    }
+    .pill[aria-pressed="true"] :global(svg) {
+        color: var(--text);
+    }
+    :global(.i path[opacity]) {
+        fill: currentColor;
+        opacity: 0.3;
+    }
+    .stage {
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        gap: 40px;
+        padding: 52px 16px 24px;
+        --s: 0.76;
+    }
+    .stage > :global(.device:nth-child(odd)) {
+        margin-top: 72px;
+    }
+    .try {
+        position: fixed;
+        left: 20px;
+        bottom: 20px;
+        transition:
+            opacity 0.3s,
+            transform 0.3s;
+        z-index: 9;
+        width: 216px;
+        background: #1a1a18;
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        padding: 18px;
+        text-align: center;
+        font-size: 12.5px;
+        color: var(--muted);
+    }
+    .try .t {
+        font-size: 11px;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: #d8d5ce;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+    }
+    .try .qr {
+        display: block;
+        width: 132px;
+        height: 132px;
+        margin: 14px auto 12px;
+        background: #fff;
+        border-radius: 10px;
+        padding: 8px;
+    }
+    .try .qr :global(svg) {
+        display: block;
+        width: 100%;
+        height: 100%;
+    }
+    .try:global(.away) {
+        opacity: 0;
+        transform: translateY(12px);
+        pointer-events: none;
+    }
+    @media (max-width: 1640px) {
+        .try {
+            display: none;
+        }
+    }
+
+    .act {
+        padding: 80px clamp(16px, 4vw, 48px) 8px;
+        max-width: 1560px;
+        margin: 0 auto;
+    }
+    .act-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: end;
+        justify-content: space-between;
+        gap: 12px 48px;
+        margin-bottom: 30px;
+    }
+    .act-head h2 {
+        font: 350 clamp(36px, 4.4vw, 56px)/1.02 var(--serif);
+        letter-spacing: -0.02em;
+    }
+    .act-head p {
+        color: var(--muted);
+        max-width: 54ch;
+        font-size: 16px;
+    }
+    .act-head a {
+        color: var(--text);
+        text-underline-offset: 3px;
+    }
+    /* Bleeds to the section edge; the inset padding keeps the first phone's ring and shadow clear. */
+    .row {
+        display: flex;
+        gap: 36px;
+        overflow-x: auto;
+        margin: 0 calc(-1 * clamp(16px, 4vw, 48px));
+        padding: 18px clamp(16px, 4vw, 48px) 30px;
+        scroll-padding-inline: clamp(16px, 4vw, 48px);
+        scroll-snap-type: x proximity;
+        scrollbar-width: thin;
+        scrollbar-color: #333 transparent;
+    }
+    .shot {
+        flex: 0 0 auto;
+        scroll-snap-align: start;
+    }
+    .shot figcaption {
+        margin-top: 18px;
+        text-align: center;
+        font: italic 400 21px var(--serif);
+        color: #e2dfd8;
+    }
+    .shot figcaption span {
+        display: block;
+        font: 13.5px var(--sans);
+        color: var(--faint);
+        font-style: normal;
+        margin-top: 3px;
+    }
+
+    .faq {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0 48px;
+        align-items: start;
+    }
+    .faq details {
+        border-bottom: 1px solid var(--line);
+    }
+    .faq summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 20px 0;
+        cursor: pointer;
+        list-style: none;
+        font: 400 22px/1.25 var(--serif);
+        letter-spacing: -0.005em;
+    }
+    .faq summary::-webkit-details-marker {
+        display: none;
+    }
+    .faq summary :global(svg) {
+        flex: 0 0 auto;
+        width: 18px;
+        height: 18px;
+        color: var(--muted);
+        transition: transform 0.2s;
+    }
+    .faq details[open] summary :global(svg) {
+        transform: rotate(45deg);
+    }
+    .faq details p {
+        color: var(--muted);
+        padding: 0 32px 22px 0;
+        max-width: 60ch;
+    }
+
+    @media (max-width: 1000px) {
+        .stage > :global(.device:nth-child(3)) {
+            display: none;
+        }
+        .faq {
+            grid-template-columns: 1fr;
+        }
+    }
+    @media (max-width: 760px) {
+        .stage > :global(.device:nth-child(1)) {
+            display: none;
+        }
+        .stage > :global(.device:nth-child(2)) {
+            margin-top: 0;
+        }
+    }
+    @media (max-width: 520px) {
+        .act {
+            --s: 0.66;
+        }
+        .stage {
+            --s: 0.72;
+        }
+    }
+</style>

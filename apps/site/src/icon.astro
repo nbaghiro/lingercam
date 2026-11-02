@@ -1,0 +1,19 @@
+---
+// Phosphor icons (MIT), read from the package at build time. The duotone layer is drawn at 30%.
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+
+interface Props {
+    name: string;
+    weight?: "regular" | "duotone" | "fill";
+}
+
+const { name, weight = "regular" } = Astro.props;
+const suffix = weight === "regular" ? "" : `-${weight}`;
+const file = createRequire(import.meta.url).resolve(
+    `@phosphor-icons/core/${weight}/${name}${suffix}.svg`,
+);
+const inner = readFileSync(file, "utf8").replace(/^<svg[^>]*>|<\/svg>\s*$/g, "");
+---
+
+<svg class="i" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true" set:html={inner} />
