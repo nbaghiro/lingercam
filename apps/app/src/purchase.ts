@@ -103,6 +103,45 @@ async function sendClaim(claim: PendingClaim): Promise<Event | null> {
     }
 }
 
+/** True when a store payment for this host hasn't reached the API yet. */
+export function hasPendingClaims(hostId: string): boolean {
+    return readPending().some((c) => c.hostId === hostId);
+}
+
+/** Purchases go through the API's development claim, with no store and no card. */
+export function testPurchases(): boolean {
+    return !storeKey;
+}
+
+export interface StorePrice {
+    /** The store's own string, such as "CA$13.99". */
+    priceString: string;
+    price: number;
+    currencyCode: string;
+}
+
+/**
+ * The store's localized price for each product it knows, by product id. Empty without a store
+ * key or when the store can't be reached, so callers fall back to core's prices.
+ */
+export async function storePrices(
+    hostId: string,
+    ids: string[],
+): Promise<Record<string, StorePrice>> {
+    if (!storeKey || ids.length === 0) return {};
+    configure(hostId);
+    const products = await Purchases.getProducts(ids, Purchases.PRODUCT_CATEGORY.NON_SUBSCRIPTION);
+    const prices: Record<string, StorePrice> = {};
+    for (const p of products) {
+        prices[p.identifier] = {
+            priceString: p.priceString,
+            price: p.price,
+            currencyCode: p.currencyCode,
+        };
+    }
+    return prices;
+}
+
 /** Sends any claims left over from an earlier purchase. Called on launch and before buying. */
 export async function claimPending(): Promise<void> {
     const hostId = currentHostId();

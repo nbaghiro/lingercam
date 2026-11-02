@@ -1,24 +1,58 @@
-import type { Event } from "@linger/core/events";
+import { dueState, type Event } from "@linger/core/events";
+import { shootingPhase } from "@linger/core/shots";
 import Constants from "expo-constants";
 import { Image } from "expo-image";
+import * as Notifications from "expo-notifications";
 import { useFocusEffect, useRouter, type Href } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
+    ActionSheetIOS,
     Alert,
     Linking,
     Platform,
     Pressable,
     RefreshControl,
+    Text as RNText,
     ScrollView,
     StyleSheet,
     View,
 } from "react-native";
+import Animated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 
-import { SITE_URL, api, siteLink, useAction, useLoad, useSession } from "@/api";
-import { formatDay, revealLabel, stateLabel, t } from "@/copy";
+import {
+    SITE_URL,
+    api,
+    asApiError,
+    cached,
+    dismissSignedOutNotice,
+    invalidate,
+    joinLink,
+    serverNow,
+    siteLink,
+    storage,
+    useAction,
+    useLoad,
+    useOnForeground,
+    useSession,
+    useSignedOutNotice,
+    type Session,
+} from "@/api";
+import {
+    dayLabel,
+    formatDay,
+    formatDuration,
+    formatWhen,
+    problem,
+    revealLabel,
+    stateLabel,
+    t,
+} from "@/copy";
+import { InviteSheet, shareLink } from "@/invite";
+import { CodeEntry, JoinedEvents } from "@/joined";
+import { hasPendingClaims } from "@/purchase";
 import {
     Button,
     Icon,
@@ -26,31 +60,61 @@ import {
     Input,
     Mark,
     Notice,
+    Row,
+    RowGroup,
     Screen,
     Sheet,
     Text,
     Wordmark,
     color,
+    confirm,
     gutter,
+    haptic,
     icons,
     occasionIcons,
+    radius,
+    showToast,
+    space,
+    useReduceMotion,
 } from "@/ui";
+import { useShots } from "@/uploads";
 
 const WELCOME_PHOTO = require("../assets/demo/w-hero.jpg");
 
+/** The key the host's events load under, shared by the list, Settings and create. */
+const eventsKey = (hostId: string) => `events:${hostId}`;
+
+/**
+ * Set while an email sign-in is being verified. The session arrives before the verify call
+ * returns, so the events list reads this to know the sign-in came through email.
+ */
+const EMAIL_SIGN_IN_KEY = "emailSignIn";
+
+/** An account this new is treated as a first sign-in. */
+const NEW_ACCOUNT_MS = 10 * 60_000;
+
 export function HomeScreen() {
     const session = useSession();
-    if (Platform.OS === "web") return <HostAppNote />;
+    if (Platform.OS === "web") return <GuestHome />;
     if (!session) return <Welcome />;
-    return <Events />;
+    return <Events session={session} />;
 }
 
 // Signed out
 
 function Welcome() {
+    const router = useRouter();
     const insets = useSafeAreaInsets();
     const [signingIn, setSigningIn] = useState(false);
+    const [enteringCode, setEnteringCode] = useState(false);
     const demo = useAction(api.auth.demo);
+    // Read once: the notice shows on this visit to Welcome and not again.
+    const signedOut = useSignedOutNotice();
+    const [showSignedOut] = useState(signedOut);
+    useEffect(() => {
+        dismissSignedOutNotice();
+    }, []);
+
     return (
         <View style={styles.fill}>
             <Image source={WELCOME_PHOTO} style={styles.welcomePhoto} contentFit="cover" />
@@ -64,11 +128,13 @@ function Welcome() {
                 </Defs>
                 <Rect width="100%" height="100%" fill="url(#welcome)" />
             </Svg>
-            <View
-                style={[
+            <ScrollView
+                style={styles.fill0}
+                contentContainerStyle={[
                     styles.welcomeBody,
                     { paddingBottom: Math.max(insets.bottom, 12) + 10, paddingTop: insets.top },
                 ]}
+                showsVerticalScrollIndicator={false}
             >
                 <Wordmark size={34} />
                 <Text variant="display" style={{ marginTop: 22 }}>
@@ -77,6 +143,8 @@ function Welcome() {
                 <Text variant="small" tone="ash" style={{ marginTop: 12, marginBottom: 28 }}>
                     {t("welcome.body")}
                 </Text>
+                {showSignedOut ? <Notice>{t("welcome.signedOut")}</Notice> : null}
+                <JoinedEvents onOpen={(code) => router.push(`/e/${code}` as Href)} />
                 <View style={{ gap: 10 }}>
                     <Button
                         label={t("welcome.email")}
@@ -89,74 +157,165 @@ function Welcome() {
                             variant="dark"
                             loading={demo.busy}
                             onPress={() => {
-                                demo.run();
+                                demo.run().then((session) => {
+                                    if (session) haptic("success");
+                                });
                             }}
                         />
                     ) : null}
                 </View>
-                {demo.error ? <Notice>{errorMessage(demo.error.code)}</Notice> : null}
+                {demo.error ? <Notice>{problem(demo.error.code)}</Notice> : null}
                 <Pressable
-                    onPress={() => openLink(siteLink("terms"))}
-                    accessibilityRole="link"
-                    style={{ marginTop: 16 }}
+                    onPress={() => setEnteringCode(true)}
+                    accessibilityRole="button"
+                    hitSlop={8}
+                    style={{ alignSelf: "center", marginTop: space.l }}
                 >
-                    <Text variant="caption" tone="faint" align="center">
-                        {t("welcome.legal")}
+                    <Text variant="small" tone="ash" weight="medium">
+                        {t("welcome.haveCode")}
                     </Text>
                 </Pressable>
-            </View>
+                <LegalLine />
+            </ScrollView>
             <SignInSheet visible={signingIn} onClose={() => setSigningIn(false)} />
+            <Sheet visible={enteringCode} onClose={() => setEnteringCode(false)}>
+                <Text variant="heading" align="center" accessibilityRole="header">
+                    {t("code.title")}
+                </Text>
+                <Text variant="small" tone="ash" align="center">
+                    {t("code.body")}
+                </Text>
+                <CodeEntry
+                    onSubmit={(code) => {
+                        setEnteringCode(false);
+                        router.push(`/j/${code}` as Href);
+                    }}
+                />
+            </Sheet>
+        </View>
+    );
+}
+
+/** "By continuing you agree to the Terms and the Privacy Policy.", with two separate links. */
+function LegalLine() {
+    const sentence = t("welcome.legal");
+    const links = [
+        { label: t("welcome.legalTerms"), url: siteLink("terms") },
+        { label: t("welcome.legalPrivacy"), url: siteLink("privacy") },
+    ];
+    const parts: ({ text: string } | { text: string; url: string })[] = [];
+    let rest = sentence;
+    for (const link of links) {
+        const at = rest.indexOf(link.label);
+        if (at < 0) continue;
+        if (at > 0) parts.push({ text: rest.slice(0, at) });
+        parts.push({ text: link.label, url: link.url });
+        rest = rest.slice(at + link.label.length);
+    }
+    if (rest) parts.push({ text: rest });
+    return (
+        <View style={{ marginTop: space.l }}>
+            <Text variant="caption" tone="ash" align="center">
+                {parts.map((part, i) =>
+                    "url" in part ? (
+                        <RNText
+                            key={i}
+                            onPress={() => openLink(part.url)}
+                            accessibilityRole="link"
+                            style={styles.legalLink}
+                            suppressHighlighting={false}
+                        >
+                            {part.text}
+                        </RNText>
+                    ) : (
+                        part.text
+                    ),
+                )}
+            </Text>
         </View>
     );
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const RESEND_SECONDS = 30;
+
+/** What to say about a failed sign-in step, from the server's code. */
+function signInProblem(step: "start" | "verify", code: string): string {
+    if (step === "start" && code === "too-many") return t("signIn.tooMany");
+    return problem(code);
+}
 
 function SignInSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
     const [email, setEmail] = useState("");
     const [code, setCode] = useState("");
     const [sentTo, setSentTo] = useState<string | null>(null);
-    const [problem, setProblem] = useState<string | null>(null);
+    const [problemLine, setProblemLine] = useState<string | null>(null);
     const [resent, setResent] = useState(false);
+    const [sentAt, setSentAt] = useState(0);
+    const [now, setNow] = useState(() => Date.now());
     const start = useAction(api.auth.start);
     const verify = useAction(api.auth.verify);
+
+    const waitSeconds = Math.max(0, Math.ceil((sentAt + RESEND_SECONDS * 1000 - now) / 1000));
+    useEffect(() => {
+        if (waitSeconds === 0) return;
+        const id = setInterval(() => setNow(Date.now()), 1000);
+        return () => clearInterval(id);
+    }, [waitSeconds]);
 
     const send = async (again: boolean) => {
         const address = (again ? (sentTo ?? email) : email).trim().toLowerCase();
         if (!EMAIL.test(address)) {
-            setProblem(t("signIn.badEmail"));
+            setProblemLine(t("signIn.badEmail"));
             return;
         }
-        setProblem(null);
+        setProblemLine(null);
+        verify.reset();
         const ok = await start.run(address);
         if (ok === undefined) return;
         setSentTo(address);
         setResent(again);
+        setCode("");
+        setSentAt(Date.now());
+        setNow(Date.now());
     };
 
     const submit = async (value: string) => {
         if (!sentTo || value.length !== 6) return;
+        storage.set(EMAIL_SIGN_IN_KEY, "1");
         const session = await verify.run(sentTo, value);
-        if (session) close();
+        if (!session) {
+            storage.remove(EMAIL_SIGN_IN_KEY);
+            setCode("");
+            return;
+        }
+        haptic("success");
+        close();
     };
 
     const close = () => {
         setCode("");
         setSentTo(null);
-        setProblem(null);
+        setProblemLine(null);
         setResent(false);
         start.reset();
         verify.reset();
         onClose();
     };
 
-    const error = problem ?? (start.error ?? verify.error)?.message ?? null;
+    const error =
+        problemLine ??
+        (start.error
+            ? signInProblem("start", start.error.code)
+            : verify.error
+              ? signInProblem("verify", verify.error.code)
+              : null);
 
     return (
         <Sheet visible={visible} onClose={close}>
             {sentTo === null ? (
                 <>
-                    <Text variant="heading" align="center">
+                    <Text variant="heading" align="center" accessibilityRole="header">
                         {t("signIn.title")}
                     </Text>
                     <Text variant="small" tone="ash" align="center">
@@ -188,7 +347,7 @@ function SignInSheet({ visible, onClose }: { visible: boolean; onClose: () => vo
                 </>
             ) : (
                 <>
-                    <Text variant="heading" align="center">
+                    <Text variant="heading" align="center" accessibilityRole="header">
                         {t("signIn.codeTitle")}
                     </Text>
                     <Text variant="small" tone="ash" align="center">
@@ -210,6 +369,16 @@ function SignInSheet({ visible, onClose }: { visible: boolean; onClose: () => vo
                         style={styles.codeInput}
                         accessibilityLabel={t("signIn.codeTitle")}
                     />
+                    {Platform.OS === "ios" ? (
+                        <View style={{ alignItems: "center" }}>
+                            <TextLink
+                                label={t("signIn.openMail")}
+                                onPress={() => {
+                                    Linking.openURL("message://").catch(() => null);
+                                }}
+                            />
+                        </View>
+                    ) : null}
                     {error ? <Notice>{error}</Notice> : null}
                     {resent && !error ? (
                         <Text variant="small" tone="ash" align="center">
@@ -226,7 +395,12 @@ function SignInSheet({ visible, onClose }: { visible: boolean; onClose: () => vo
                     />
                     <View style={styles.sheetLinks}>
                         <TextLink
-                            label={t("signIn.resend")}
+                            label={
+                                waitSeconds > 0
+                                    ? t("signIn.resendIn", { seconds: waitSeconds })
+                                    : t("signIn.resend")
+                            }
+                            disabled={waitSeconds > 0 || start.busy}
                             onPress={() => {
                                 send(true);
                             }}
@@ -236,6 +410,8 @@ function SignInSheet({ visible, onClose }: { visible: boolean; onClose: () => vo
                             onPress={() => {
                                 setSentTo(null);
                                 setCode("");
+                                setProblemLine(null);
+                                start.reset();
                                 verify.reset();
                             }}
                         />
@@ -246,87 +422,406 @@ function SignInSheet({ visible, onClose }: { visible: boolean; onClose: () => vo
     );
 }
 
-function TextLink({ label, onPress }: { label: string; onPress: () => void }) {
+interface TextLinkProps {
+    label: string;
+    onPress: () => void;
+    disabled?: boolean;
+}
+
+function TextLink({ label, onPress, disabled = false }: TextLinkProps) {
     return (
-        <Pressable onPress={onPress} accessibilityRole="button" hitSlop={8}>
-            <Text variant="small" tone="ash" weight="medium">
+        <Pressable
+            onPress={onPress}
+            disabled={disabled}
+            accessibilityRole="button"
+            accessibilityState={{ disabled }}
+            hitSlop={8}
+        >
+            <Text variant="small" tone={disabled ? "faint" : "ash"} weight="medium">
                 {label}
             </Text>
         </Pressable>
     );
 }
 
+/** "What should guests call you?", after a first sign-in and from Settings. */
+function NameSheet({
+    visible,
+    initial,
+    onClose,
+}: {
+    visible: boolean;
+    initial: string;
+    onClose: () => void;
+}) {
+    const [name, setName] = useState(initial);
+    const [opened, setOpened] = useState(false);
+    const rename = useAction(api.me.rename);
+    // Start from the saved name each time the sheet opens.
+    if (visible !== opened) {
+        setOpened(visible);
+        if (visible) setName(initial);
+    }
+    const save = async () => {
+        const trimmed = name.trim();
+        if (!trimmed) return;
+        if (trimmed === initial) {
+            onClose();
+            return;
+        }
+        const host = await rename.run(trimmed);
+        if (!host) return;
+        haptic("success");
+        onClose();
+    };
+    return (
+        <Sheet
+            visible={visible}
+            onClose={() => {
+                rename.reset();
+                onClose();
+            }}
+        >
+            <Text variant="heading" align="center" accessibilityRole="header">
+                {t("signIn.nameTitle")}
+            </Text>
+            <Text variant="small" tone="ash" align="center">
+                {t("signIn.nameBody")}
+            </Text>
+            <Input
+                value={name}
+                onChangeText={setName}
+                placeholder={t("join.namePlaceholder")}
+                autoCapitalize="words"
+                autoComplete="name"
+                textContentType="name"
+                returnKeyType="done"
+                maxLength={40}
+                autoFocus
+                onSubmitEditing={() => {
+                    save();
+                }}
+                accessibilityLabel={t("settings.name")}
+            />
+            {rename.error ? <Notice>{problem(rename.error.code)}</Notice> : null}
+            <Button
+                label={t("signIn.nameSave")}
+                loading={rename.busy}
+                disabled={name.trim() === ""}
+                onPress={() => {
+                    save();
+                }}
+            />
+        </Sheet>
+    );
+}
+
 // Signed in
 
-function Events() {
+type Group = "live" | "upcoming" | "waiting" | "drafts" | "revealed" | "past";
+
+const GROUPS: readonly Group[] = ["live", "upcoming", "waiting", "drafts", "revealed", "past"];
+
+/** Where an event sits in the host's list, from its state as the server's clock has it now. */
+function groupOf(event: Event, now: Date): Group {
+    const state = dueState(
+        event.state,
+        event.settings,
+        event.revealedAt ? new Date(event.revealedAt) : null,
+        now,
+    );
+    switch (state) {
+        case "draft":
+            return "drafts";
+        case "live":
+            return shootingPhase({ state, ...event.settings }, now) === "before"
+                ? "upcoming"
+                : "live";
+        case "ended":
+            return "waiting";
+        case "revealed":
+            return "revealed";
+        case "archived":
+            return "past";
+    }
+}
+
+const time = (iso: string | null | undefined) => (iso ? Date.parse(iso) : 0);
+
+/** Soonest first for what's coming, most recent first for what's done. */
+function sortKey(group: Group, event: Event): number {
+    switch (group) {
+        case "live":
+            return time(event.settings.endsAt);
+        case "upcoming":
+            return time(event.settings.startsAt);
+        case "waiting":
+            return time(event.revealsAt);
+        case "drafts":
+            return -time(event.createdAt);
+        case "revealed":
+        case "past":
+            return -time(event.revealedAt ?? event.revealsAt);
+    }
+}
+
+function grouped(list: readonly Event[], now: Date): { group: Group; events: Event[] }[] {
+    const byGroup = new Map<Group, Event[]>();
+    for (const event of list) {
+        const group = groupOf(event, now);
+        byGroup.set(group, [...(byGroup.get(group) ?? []), event]);
+    }
+    return GROUPS.flatMap((group) => {
+        const events = byGroup.get(group);
+        if (!events) return [];
+        events.sort((a, b) => sortKey(group, a) - sortKey(group, b));
+        return [{ group, events }];
+    });
+}
+
+/** The one line under a card's title, in the event's time zone. */
+function cardLine(event: Event, group: Group, now: Date): string {
+    const zone = event.settings.timeZone;
+    switch (group) {
+        case "live":
+            return t("home.line.live", {
+                left: formatDuration(time(event.settings.endsAt) - now.getTime()),
+                moments: event.photoCount,
+            });
+        case "upcoming":
+            return t("home.line.upcoming", {
+                when: formatWhen(now, new Date(event.settings.startsAt), zone),
+            });
+        case "waiting":
+            return t("home.line.waiting", {
+                day: formatDay(new Date(event.settings.startsAt), zone),
+                reveal: revealLabel(now, new Date(event.revealsAt), zone),
+            });
+        case "drafts":
+            return t("home.draft");
+        case "revealed":
+        case "past":
+            return t("home.line.revealed", {
+                photos: event.photoCount,
+                date: dayLabel(new Date(event.revealedAt ?? event.revealsAt), now, zone),
+            });
+    }
+}
+
+function chipLabel(event: Event, group: Group): string {
+    if (group === "upcoming") return t("home.group.upcoming");
+    if (group === "waiting") return stateLabel("ended");
+    if (group === "past") return stateLabel("archived");
+    if (group === "drafts") return stateLabel("draft");
+    if (group === "revealed") return stateLabel("revealed");
+    return stateLabel(event.state === "live" ? "live" : "ended");
+}
+
+function Events({ session }: { session: Session }) {
     const router = useRouter();
-    const session = useSession();
-    const [visits, setVisits] = useState(0);
-    useFocusEffect(useCallback(() => setVisits((n) => n + 1), []));
-    const key = session && visits > 0 ? `events:${session.host.id}:${visits}` : null;
-    const events = useLoad(key, api.events.list);
+    const events = useLoad(eventsKey(session.host.id), api.events.list);
     const list = events.data;
+    const [pulling, setPulling] = useState(false);
+    const [inviting, setInviting] = useState<Event | null>(null);
+    // A first sign-in asks for the name guests see. Demo and returning hosts aren't asked.
+    const [naming, setNaming] = useState(
+        () =>
+            storage.getString(EMAIL_SIGN_IN_KEY) === "1" &&
+            Date.now() - Date.parse(session.host.createdAt) < NEW_ACCOUNT_MS,
+    );
+    useEffect(() => {
+        storage.remove(EMAIL_SIGN_IN_KEY);
+    }, []);
+    const still = useReduceMotion();
+
+    if (pulling && !events.loading) setPulling(false);
+
+    const now = serverNow();
+    const groups = list ? grouped(list, now) : [];
+
+    const open = (event: Event) =>
+        router.push(
+            event.state === "draft"
+                ? { pathname: "/new", params: { event: event.id } }
+                : (`/e/${event.code}` as Href),
+        );
+
+    const remove = (event: Event) => {
+        const draft = event.state === "draft";
+        confirm(
+            draft
+                ? t("create.deleteDraftTitle")
+                : t("manage.deleteTitle", { title: event.settings.title }),
+            draft ? t("create.deleteDraftBody") : t("manage.deleteBody"),
+            draft ? t("create.deleteDraft") : t("manage.delete"),
+            () => {
+                api.events
+                    .delete(event.id, event.code)
+                    .then(() => {
+                        invalidate("events:");
+                        showToast(t("home.deleted", { title: event.settings.title }));
+                    })
+                    .catch((error: unknown) => showToast(problem(asApiError(error).code)));
+            },
+        );
+    };
+
+    const actions = (event: Event): { label: string; run: () => void; destructive?: boolean }[] => {
+        const del = { label: t("home.menu.delete"), run: () => remove(event), destructive: true };
+        if (event.state === "draft") return [del];
+        const url = joinLink(event.code);
+        const title = event.settings.title;
+        return [
+            { label: t("home.menu.showCode"), run: () => setInviting(event) },
+            {
+                label: t("home.menu.shareLink"),
+                run: () => {
+                    shareLink(title, url, t("create.invite.shareMessage", { title, url })).catch(
+                        () => null,
+                    );
+                },
+            },
+            {
+                label: t("home.menu.manage"),
+                run: () => router.push(`/e/${event.code}?manage=1` as Href),
+            },
+            del,
+        ];
+    };
+
+    const showMenu = (event: Event) => {
+        const items = actions(event);
+        haptic("medium");
+        if (Platform.OS === "ios") {
+            ActionSheetIOS.showActionSheetWithOptions(
+                {
+                    title: event.settings.title,
+                    options: [...items.map((i) => i.label), t("common.cancel")],
+                    cancelButtonIndex: items.length,
+                    destructiveButtonIndex: items.findIndex((i) => i.destructive),
+                    userInterfaceStyle: "dark",
+                },
+                (index) => items[index]?.run(),
+            );
+            return;
+        }
+        Alert.alert(event.settings.title, undefined, [
+            ...items.map((i) => ({
+                text: i.label,
+                onPress: i.run,
+                ...(i.destructive ? { style: "destructive" as const } : {}),
+            })),
+            { text: t("common.cancel"), style: "cancel" as const },
+        ]);
+    };
 
     return (
-        <Screen
-            padded={false}
-            footer={
-                list && list.length > 0 ? (
-                    <Button
-                        label={t("home.new")}
-                        icon={icons.plus}
-                        onPress={() => router.push("/new")}
-                    />
-                ) : null
-            }
-        >
-            <ScrollView
-                style={styles.fill}
-                contentContainerStyle={{ flexGrow: 1, paddingBottom: 16 }}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={events.loading && list !== undefined}
-                        onRefresh={events.reload}
-                        tintColor={color.ash}
-                    />
+        <Animated.View style={styles.fill} {...(still ? {} : { entering: FadeIn.duration(200) })}>
+            <Screen
+                padded={false}
+                footer={
+                    list && list.length > 0 ? (
+                        <Button
+                            label={t("home.new")}
+                            icon={icons.plus}
+                            onPress={() => router.push("/new")}
+                        />
+                    ) : null
                 }
             >
-                <Header onSettings={() => router.push("/settings")} />
-                {list === undefined ? (
-                    events.error ? (
-                        <View style={styles.empty}>
-                            <Notice>{t("home.loadFailed")}</Notice>
-                            <Button
-                                label={t("common.retry")}
-                                variant="dark"
-                                onPress={events.reload}
-                            />
+                <ScrollView
+                    style={styles.fill}
+                    contentContainerStyle={{ flexGrow: 1, paddingBottom: 16 }}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={pulling}
+                            onRefresh={() => {
+                                setPulling(true);
+                                events.reload();
+                            }}
+                            tintColor={color.ash}
+                        />
+                    }
+                >
+                    <Header onSettings={() => router.push("/settings")} />
+                    {list && events.error ? (
+                        <View style={{ paddingHorizontal: gutter, marginBottom: space.m }}>
+                            <Notice>{t("home.refreshFailed")}</Notice>
                         </View>
-                    ) : null
-                ) : list.length === 0 ? (
-                    <EmptyState onCreate={() => router.push("/new")} />
-                ) : (
-                    <View style={{ gap: 12, paddingHorizontal: 12 }}>
-                        <Text variant="title" style={{ paddingHorizontal: 10, marginBottom: 6 }}>
-                            {t("home.title")}
-                        </Text>
-                        {list.map((event) => (
-                            <EventCard
-                                key={event.id}
-                                event={event}
-                                onPress={() =>
-                                    router.push(
-                                        event.state === "draft"
-                                            ? { pathname: "/new", params: { event: event.id } }
-                                            : (`/e/${event.code}` as Href),
-                                    )
-                                }
-                            />
-                        ))}
+                    ) : null}
+                    {list === undefined ? (
+                        events.error ? (
+                            <View style={styles.empty}>
+                                <Notice>{t("home.loadFailed")}</Notice>
+                                <Button
+                                    label={t("common.retry")}
+                                    variant="dark"
+                                    onPress={events.reload}
+                                />
+                            </View>
+                        ) : (
+                            <Placeholders />
+                        )
+                    ) : list.length === 0 ? (
+                        <EmptyState onCreate={() => router.push("/new")} />
+                    ) : (
+                        <View style={{ gap: 12, paddingHorizontal: 12 }}>
+                            <Text
+                                variant="title"
+                                accessibilityRole="header"
+                                style={{ paddingHorizontal: 10 }}
+                            >
+                                {t("home.title")}
+                            </Text>
+                            {groups.map(({ group, events: inGroup }) => (
+                                <View key={group} style={{ gap: 12 }}>
+                                    <Text
+                                        variant="small"
+                                        tone="ash"
+                                        weight="medium"
+                                        accessibilityRole="header"
+                                        style={styles.groupLabel}
+                                    >
+                                        {t(`home.group.${group}`)}
+                                    </Text>
+                                    {inGroup.map((event) => (
+                                        <Animated.View
+                                            key={event.id}
+                                            {...(still ? {} : { entering: FadeIn.duration(150) })}
+                                        >
+                                            <EventCard
+                                                event={event}
+                                                group={group}
+                                                now={now}
+                                                onPress={() => open(event)}
+                                                onLongPress={() => showMenu(event)}
+                                                actions={actions(event)}
+                                            />
+                                        </Animated.View>
+                                    ))}
+                                </View>
+                            ))}
+                        </View>
+                    )}
+                    <View style={{ paddingHorizontal: 12, marginTop: space.xl }}>
+                        <JoinedEvents onOpen={(code) => router.push(`/e/${code}` as Href)} />
                     </View>
-                )}
-            </ScrollView>
-        </Screen>
+                </ScrollView>
+            </Screen>
+            {inviting ? (
+                <InviteSheet
+                    visible
+                    onClose={() => setInviting(null)}
+                    code={inviting.code}
+                    title={inviting.settings.title}
+                />
+            ) : null}
+            <NameSheet
+                visible={naming}
+                initial={session.host.name}
+                onClose={() => setNaming(false)}
+            />
+        </Animated.View>
     );
 }
 
@@ -340,6 +835,16 @@ function Header({ onSettings }: { onSettings: () => void }) {
                 onPress={onSettings}
                 accessibilityLabel={t("home.settings")}
             />
+        </View>
+    );
+}
+
+/** Two card-shaped Surface blocks while the list loads for the first time. */
+function Placeholders() {
+    return (
+        <View style={{ gap: 12, paddingHorizontal: 12 }} aria-hidden>
+            <View style={[styles.card, styles.placeholder]} />
+            <View style={[styles.card, styles.placeholder]} />
         </View>
     );
 }
@@ -364,23 +869,30 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
     );
 }
 
-function cardLine(event: Event, now: Date): string {
-    const day = formatDay(new Date(event.settings.startsAt), event.settings.timeZone);
-    if (event.state === "draft") return t("home.draft");
-    if (event.state === "live" || event.state === "ended") {
-        return `${day} · ${revealLabel(now, new Date(event.revealsAt))}`;
-    }
-    return day;
+interface EventCardProps {
+    event: Event;
+    group: Group;
+    now: Date;
+    onPress: () => void;
+    onLongPress: () => void;
+    /** The long-press menu, offered to screen readers as actions. */
+    actions: readonly { label: string; run: () => void }[];
 }
 
-function EventCard({ event, onPress }: { event: Event; onPress: () => void }) {
-    const now = new Date();
-    const live = event.state === "live";
+function EventCard({ event, group, now, onPress, onLongPress, actions }: EventCardProps) {
+    const live = group === "live";
+    const line = cardLine(event, group, now);
+    const chip = chipLabel(event, group);
     return (
         <Pressable
             onPress={onPress}
+            onLongPress={onLongPress}
             accessibilityRole="button"
-            accessibilityLabel={`${event.settings.title}, ${stateLabel(event.state)}. ${cardLine(event, now)}`}
+            accessibilityLabel={`${event.settings.title}, ${chip}. ${line}`}
+            accessibilityActions={actions.map((a) => ({ name: a.label, label: a.label }))}
+            onAccessibilityAction={(e) => {
+                actions.find((a) => a.label === e.nativeEvent.actionName)?.run();
+            }}
             style={({ pressed }) => [styles.card, { opacity: pressed ? 0.85 : 1 }]}
         >
             {event.coverUrl ? (
@@ -412,7 +924,7 @@ function EventCard({ event, onPress }: { event: Event; onPress: () => void }) {
             <View style={styles.chip}>
                 {live ? <View style={styles.liveDot} /> : null}
                 <Text variant="caption" weight="semibold">
-                    {stateLabel(event.state)}
+                    {chip}
                 </Text>
             </View>
             <View style={styles.cardText}>
@@ -420,7 +932,7 @@ function EventCard({ event, onPress }: { event: Event; onPress: () => void }) {
                     {event.settings.title}
                 </Text>
                 <Text variant="small" tone="soft" style={{ marginTop: 4 }} numberOfLines={1}>
-                    {cardLine(event, now)}
+                    {line}
                 </Text>
             </View>
         </Pressable>
@@ -429,13 +941,55 @@ function EventCard({ event, onPress }: { event: Event; onPress: () => void }) {
 
 // Settings
 
+/** Reports how many of one event's photos are still waiting to upload. */
+function PendingWatch({
+    code,
+    onCount,
+}: {
+    code: string;
+    onCount: (code: string, pending: number) => void;
+}) {
+    const { pending } = useShots(code);
+    useEffect(() => {
+        onCount(code, pending);
+    }, [code, pending, onCount]);
+    return null;
+}
+
+/** Whether Linger may show notifications, read again whenever Settings comes into view. */
+function useNotificationsAllowed(): boolean | null {
+    const [allowed, setAllowed] = useState<boolean | null>(null);
+    const read = useCallback(() => {
+        if (Platform.OS === "web") return;
+        Notifications.getPermissionsAsync()
+            .then((p) => setAllowed(p.granted))
+            .catch(() => null);
+    }, []);
+    useFocusEffect(read);
+    useOnForeground(read);
+    return allowed;
+}
+
 export function SettingsScreen() {
+    if (Platform.OS === "web") return <HostAppNote />;
+    return <Settings />;
+}
+
+function Settings() {
     const router = useRouter();
     const session = useSession();
     const remove = useAction(api.me.delete);
     const signOut = useAction(api.auth.signOut);
+    const [naming, setNaming] = useState(false);
+    const [pendingByCode, setPendingByCode] = useState<Record<string, number>>({});
+    const notifications = useNotificationsAllowed();
+    const events = useLoad(session ? eventsKey(session.host.id) : null, api.events.list);
+    const list = events.data ?? (session ? cached<Event[]>(eventsKey(session.host.id)) : undefined);
+    const codes = (list ?? []).map((e) => e.code);
 
-    if (Platform.OS === "web") return <HostAppNote />;
+    const onCount = useCallback((code: string, pending: number) => {
+        setPendingByCode((prev) => (prev[code] === pending ? prev : { ...prev, [code]: pending }));
+    }, []);
 
     const leave = () => {
         if (router.canGoBack()) router.back();
@@ -443,23 +997,72 @@ export function SettingsScreen() {
     };
 
     const confirmDelete = () => {
-        Alert.alert(t("settings.deleteTitle"), t("settings.deleteBody"), [
-            { text: t("common.cancel"), style: "cancel" },
-            {
-                text: t("settings.deleteConfirm"),
-                style: "destructive",
-                onPress: () => {
-                    remove.run().then((done) => {
-                        if (done !== undefined) leave();
-                    });
-                },
+        confirm(
+            t("settings.deleteTitle"),
+            list
+                ? t("settings.deleteBodyEvents", { count: list.length })
+                : t("settings.deleteBody"),
+            t("settings.deleteConfirm"),
+            () => {
+                remove.run().then((done) => {
+                    if (done !== undefined) leave();
+                });
             },
-        ]);
+        );
+    };
+
+    const runSignOut = async () => {
+        // This device stops reminding the host about their own events.
+        for (const code of codes) {
+            storage.remove(`reminder:${code}`);
+            await Notifications.cancelScheduledNotificationAsync(`reveal-${code}`).catch(
+                () => null,
+            );
+        }
+        await signOut.run();
+        leave();
+    };
+
+    const askSignOut = () => {
+        const waiting = codes.reduce((sum, code) => sum + (pendingByCode[code] ?? 0), 0);
+        const buying = session ? hasPendingClaims(session.host.id) : false;
+        const run = () => {
+            runSignOut().catch(() => null);
+        };
+        if (waiting > 0) {
+            confirm(
+                t("settings.signOutTitle"),
+                t("settings.signOutWaiting", { count: waiting }),
+                t("settings.signOut"),
+                run,
+            );
+        } else if (buying) {
+            confirm(
+                t("settings.signOutTitle"),
+                t("settings.signOutPurchase"),
+                t("settings.signOut"),
+                run,
+            );
+        } else {
+            run();
+        }
+    };
+
+    const openNotifications = async () => {
+        const permission = await Notifications.getPermissionsAsync();
+        if (!permission.granted && permission.canAskAgain && permission.status === "undetermined") {
+            await Notifications.requestPermissionsAsync();
+            return;
+        }
+        await Linking.openSettings();
     };
 
     return (
         // On iOS settings is a sheet below the status bar, so it needs no safe-area top.
         <Screen scroll {...(Platform.OS === "ios" ? { style: { paddingTop: 24 } } : {})}>
+            {codes.map((code) => (
+                <PendingWatch key={code} code={code} onCount={onCount} />
+            ))}
             <View style={styles.settingsTop}>
                 <Text variant="title" accessibilityRole="header">
                     {t("settings.title")}
@@ -476,85 +1079,130 @@ export function SettingsScreen() {
                 </Text>
             ) : null}
 
-            <View style={styles.group}>
-                <SettingsRow
-                    label={t("settings.support")}
-                    onPress={() => openLink(siteLink("support"))}
-                />
-                <SettingsRow
-                    label={t("settings.privacy")}
-                    onPress={() => openLink(siteLink("privacy"))}
-                />
-                <SettingsRow
-                    label={t("settings.terms")}
-                    onPress={() => openLink(siteLink("terms"))}
-                />
+            {session ? (
+                <View style={styles.groupGap}>
+                    <RowGroup>
+                        <Row
+                            label={t("settings.name")}
+                            value={session.host.name}
+                            onPress={() => setNaming(true)}
+                        />
+                        <Row
+                            label={t("settings.notifications")}
+                            {...(notifications === null
+                                ? {}
+                                : {
+                                      value: notifications
+                                          ? t("settings.notificationsOn")
+                                          : t("settings.notificationsOff"),
+                                  })}
+                            onPress={() => {
+                                openNotifications().catch(() => null);
+                            }}
+                        />
+                    </RowGroup>
+                </View>
+            ) : null}
+
+            <View style={styles.groupGap}>
+                <RowGroup>
+                    <Row
+                        label={t("settings.support")}
+                        onPress={() => openLink(siteLink("support"))}
+                    />
+                    <Row
+                        label={t("settings.privacy")}
+                        onPress={() => openLink(siteLink("privacy"))}
+                    />
+                    <Row label={t("settings.terms")} onPress={() => openLink(siteLink("terms"))} />
+                </RowGroup>
             </View>
 
             {session ? (
-                <View style={styles.group}>
-                    <SettingsRow
-                        label={t("settings.signOut")}
-                        icon={icons.signOut}
-                        busy={signOut.busy}
-                        onPress={() => {
-                            signOut.run().then(leave);
-                        }}
-                    />
-                    <SettingsRow
-                        label={t("settings.delete")}
-                        icon={icons.trash}
-                        tone="candle"
-                        busy={remove.busy}
-                        onPress={confirmDelete}
-                    />
+                <View style={styles.groupGap}>
+                    <RowGroup>
+                        <Row
+                            label={t("settings.signOut")}
+                            icon={icons.signOut}
+                            disabled={signOut.busy}
+                            onPress={askSignOut}
+                        />
+                        <Row
+                            label={t("settings.delete")}
+                            destructive
+                            disabled={remove.busy}
+                            onPress={confirmDelete}
+                        />
+                    </RowGroup>
                 </View>
             ) : null}
             {remove.error ? <Notice>{t("settings.deleteFailed")}</Notice> : null}
 
             <View style={{ flex: 1 }} />
-            <Text variant="caption" tone="faint" align="center" style={{ marginTop: 32 }}>
+            <Text variant="caption" tone="ash" align="center" style={{ marginTop: 32 }}>
                 {t("settings.version", { version: Constants.expoConfig?.version ?? "" })}
             </Text>
+            {session ? (
+                <NameSheet
+                    visible={naming}
+                    initial={session.host.name}
+                    onClose={() => setNaming(false)}
+                />
+            ) : null}
         </Screen>
     );
 }
 
-interface SettingsRowProps {
-    label: string;
-    onPress: () => void;
-    icon?: (typeof icons)[keyof typeof icons];
-    tone?: "paper" | "candle";
-    busy?: boolean;
-}
+// The web build serves guests. Its root is the guest home; host routes point to the apps.
 
-function SettingsRow({ label, onPress, icon, tone = "paper", busy = false }: SettingsRowProps) {
+const APP_STORE_URL = process.env.EXPO_PUBLIC_APP_STORE_URL || `${SITE_URL}/support/#get-the-app`;
+const PLAY_STORE_URL = process.env.EXPO_PUBLIC_PLAY_STORE_URL || `${SITE_URL}/support/#get-the-app`;
+
+function GuestHome() {
+    const router = useRouter();
     return (
-        <Pressable
-            onPress={onPress}
-            disabled={busy}
-            accessibilityRole="button"
-            accessibilityState={{ busy }}
-            style={({ pressed }) => [styles.settingsRow, { opacity: pressed || busy ? 0.6 : 1 }]}
-        >
-            <Text weight="medium" tone={tone} style={{ flex: 1 }}>
-                {label}
-            </Text>
-            <Icon
-                icon={icon ?? icons.chevron}
-                size={18}
-                color={tone === "candle" ? color.candle : color.ash}
-            />
-        </Pressable>
+        <Screen scroll>
+            <View style={styles.note}>
+                <Wordmark size={34} />
+                <View style={{ alignSelf: "stretch", marginTop: space.xxl }}>
+                    <JoinedEvents onOpen={(code) => router.push(`/e/${code}` as Href)} />
+                </View>
+                <Text
+                    variant="title"
+                    align="center"
+                    accessibilityRole="header"
+                    style={{ marginTop: space.xxl }}
+                >
+                    {t("code.title")}
+                </Text>
+                <Text variant="small" tone="ash" align="center" style={{ marginTop: space.s }}>
+                    {t("code.body")}
+                </Text>
+                <View style={{ alignSelf: "stretch", marginTop: space.l }}>
+                    <CodeEntry onSubmit={(code) => router.push(`/j/${code}` as Href)} />
+                </View>
+                <Text variant="small" tone="ash" align="center" style={{ marginTop: space.xxl }}>
+                    {t("web.homeBody")}
+                </Text>
+                <Pressable
+                    onPress={() => openLink(SITE_URL)}
+                    accessibilityRole="link"
+                    hitSlop={8}
+                    style={{ marginTop: space.l }}
+                >
+                    <Text variant="small" weight="medium">
+                        {t("web.siteLink")}
+                    </Text>
+                </Pressable>
+            </View>
+        </Screen>
     );
 }
-
-// The web build serves guests. Hosts use the iPhone or Android app.
 
 export function HostAppNote() {
     return (
         <Screen>
-            <View style={styles.note}>
+            <View style={[styles.note, { flex: 1, justifyContent: "center" }]}>
                 <Wordmark size={34} />
                 <Text variant="title" align="center" style={{ marginTop: 32 }}>
                     {t("web.hostTitle")}
@@ -563,11 +1211,11 @@ export function HostAppNote() {
                     {t("web.hostBody")}
                 </Text>
                 <View style={{ gap: 10, marginTop: 28, alignSelf: "stretch" }}>
-                    <Button label={t("web.appStore")} onPress={() => openLink(SITE_URL)} />
+                    <Button label={t("web.appStore")} onPress={() => openLink(APP_STORE_URL)} />
                     <Button
                         label={t("web.playStore")}
                         variant="dark"
-                        onPress={() => openLink(SITE_URL)}
+                        onPress={() => openLink(PLAY_STORE_URL)}
                     />
                 </View>
             </View>
@@ -583,14 +1231,12 @@ function openLink(url: string): void {
     WebBrowser.openBrowserAsync(url, { controlsColor: color.paper }).catch(() => null);
 }
 
-function errorMessage(code: string): string {
-    return code === "network" ? t("common.offline") : t("common.error");
-}
-
 const styles = StyleSheet.create({
     fill: { flex: 1, backgroundColor: color.night },
+    fill0: { flex: 1 },
     welcomePhoto: { position: "absolute", left: 0, right: 0, top: 0, height: "62%" },
-    welcomeBody: { flex: 1, justifyContent: "flex-end", paddingHorizontal: gutter },
+    welcomeBody: { flexGrow: 1, justifyContent: "flex-end", paddingHorizontal: gutter },
+    legalLink: { color: color.paper, textDecorationLine: "underline" },
     codeInput: { textAlign: "center", fontSize: 28, letterSpacing: 8 },
     sheetLinks: { flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 4 },
     header: {
@@ -600,14 +1246,16 @@ const styles = StyleSheet.create({
         paddingHorizontal: gutter,
         paddingBottom: 18,
     },
+    groupLabel: { paddingHorizontal: 10, marginTop: space.s },
     empty: { flex: 1, alignItems: "center", justifyContent: "center", padding: gutter },
     card: {
         height: 240,
-        borderRadius: 22,
+        borderRadius: radius.card,
         overflow: "hidden",
         backgroundColor: color.surface,
         justifyContent: "flex-end",
     },
+    placeholder: { opacity: 0.6 },
     cardBlank: { alignItems: "center", justifyContent: "center", paddingBottom: 60 },
     cardText: { padding: 18 },
     chip: {
@@ -628,25 +1276,11 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "space-between",
     },
-    group: {
-        marginTop: 26,
-        borderRadius: 18,
-        backgroundColor: color.surface,
-        overflow: "hidden",
-    },
-    settingsRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingVertical: 17,
-        paddingHorizontal: 18,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: color.line,
-    },
+    groupGap: { marginTop: 26 },
     note: {
-        flex: 1,
         alignItems: "center",
-        justifyContent: "center",
         maxWidth: 440,
+        width: "100%",
         alignSelf: "center",
     },
 });

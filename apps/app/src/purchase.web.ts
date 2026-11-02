@@ -20,6 +20,30 @@ export function productIds(tier: TierId, unlimitedShots: boolean): string[] {
     return ids;
 }
 
+/** Stripe applies card payments through its webhook, so nothing waits on this device. */
+export function hasPendingClaims(_hostId: string): boolean {
+    return false;
+}
+
+/** In development the API's development claim applies purchases without a card. */
+export function testPurchases(): boolean {
+    return __DEV__;
+}
+
+export interface StorePrice {
+    priceString: string;
+    price: number;
+    currencyCode: string;
+}
+
+/** Stripe Checkout shows its own prices, so the web uses core's. */
+export async function storePrices(
+    _hostId: string,
+    _ids: string[],
+): Promise<Record<string, StorePrice>> {
+    return {};
+}
+
 /** Stripe applies card payments through its webhook, so the web has nothing left to claim. */
 export async function claimPending(): Promise<void> {}
 
