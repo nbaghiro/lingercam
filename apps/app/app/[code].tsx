@@ -1,7 +1,12 @@
+import { normalizeJoinCode } from "@linger/core/events";
 import { Redirect, useLocalSearchParams, type Href } from "expo-router";
 
-/** Printed codes link to join.lingercam.app/<code>, which lands here. */
+import { MissingScreen } from "@/missing";
+
+/** Printed codes link to join.lingercam.app/<code>, which lands here; other paths don't exist. */
 export default function CodeRedirect() {
     const { code } = useLocalSearchParams<{ code: string }>();
-    return <Redirect href={`/j/${code ?? ""}` as Href} />;
+    const joinCode = normalizeJoinCode(code ?? "");
+    if (!joinCode) return <MissingScreen />;
+    return <Redirect href={`/j/${joinCode}` as Href} />;
 }

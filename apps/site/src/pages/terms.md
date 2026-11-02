@@ -2,7 +2,7 @@
 layout: ../layout.astro
 title: Terms of use
 description: The terms for hosts and guests using Linger.
-updated: 1 November 2026
+updated: 2 November 2026
 ---
 
 > **Draft for lawyer review.** This is a first draft. It has not been reviewed by a lawyer and is
@@ -33,8 +33,9 @@ to the host's settings.
 ## Guests
 
 - You don't need an account. The name you enter is shown with your photos.
-- Each event has a number of shots per guest set by the host. Photos you take can't be retaken or
-  deleted by you once they are uploaded; ask the host to hide one, or contact us.
+- Each event has a number of shots per guest set by the host. Photos you take can't be retaken.
+  After the reveal you can remove your own photos from the event or ask the host to hide one.
+  Before the reveal, contact us.
 
 ## Your photos
 

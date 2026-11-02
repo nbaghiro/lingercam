@@ -23,9 +23,21 @@ the table cards or share the link.
 
 ### Can I change the settings after the event starts?
 
-The title, end time, reveal time and who sees the photos can still change while the event is live.
-The film look and shots per guest are fixed once the event goes live, so every photo matches and
-every guest has the same number of shots.
+Open the event in the app and tap Manage. While the event is live you can change the name, the
+cover and the end time, move the reveal later, and change who sees the photos from every guest to
+only you. The reveal can't move earlier once guests are shooting, and photos shared with every
+guest can't go back to only you. The film look and shots per guest are fixed once the event goes
+live, so every photo matches and every guest has the same number of shots.
+
+### Can I end the event early?
+
+Yes. In Manage, tap End now. The camera closes for every guest, and before you confirm, the app
+shows when the photos will appear.
+
+### How do I delete an event?
+
+In Manage, tap Delete event. This deletes every photo for every guest and can't be undone, and
+payments aren't refunded. A draft can also be deleted from its card in your events list.
 
 ### Why can't I see the photos yet?
 
@@ -35,6 +47,7 @@ time you chose.
 ### How do I remove a photo?
 
 As the host, open the photo and hide it. A hidden photo disappears for everyone at the event.
+Guests can remove their own photos after the reveal.
 
 ## Guests
 
@@ -46,6 +59,16 @@ Safari, Camera. On Android it's in the browser's site settings. Then reload the 
 ### I ran out of shots
 
 The host sets the number of shots per guest. They can't be topped up by guests.
+
+### Can I remove a photo I took?
+
+After the reveal, open the photo, open its menu and remove it. Before the reveal nobody can see
+the photos, so email us with the event name and your name if one needs to go.
+
+### I joined in a different browser or on another phone
+
+If you left your email address when you joined, the reveal email has a link that opens the event
+as you in any browser, with your name and your photos.
 
 ### My photos haven't uploaded
 

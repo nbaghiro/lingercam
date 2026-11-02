@@ -2,7 +2,7 @@
 layout: ../layout.astro
 title: Privacy policy
 description: What Linger stores about hosts and guests, why, who processes it, and how to delete it.
-updated: 1 November 2026
+updated: 2 November 2026
 ---
 
 > **Draft for lawyer review.** This is a first draft written to describe what the product actually
@@ -44,6 +44,11 @@ Guests don't create an account.
 - **Likes and reports.** Which photos you liked or reported, so each person counts once.
 - **Push tokens.** If you allow notifications, the push token for your phone, so we can tell you
   when the photos are ready.
+- **Email address, if you leave one.** A guest using the browser can leave an email address to be
+  told when the photos are ready. We use it for that one email and for a link that opens the event
+  as you in another browser or on another phone, which we send again if you ask for it. We store
+  the address and a hashed copy of the token in the latest link. We don't use it for anything
+  else or add it to a mailing list.
 
 ## Who sees what
 
@@ -52,7 +57,7 @@ every guest sees every photo, or each guest sees their own and the host sees all
 photo shows the name of the guest who took it.
 
 The host can hide any photo. Anyone at the event can report a photo, and a photo reported by three
-people is hidden.
+people is hidden and the host is told.
 
 ## How we use it
 
@@ -64,7 +69,8 @@ don't sell personal information, show ads or use photos to train models.
 
 - **Render** hosts the API and the database.
 - **Cloudflare R2** stores photos.
-- **An email provider** delivers sign-in codes. [To name before publishing.]
+- **An email provider** delivers sign-in codes and the guests' reveal emails. [To name before
+  publishing.]
 - **Expo** delivers push notifications.
 - **RevenueCat** verifies App Store and Google Play purchases. **Stripe** processes web payments.
 
@@ -73,11 +79,13 @@ when you open a page. The site doesn't use cookies or analytics.
 
 ## How long we keep it
 
-Events and photos stay available to the event's members until the host deletes their account.
-Sign-in codes expire after a short time. When an account is deleted, we delete the host's events,
-the guests' names and photos from those events, likes, reports, push tokens and purchase records,
-and the stored photo files. [To confirm before publishing: retention of backups and any records we
-must keep for tax purposes.]
+Events and photos stay available to the event's members until the host deletes the event or their
+account. A guest's email address is kept with their place in the event until they ask us to
+remove it or the event is deleted. Sign-in codes expire after a short time. When an event is
+deleted, we delete what we store for it: its guests' names, email addresses and photos, likes,
+reports, purchase records and the stored photo files. When an account is deleted, we do the same
+for each of the host's events and also delete the host's push tokens. [To confirm before
+publishing: retention of backups and any records we must keep for tax purposes.]
 
 ## Deleting your data
 
@@ -85,9 +93,10 @@ must keep for tax purposes.]
 [support@lingercam.app](mailto:support@lingercam.app) from the account's email address. See
 [Delete your account](/delete-account/) for what that removes.
 
-**Guests** can ask the host to hide a photo, or email
+**Guests** can remove their own photos from an event after the reveal, from the photo's menu.
+Before the reveal, or to remove your name or email address, email
 [support@lingercam.app](mailto:support@lingercam.app) with the event name and the name you joined
-under, and we'll remove your photos and name from that event.
+under, and we'll remove them from that event. You can also ask the host to hide a photo.
 
 ## Children
 

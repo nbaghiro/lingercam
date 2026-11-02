@@ -1,0 +1,27 @@
+{
+    "applinks": {
+        "details": [
+            {
+                "appIDs": [
+                    "TEAMID.app.galleo.linger"
+                ],
+                "components": [
+                    {
+                        "/": "/.well-known/*",
+                        "exclude": true
+                    },
+                    {
+                        "/": "/??????",
+                        "comment": "a join code"
+                    },
+                    {
+                        "/": "/j/*"
+                    },
+                    {
+                        "/": "/e/*"
+                    }
+                ]
+            }
+        ]
+    }
+}

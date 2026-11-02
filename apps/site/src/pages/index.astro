@@ -15,7 +15,8 @@ const largest = TIERS[TIERS.length - 1];
 const freeLine = `Events with up to ${free?.guests} guests are free.`;
 const [natural, warm, mono] = LOOK_IDS.map((id) => LOOKS[id]);
 
-const tryUrl = import.meta.env.PUBLIC_TRY_URL ?? "https://join.lingercam.app";
+// The guest web app's home, where a visitor with a code can join in the browser.
+const tryUrl = import.meta.env.PUBLIC_TRY_URL ?? "https://join.lingercam.app/";
 const tryQr = await QRCode.toString(tryUrl, {
     type: "svg",
     margin: 0,
@@ -46,16 +47,20 @@ const ACTS: { id: string; title: string; text: string; shots: Shot[] }[] = [
     {
         id: "shoot",
         title: "Guests shoot",
-        text: "Guests join from the QR code: an App Clip on iPhone, the browser on Android. Each gets a set number of shots, counted down beside the shutter.",
+        text: "Guests join from the QR code in their browser, or in the app if they have it. Each gets a set number of shots, counted down beside the shutter.",
         shots: [
-            { screen: "join", title: "Join", caption: "App Clip, no install" },
+            { screen: "join", title: "Join", caption: "In the browser, no download" },
             { screen: "camera", title: "The camera", caption: "Shots counted by the shutter" },
             {
                 screen: "developing",
                 title: "Before the reveal",
                 caption: "Every photo still developing",
             },
-            { screen: "lock", title: "Lock screen", caption: "Live Activity while you shoot" },
+            {
+                screen: "lock",
+                title: "Lock screen",
+                caption: "A Live Activity for guests with the iPhone app",
+            },
         ],
     },
     {
@@ -76,7 +81,7 @@ const ACTS: { id: string; title: string; text: string; shots: Shot[] }[] = [
 const FAQ: { q: string; a: string }[] = [
     {
         q: "Do guests need to download an app?",
-        a: "No. Guests scan the event's QR code and the camera opens in their browser, with nothing to install. Only the host needs the Linger app.",
+        a: "No. Guests scan the event's QR code and the camera opens in their browser, with nothing to install. Guests who already have the Linger app join in the app instead. Only the host needs it.",
     },
     {
         q: "When do the photos appear?",
@@ -96,7 +101,7 @@ const FAQ: { q: string; a: string }[] = [
     },
     {
         q: "Can a photo be taken down?",
-        a: "Yes. The host can hide any photo, and anyone at the event can report one. A photo that three people report is hidden automatically.",
+        a: "Yes. The host can hide any photo, and anyone at the event can report one. A photo that three people report is hidden automatically, and the host is notified. After the reveal, guests can also remove their own photos.",
     },
     {
         q: "What are the looks?",
@@ -149,7 +154,7 @@ const FAQ: { q: string; a: string }[] = [
                 Try Linger
             </div>
             <a class="qr" href={tryUrl} aria-label="Open Linger in the browser" set:html={tryQr} />
-            Your camera is ready. No download needed.
+            Have a code? Join in your browser. No download needed.
         </aside>
     </section>
 

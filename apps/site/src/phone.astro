@@ -4,6 +4,7 @@
 import { DEFAULT_LOOK, LOOK_IDS, LOOKS, type LookId } from "@linger/core/film";
 import { TIERS, UNLIMITED_SHOTS, formatPrice } from "@linger/core/pricing";
 import Icon from "./icon.astro";
+import { tierPrice } from "./price.ts";
 import { FIRST_OCCASION, NAMES, OCCASIONS, OCCASION_KEYS, photo } from "./occasions.ts";
 
 export type Screen =
@@ -215,7 +216,7 @@ const LOOK_CLASS: Record<LookId, string | undefined> = {
                                                     Up to {t.guests} guests
                                                     {t.popular && <span class="tag">Popular</span>}
                                                 </b>
-                                                <span class="p">{formatPrice(t.priceCents)}</span>
+                                                <span class="p">{tierPrice(t.priceCents)}</span>
                                             </div>
                                         ))}
                                     </div>
