@@ -1,4 +1,6 @@
-# Opens the revealed wedding, scrolls the gallery, views a photo and plays the recap.
+# Opens the revealed wedding as its host, scrolls the gallery, views a photo, hides it and undoes
+# that, closes the viewer with a swipe down, plays the recap to its end card and saves every
+# photo into an album named after the event.
 appId: app.galleo.linger
 ---
 - runFlow: open.yaml
@@ -24,7 +26,24 @@ appId: app.galleo.linger
     timeout: 10000
 - swipe:
     direction: LEFT
-- tapOn: "Back"
+
+# Hide is immediate and can be undone from the toast.
+- tapOn: "More"
+- tapOn: "Hide photo"
+- assertVisible: "Hidden from guests."
+- tapOn: "Undo"
+- assertNotVisible: "Hidden from guests."
+
+# A swipe down closes the viewer.
+- swipe:
+    start: 50%, 40%
+    end: 50%, 90%
+    duration: 300
+- extendedWaitUntil:
+    visible: "Emma & Daniel's Wedding day"
+    timeout: 10000
+
+# The recap plays the server's picks and ends on a card.
 - scrollUntilVisible:
     element: "Watch the recap"
     direction: UP
@@ -32,5 +51,36 @@ appId: app.galleo.linger
 - extendedWaitUntil:
     visible: "The whole night in .* seconds"
     timeout: 10000
-- tapOn: "Close"
+- repeat:
+    times: 12
+    commands:
+      - tapOn:
+          point: 90%, 50%
+- extendedWaitUntil:
+    visible: "Watch again"
+    timeout: 10000
+- tapOn: "See every moment"
+- assertVisible: "Emma & Daniel's Wedding day"
+
+# Download all asks for Photos once, then saves every photo into the event's album.
+- tapOn: "Download all photos"
+- runFlow:
+    when:
+      visible: "Allow Full Access"
+    commands:
+      - tapOn: "Allow Full Access"
+- runFlow:
+    when:
+      visible: "Allow"
+    commands:
+      - tapOn: "Allow"
+- extendedWaitUntil:
+    visible: "24 photos saved to Photos.*"
+    timeout: 120000
+- launchApp:
+    appId: com.apple.mobileslideshow
+- tapOn: "Collections"
+- scrollUntilVisible:
+    element: "Emma & Daniel's Wedding day"
+    direction: DOWN
 - assertVisible: "Emma & Daniel's Wedding day"

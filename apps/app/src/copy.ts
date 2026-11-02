@@ -536,6 +536,7 @@ const en = {
     // End of W5.
 
     // W6, gallery, viewer, people, recap and saving. Add strings below this line.
+    "recap.paused": "Paused",
     // End of W6.
 
     // W7, web shell and site. Add strings below this line.
