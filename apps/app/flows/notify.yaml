@@ -1,0 +1,58 @@
+# Back from a deep link lands on the events list, and the notification card on the event screen:
+# with notifications off for Linger it points to Settings; otherwise it asks with the reason.
+# Starts from a clean install state so the per-event answers from earlier runs don't hide it.
+appId: app.galleo.linger
+---
+- launchApp:
+    clearState: true
+    permissions:
+      notifications: deny
+- runFlow: open.yaml
+- runFlow:
+    when:
+      visible: "Continue as demo host"
+    commands:
+      - tapOn: "Continue as demo host"
+- extendedWaitUntil:
+    visible: "Your events"
+    timeout: 20000
+
+# A deep link opens the event with the events list under it.
+- openLink: linger://e/EMMADN
+- extendedWaitUntil:
+    visible: "Emma & Daniel's Wedding day"
+    timeout: 20000
+- runFlow:
+    when:
+      visible: "See every moment"
+    commands:
+      - tapOn: "See every moment"
+- tapOn: "Back"
+- assertVisible: "Your events"
+
+# Notifications denied: the card says how to turn them on and is gone after Not now.
+- openLink: linger://e/MAYA3X
+- extendedWaitUntil:
+    visible: "Notifications are off for Linger.*"
+    timeout: 20000
+- assertVisible: "Open Settings"
+- tapOn: "Not now"
+- assertNotVisible: "Notifications are off for Linger.*"
+- tapOn: "Back"
+
+# Not asked yet: the card gives the reason, and Turn on shows the system prompt once.
+- launchApp:
+    permissions:
+      notifications: unset
+- runFlow: open.yaml
+- openLink: linger://e/JNHSWM
+- extendedWaitUntil:
+    visible: "We'll tell you when the photos are ready."
+    timeout: 20000
+- tapOn: "Turn on"
+- runFlow:
+    when:
+      visible: "Allow"
+    commands:
+      - tapOn: "Allow"
+- assertNotVisible: "We'll tell you when the photos are ready."
