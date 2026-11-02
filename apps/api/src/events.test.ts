@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { db, events, pushTokens, shots, startQueue, stopQueue } from "./db.ts";
-import { joinPage } from "./events.ts";
+import { joinPage, withPreview } from "./events.ts";
 import { developShot } from "./shots.ts";
 import { list } from "./storage.ts";
 import {
@@ -229,7 +229,9 @@ describe("joining", () => {
         const people = await call("GET", `/v1/e/${event.code}/people`, { device: guest.device });
         expect(people.body.people?.[0]).toMatchObject({ name: "Test Host", host: true });
         expect(people.body.people?.[1]).toMatchObject({ name: "Lena", shots: 0, host: false });
-        expect(people.body.guestLimit).toBe(10);
+        expect(people.body.guestLimit).toBe(null);
+        const asHost = await call("GET", `/v1/e/${event.code}/people`, { token });
+        expect(asHost.body.guestLimit).toBe(10);
     });
 });
 
@@ -508,6 +510,17 @@ describe("the shared link", () => {
         } finally {
             joinPage.index = index;
         }
+    });
+
+    test("a title with replacement patterns stays as written", () => {
+        const html =
+            "<!doctype html><html><head><title>Linger</title><style>x</style></head><body></body></html>";
+        const title = "Dollars $` $& $' $$";
+        const out = withPreview(html, { "og:title": title }, title);
+        expect(out).toBe(
+            "<!doctype html><html><head><title>Dollars $` $&amp; $&#39; $$</title><style>x</style>" +
+                '<meta property="og:title" content="Dollars $` $&amp; $&#39; $$"></head><body></body></html>',
+        );
     });
 
     test("the calendar file has one entry at the reveal with the event link", async () => {

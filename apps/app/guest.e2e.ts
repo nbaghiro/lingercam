@@ -363,6 +363,16 @@ test.describe("the camera", () => {
         await expect(page.getByRole("button", { name: "See the photos" })).toBeVisible();
     });
 
+    test("the event screen counts the last minute down in seconds", async ({ page }) => {
+        const event = await makeEvent({ endsIn: 50_000 });
+        await joinInBrowser(page, event.code, "Ivy");
+        await page.goto(`/e/${event.code}`);
+        const seconds = page.getByText(/^\d{1,2}s$/);
+        await expect(seconds).toBeVisible();
+        const first = await seconds.textContent();
+        await expect.poll(() => seconds.textContent(), { timeout: 5000 }).not.toBe(first);
+    });
+
     test("a device clock that is an hour fast still shoots on the server's time", async ({
         page,
     }) => {
@@ -381,7 +391,9 @@ test.describe("the camera", () => {
         await joinInBrowser(page, event.code, "Uma");
         await expect(page.getByLabel("5 shots left")).toBeVisible();
         await context.setOffline(true);
-        await expect(page.getByText("Offline. Photos will send later.")).toBeVisible();
+        await expect(
+            page.getByText("You're offline. Your photos will send when you're back online."),
+        ).toBeVisible();
         await page.getByRole("button", { name: "Take photo" }).click();
         await expect(page.getByLabel("4 shots left")).toBeVisible();
         await context.setOffline(false);
@@ -419,7 +431,9 @@ test.describe("the camera", () => {
         await page.goto(`/e/${event.code}`);
         await page.goto(`/e/${event.code}/camera`);
         await expect(
-            page.getByRole("button", { name: /^(Last photo\. See the event|See the event\. 1)/ }),
+            page.getByRole("button", {
+                name: /^(That was your last photo\. See the event|See the event\. 1)/,
+            }),
         ).toBeVisible();
     });
 

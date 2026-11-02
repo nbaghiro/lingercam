@@ -4,7 +4,9 @@ import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from "expo
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import {
     ActivityIndicator,
+    AppState,
     FlatList,
+    Platform,
     Pressable,
     RefreshControl,
     StyleSheet,
@@ -27,7 +29,7 @@ import {
 import {
     dayLabel,
     formatCount,
-    formatDuration,
+    formatCountdown,
     formatTime,
     momentsFromPeople,
     problem,
@@ -75,7 +77,7 @@ import {
     useTileWidth,
     type Stat,
 } from "@/ui";
-import { dismissFailed, useShots } from "@/uploads";
+import { dismissFailed, saveRefused, useShots } from "@/uploads";
 
 /** The join code from the route, tidied the way core normalises codes typed by hand. */
 export function useCode(): string {
@@ -94,7 +96,11 @@ export function useHostEvent(code: string): Event | undefined {
 
 // The event screen
 
+const WEB = Platform.OS === "web";
 const POLL_MS = 30_000;
+/** After the reveal, how often and for how long the gallery checks for this device's late photos. */
+const CATCH_UP_POLL_MS = 4_000;
+const CATCH_UP_MS = 30_000;
 /** Polling in the last minute before the reveal and until the photos arrive. */
 const REVEAL_POLL_MS = 5_000;
 /** The server's reveal job gets this long before the screen asks for the photos. */
@@ -164,6 +170,9 @@ export function EventScreen() {
     const [returnedSeen, setReturnedSeen] = useState(
         () => storage.getNumber(`returnedSeen:${code}`) ?? 0,
     );
+    const [refusedDenied, setRefusedDenied] = useState(false);
+    // Photos sent after the reveal are still developing when the queue empties.
+    const catchUpUntil = shots.drained > 0 ? shots.drained + CATCH_UP_MS : 0;
 
     const event = summary.data;
     const role = event?.viewer.role ?? "none";
@@ -172,7 +181,7 @@ export function EventScreen() {
     const endsAt = event ? Date.parse(event.endsAt) : NaN;
     const startsAt = event ? Date.parse(event.startsAt) : NaN;
     const revealsAt = event ? Date.parse(event.revealsAt) : NaN;
-    const now = useNow([startsAt, endsAt, revealsAt]);
+    const now = useNow([startsAt, endsAt, revealsAt, catchUpUntil]);
 
     const first = gallery.first;
     const developing = first?.kind === "developing";
@@ -190,7 +199,11 @@ export function EventScreen() {
         refreshGallery(code).catch(() => null);
         summary.reload();
     };
-    const tick = useEffectEvent(reloadAll);
+    // Polls skip a backgrounded app or tab; coming back to the foreground reloads at once.
+    const tick = useEffectEvent(() => {
+        if (AppState.currentState !== "active") return;
+        reloadAll();
+    });
 
     // The gallery reloads whenever the screen comes into view or the app comes back, so late
     // photos slot in and signed URLs are fresh.
@@ -199,7 +212,10 @@ export function EventScreen() {
             refreshGallery(code).catch(() => null);
         }, [code]),
     );
-    useOnForeground(reloadAll);
+    useOnForeground(() => {
+        reloadAll();
+        setRefusedDenied(false);
+    });
     useFreshGallery(code);
     useFreshGallery(code, roll?.id);
     useEffect(() => {
@@ -209,14 +225,23 @@ export function EventScreen() {
 
     // Polling. Developing: every 30 s, then every 5 s from a minute before the reveal until the
     // photos arrive. A right-away event that is shooting checks for new photos every 30 s.
+    // After the reveal, photos this device just sent are still developing when the queue drains,
+    // so the gallery checks every few seconds for a while until they're all there.
     const nearReveal = revealsAt - now.getTime() <= 60_000;
+    const lateMine =
+        photos && first?.kind === "photos" && event
+            ? Math.max(0, event.viewer.shotsTaken - first.mine)
+            : 0;
+    const catchingUp = lateMine > 0 && shots.pending === 0 && now.getTime() < catchUpUntil;
     const pollMs = developing
         ? nearReveal
             ? REVEAL_POLL_MS
             : POLL_MS
-        : photos && shooting
-          ? POLL_MS
-          : null;
+        : catchingUp
+          ? CATCH_UP_POLL_MS
+          : photos && shooting
+            ? POLL_MS
+            : null;
     useEffect(() => {
         if (pollMs === null) return;
         const id = setInterval(tick, pollMs);
@@ -285,6 +310,7 @@ export function EventScreen() {
         remind();
     }, [event?.revealsAt, developing]);
 
+    const offline = gallery.error?.code === "network" || gallery.error?.code === "timeout";
     const gone =
         event !== undefined &&
         (summary.error?.code === "not-found" || gallery.error?.code === "not-found");
@@ -313,7 +339,7 @@ export function EventScreen() {
                     <View style={styles.center}>
                         <Notice>
                             {summary.error.code === "not-found"
-                                ? t("join.notFound")
+                                ? problem("not-found")
                                 : t("event.loadFailed")}
                         </Notice>
                         <Button label={t("common.retry")} variant="dark" onPress={summary.reload} />
@@ -339,8 +365,8 @@ export function EventScreen() {
             : revealed
               ? { value: t("event.revealed"), label: dayLabel(new Date(revealsAt), now, tz) }
               : shooting
-                ? { value: formatDuration(endsAt - now.getTime()), label: t("event.left") }
-                : { value: formatDuration(revealsAt - now.getTime()), label: t("event.toReveal") };
+                ? { value: formatCountdown(endsAt - now.getTime()), label: t("event.left") }
+                : { value: formatCountdown(revealsAt - now.getTime()), label: t("event.toReveal") };
     // The count from the polled summary, plus the host, as the people sheet lists them.
     const peopleCount = event.guestCount + 1;
     // A gallery that failed falls back to the summary's count instead of a "0" that isn't real.
@@ -392,8 +418,27 @@ export function EventScreen() {
                   ? { action: { label: t("common.openSettings"), run: openPhotoSettings } }
                   : {}),
         };
+    } else if (shots.refused > 0 && refusedDenied) {
+        status = {
+            text: t("save.denied"),
+            action: { label: t("common.openSettings"), run: openPhotoSettings },
+        };
+    } else if (shots.refused > 0) {
+        status = {
+            text: t(WEB ? "uploads.refusedWeb" : "uploads.refused", { count: shots.refused }),
+            action: {
+                label: t(WEB ? "uploads.download" : "uploads.save"),
+                run: () => {
+                    saveRefused(code)
+                        .then((left) => setRefusedDenied(!WEB && left > 0))
+                        .catch(() => null);
+                },
+            },
+        };
     } else if (shots.keptInPhotos > 0)
-        status = { text: t("uploads.kept", { count: shots.keptInPhotos }) };
+        status = {
+            text: t(WEB ? "uploads.keptWeb" : "uploads.kept", { count: shots.keptInPhotos }),
+        };
     else if (shots.failed > 0) {
         status = {
             text: t("uploads.failed", { count: shots.failed }),
@@ -414,6 +459,8 @@ export function EventScreen() {
                   ? t("uploads.retrying")
                   : t("uploads.pending", { count: shots.pending }),
         };
+    } else if (revealed && catchingUp) {
+        status = { text: t("uploads.stillSending", { count: lateMine }) };
     } else if (spell.allIn !== null) {
         status = { text: t("uploads.allIn", { count: spell.allIn }) };
     }
@@ -608,10 +655,14 @@ export function EventScreen() {
                           : t("event.emptyClosed")}
                 </Text>
             ) : null}
-            {gallery.error && gallery.error.code !== "not-joined" && !gallery.loading ? (
+            {gallery.error && offline && !gallery.loading && revealsAt > now.getTime() ? (
+                <View style={styles.error}>
+                    <Notice>{t("camera.offline")}</Notice>
+                </View>
+            ) : gallery.error && gallery.error.code !== "not-joined" && !gallery.loading ? (
                 <View style={styles.error}>
                     <Notice>
-                        {event.state === "revealed" && gallery.error.code === "network"
+                        {offline
                             ? t("event.readyOffline")
                             : first
                               ? problem(gallery.error.code)
@@ -763,7 +814,8 @@ function MomentOver({
     const highlights = useLoad(`highlights:moment:${code}`, () =>
         api.guest.highlights(code, "moment"),
     );
-    const cards = highlights.data?.items ?? (highlights.error ? fallback.slice(0, 3) : []);
+    // The first photos stand in until the highlights arrive, so an early tap never opens empty.
+    const cards = highlights.data?.items ?? fallback.slice(0, 3);
     return (
         <Moment
             items={cards}

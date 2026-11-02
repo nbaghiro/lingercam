@@ -72,7 +72,7 @@ appId: app.galleo.linger
 - assertTrue: ${parseInt(maestro.copiedText, 10) === output.before - 2}
 
 # The last shot stays on the thumbnail after leaving and reopening the camera.
-- tapOn: "Last photo. See the event|See the event\\. \\d+ photos? (is|are) still sending"
+- tapOn: "That was your last photo. See the event|See the event\\. \\d+ photos? (is|are) still sending"
 # The developing grid is one element for VoiceOver.
 - extendedWaitUntil:
     visible: "\\d+ photos? developing"
@@ -81,7 +81,7 @@ appId: app.galleo.linger
 - extendedWaitUntil:
     visible: "\\d+ shots? left"
     timeout: 20000
-- assertVisible: "Last photo. See the event|See the event\\. \\d+ photos? (is|are) still sending"
+- assertVisible: "That was your last photo. See the event|See the event\\. \\d+ photos? (is|are) still sending"
 - assertVisible: "Flash"
 
 # The join sheet's other states, from the seed.

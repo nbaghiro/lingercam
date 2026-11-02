@@ -14,8 +14,6 @@ import { IntlMessageFormat } from "intl-messageformat";
 // - shot: the allowance unit ("24 shots each", "17 shots left").
 // - photo: what a shot becomes once it is developed and shown ("212 photos saved").
 // - moment: the count on the cover and in the reveal ("612 moments").
-//
-// Workstreams add strings only inside their own block at the end of the catalogue.
 const en = {
     "common.continue": "Continue",
     "common.cancel": "Cancel",
@@ -36,6 +34,9 @@ const en = {
     "welcome.email": "Continue with email",
     "welcome.demo": "Continue as demo host",
     "welcome.legal": "By continuing you agree to the Terms and the Privacy Policy.",
+    "welcome.haveCode": "Have a code?",
+    "welcome.legalTerms": "Terms",
+    "welcome.legalPrivacy": "Privacy Policy",
 
     "signIn.title": "Sign in with email",
     "signIn.body": "We'll email you a 6-digit code. There's no password to remember.",
@@ -50,6 +51,12 @@ const en = {
     "signIn.resent": "A new code is on its way.",
     "signIn.changeEmail": "Use a different email",
     "signIn.badEmail": "Please enter a valid email address.",
+    "signIn.tooMany": "Please wait a few minutes before asking for another code.",
+    "signIn.resendIn": "Send a new code in {seconds}s",
+    "signIn.openMail": "Open Mail",
+    "signIn.nameTitle": "What should guests call you?",
+    "signIn.nameSave": "Save name",
+    "signIn.nameBody": "Guests see this name when they join your events.",
 
     "home.title": "Your events",
     "home.new": "New event",
@@ -60,6 +67,23 @@ const en = {
     "home.empty.cta": "Create an event",
     "home.draft": "Not live yet. Finish setting it up to get the code.",
     "home.loadFailed": "Your events couldn't be loaded.",
+    "home.group.live": "Live now",
+    "home.group.upcoming": "Coming up",
+    "home.group.waiting": "Waiting for the reveal",
+    "home.group.drafts": "Drafts",
+    "home.group.revealed": "Revealed",
+    "home.group.past": "Past",
+    "home.line.live":
+        "Camera open · {left} left · {moments, plural, one {# moment} other {# moments}}",
+    "home.line.upcoming": "Opens {when}",
+    "home.line.waiting": "{day} · {reveal}",
+    "home.line.revealed": "{photos, plural, one {# photo} other {# photos}} · {date}",
+    "home.refreshFailed": "Couldn't refresh. Showing what was loaded earlier.",
+    "home.menu.showCode": "Show code",
+    "home.menu.shareLink": "Share link",
+    "home.menu.manage": "Manage",
+    "home.menu.delete": "Delete event",
+    "home.deleted": "{title} was deleted.",
 
     "state.draft": "Draft",
     "state.live": "Live",
@@ -77,9 +101,20 @@ const en = {
     "settings.deleteTitle": "Delete your account?",
     "settings.deleteBody":
         "This deletes your account, every event you created and all of their photos, for you and for your guests. It can't be undone.",
+    "settings.deleteBodyEmpty": "This deletes your account. It can't be undone.",
     "settings.deleteConfirm": "Delete everything",
     "settings.deleteFailed": "Your account couldn't be deleted. Please try again.",
     "settings.version": "Version {version}",
+    "settings.name": "Name",
+    "settings.notifications": "Notifications",
+    "settings.notificationsOn": "On",
+    "settings.notificationsOff": "Off",
+    "settings.signOutWaiting":
+        "{count, plural, one {# photo is still uploading. Sign out anyway?} other {# photos are still uploading. Sign out anyway?}}",
+    "settings.signOutPurchase": "A purchase is still being applied. Sign out anyway?",
+    "settings.deleteBodyEvents":
+        "This deletes your account, {count, plural, one {your # event} other {your # events}} and every photo in them. Live events end for every guest. Payments aren't refunded.",
+    "settings.signOutTitle": "Sign out?",
 
     "occasion.wedding": "Wedding",
     "occasion.birthday": "Birthday",
@@ -127,6 +162,31 @@ const en = {
     "create.invite.share": "Share link",
     "create.invite.shareMessage": "Join {title} on Linger and take photos with everyone: {url}",
     "create.invite.done": "Done",
+    "create.close": "Close",
+    "create.discardTitle": "Discard this event?",
+    "create.discard": "Discard",
+    "create.keepEditing": "Keep editing",
+    "create.name.left": "{count, number} left",
+    "create.name.starts": "Starts",
+    "create.name.required": "Give it a name to continue.",
+    "create.name.timeZone": "Time zone",
+    "create.name.coverRemove": "Remove photo",
+    "create.name.coverFailed": "The cover couldn't be uploaded. Try another photo.",
+    "create.rules.pickTime": "Pick a time",
+    "create.rules.unlimitedPrice": "Unlimited shots add {price}",
+    "create.guests.included": "Included",
+    "create.testPurchase": "Test purchase",
+    "create.paymentFailedDraft": "The payment didn't go through. Your event is saved as a draft.",
+    "create.offlineDraft": "Linger couldn't reach the server. Your event is saved as a draft.",
+    "create.partlyPaid": "{tier} is paid. Unlimited shots wasn't added.",
+    "create.deleteDraftTitle": "Delete this draft?",
+    "create.deleteDraft": "Delete draft",
+    "create.discardBody": "What you've entered so far won't be kept.",
+    "create.discardBodyResumed": "Changes since you opened this draft won't be kept.",
+    "create.deleteDraftBody": "The draft and its cover photo are deleted. This can't be undone.",
+    "create.name.zoneChange": "Change time zone",
+    "create.name.zoneSearch": "Search by city",
+    "create.rules.revealBefore": "The reveal needs to be at or after the end.",
 
     "reveal.right-away": "Right away",
     "reveal.at-end": "When it ends",
@@ -138,12 +198,23 @@ const en = {
 
     "print.title": "Table cards for {title}",
     "print.scan": "Scan to join and take photos",
+    "print.rules": "{shots, plural, one {# shot} other {# shots}} each. Photos appear {when}.",
+    "print.rulesUnlimited": "Unlimited shots. Photos appear {when}.",
+    "print.point": "Point your phone's camera at the code. No download needed.",
+    "print.rulesRightAway":
+        "{shots, plural, one {# shot} other {# shots}} each. Photos appear as soon as they're developed.",
+    "print.rulesRightAwayUnlimited": "Unlimited shots. Photos appear as soon as they're developed.",
 
     "web.hostTitle": "Hosting happens in the app",
     "web.hostBody":
         "Create and manage events in Linger for iPhone or Android. Guests can join and take photos right here in the browser.",
     "web.appStore": "Download on the App Store",
     "web.playStore": "Get it on Google Play",
+    "web.notFoundTitle": "This page doesn't exist",
+    "web.notFoundLink": "Go to Linger",
+    "web.homeBody":
+        "Linger gives every guest at an event a camera. The photos stay hidden until the reveal, then everyone gets them at the same time.",
+    "web.siteLink": "About Linger",
 
     "join.invited": "You're invited to shoot {title}",
     "join.rules": "{shots, plural, one {# shot} other {# shots}} each. Photos appear {when}.",
@@ -160,8 +231,44 @@ const en = {
         "Linger needs the camera to take photos for this event. You can change this in Settings at any time.",
     "join.cameraAllow": "Allow camera",
     "join.openSettings": "Open Settings",
-    "join.notFound": "There's no event with that code. Check the code on the card and try again.",
     "join.seePhotos": "See the photos",
+    "join.byHost": "{name} invited you",
+    "join.cameraOnly": "Photos come from this camera only.",
+    "join.joinNow": "Join now",
+    "join.as": "Join as {name}",
+    "join.notMe": "Not {name}?",
+    "join.fullTitle": "{title} is full",
+    "join.fullBody": "Ask the host to make room.",
+    "join.draftTitle": "{title} isn't open yet",
+    "join.draftBody": "The host is still setting it up.",
+    "join.endedTitle": "The camera has closed",
+    "join.endedBody": "Photos appear {when}.",
+    "join.seeEvent": "See the event",
+    "join.revealedTitle": "The photos are ready",
+    "join.notMemberTitle": "These photos are for the people who were there",
+    "join.notMemberBody":
+        "If you joined on another phone or browser, open the email link or rejoin there.",
+    "join.otherDevice": "I joined on another device",
+    "join.notFoundTitle": "There's no event with that code",
+    "join.notFoundBody": "Check the code on the card and try again.",
+    "join.offlineTitle": "This event couldn't be loaded",
+    "join.offlineBody": "Check your connection and try again.",
+    "join.cameraDenied": "Linger needs the camera to take photos. Turn it on in Settings.",
+    "join.opensWhen": "The camera opens {when}.",
+    "join.countsLine": "{counts}.",
+    "join.loading": "Loading the event",
+    "join.restoreTitle": "Find your photos",
+    "join.restoreBody":
+        "Enter the email you left at this event. Linger will send a link that opens your photos on this device.",
+    "join.restoreEmail": "Email",
+    "join.restoreSend": "Send link",
+    "join.restoreSent":
+        "If that email is on this event, a link is on its way. Open it on this device.",
+    "join.restoring": "Opening your photos on this device",
+    "join.badLink":
+        "This link has expired, was used already or a newer one replaced it. Ask for a new link.",
+    "join.alreadyJoined":
+        "This device already joined this event under another name, so the link can't move it here.",
 
     "camera.left": "{time} left",
     "camera.shotsLeft":
@@ -177,6 +284,22 @@ const en = {
     "camera.failed": "The photo didn't take. Please try again.",
     "camera.none": "Linger couldn't find a camera on this device.",
     "camera.seeEvent": "See the event",
+    "camera.opensAt": "The camera opens at {time}.",
+    "camera.closesIn": "Closes in {minutes, number} min",
+    "camera.closed": "The camera has closed. Photos appear {when}.",
+    "camera.readyTitle": "The photos are ready",
+    "camera.offline": "You're offline. Your photos will send when you're back online.",
+    "camera.usingSamples": "Using sample photos",
+    "camera.flash": "Flash",
+    "camera.flashAuto": "Auto",
+    "camera.flashOnValue": "On",
+    "camera.flashOffValue": "Off",
+    "camera.opensIn": "Opens in {time}",
+    "camera.lastShot": "That was your last photo. See the event",
+    "camera.lastSending":
+        "{count, plural, one {See the event. # photo is still sending} other {See the event. # photos are still sending}}",
+    "camera.noLastShot": "See the event",
+    "camera.seePhotos": "See the photos",
 
     "event.moments": "Moments",
     "event.left": "Left",
@@ -186,8 +309,8 @@ const en = {
     "event.yesterday": "Yesterday",
     "event.developing": "Developing",
     "event.openCamera": "Open camera",
-    "event.showCode": "Show join code",
-    "event.download": "Download all photos",
+    "event.showCode": "Show code",
+    "event.download": "Save all photos",
     "event.toReveal": "To reveal",
     "event.recap": "Watch the recap",
     "event.downloading": "Saving {done, number} of {total, number}",
@@ -200,11 +323,22 @@ const en = {
     "event.loadFailed": "This event couldn't be loaded.",
     "event.photoBy": "Photo by {name}",
     "event.more": "{count, number} more developing",
+    "event.gone": "This event isn't available any more.",
+    "event.backToEvents": "Back to your events",
+    "event.yourRoll": "Your roll: {taken, number} taken, {left, number} left",
+    "event.yourRollUnlimited": "Your roll: {taken, number} taken",
+    "event.live": "Live",
+    "event.nightOver": "That's the night. {counts}.",
+    "event.developingAll": "{count, plural, one {# photo developing} other {# photos developing}}",
+    "event.readyOffline": "The photos are ready. They'll load when you're back online.",
+    "event.hiddenBadge": "Hidden",
+    "event.reportedBadge": "Reported",
 
     "moment.title": "It's all here.",
     "moment.body":
         "{moments, plural, one {# moment} other {# moments}}, {people, plural, one {# photographer} other {# photographers}}.",
     "moment.cta": "See every moment",
+    "moment.yours": "{count, plural, one {# of these is yours.} other {# of these are yours.}}",
 
     "photo.position": "{index, number} of {total, number}",
     "photo.meta": "{time}, {look}",
@@ -222,6 +356,11 @@ const en = {
     "photo.missing": "This photo isn't available.",
     "photo.saveFailed": "The photo couldn't be saved. Please try again.",
     "photo.reportFailed": "The report didn't go through. Please try again.",
+    "photo.more": "More",
+    "photo.hiddenNote": "Hidden from guests.",
+    "photo.remove": "Remove my photo",
+    "photo.removeTitle": "Remove this photo?",
+    "photo.removeBody": "It's removed from the event for everyone. This can't be undone.",
 
     "recap.subtitle": "The whole night in {seconds, number} seconds",
     "recap.save": "Save photo",
@@ -231,21 +370,45 @@ const en = {
     "recap.empty": "The recap is ready once the photos are revealed.",
     "recap.pause": "Pause",
     "recap.play": "Play",
+    "recap.watchAgain": "Watch again",
+    "recap.next": "Next photo",
+    "recap.previous": "Previous photo",
+    "recap.paused": "Paused",
 
     "people.title": "{count, plural, one {# person} other {# people}}",
     "people.body": "Tap anyone to see their roll.",
     "people.joined": "Joined {time}",
     "people.shots": "{count, plural, one {# shot} other {# shots}}",
     "people.bodyBefore": "Shot counts so far. Everyone's photos appear at the reveal.",
+    "people.host": "Host",
 
     "uploads.pending":
         "{count, plural, one {# photo waiting to upload} other {# photos waiting to upload}}",
     "uploads.retrying": "Photos will upload when you have signal again.",
     "uploads.failed":
         "{count, plural, one {# photo couldn't be sent} other {# photos couldn't be sent}} because the camera had closed or your shots had run out.",
+    "uploads.kept":
+        "{count, plural, one {# photo couldn't be added to the event, so it was saved to your Photos.} other {# photos couldn't be added to the event, so they were saved to your Photos.}}",
+    "uploads.keptWeb":
+        "{count, plural, one {# photo couldn't be added to the event, so it was downloaded.} other {# photos couldn't be added to the event, so they were downloaded.}}",
+    "uploads.refused":
+        "{count, plural, one {# photo couldn't be added to the event. Save it to keep it.} other {# photos couldn't be added to the event. Save them to keep them.}}",
+    "uploads.refusedWeb":
+        "{count, plural, one {# photo couldn't be added to the event. Download it to keep it.} other {# photos couldn't be added to the event. Download them one at a time to keep them.}}",
+    "uploads.save": "Save",
+    "uploads.download": "Download",
+    "uploads.unreadable":
+        "{count, plural, one {# photo couldn't be read.} other {# photos couldn't be read.}}",
+    "uploads.returned":
+        "{count, plural, one {# photo couldn't be developed. You got the shot back.} other {# photos couldn't be developed. You got the shots back.}}",
+    "uploads.allIn":
+        "{count, plural, one {Your photo is in.} other {All # of your photos are in.}}",
+    "uploads.stillSending":
+        "{count, plural, one {# of your photos is still sending. It'll appear here.} other {# of your photos are still sending. They'll appear here.}}",
 
     "revealLabel.past": "Revealed",
     "revealLabel.future": "Reveals {when}",
+
     "revealWhen.past": "now",
     "revealWhen.minutes": "in {minutes}m",
     "revealWhen.hours": "in {hours}h",
@@ -258,19 +421,25 @@ const en = {
     "activity.shotsLeft": "{left} of {total, plural, one {# shot} other {# shots}} left",
     "activity.moments": "{count, plural, one {# moment} other {# moments}} so far",
     "activity.revealsAt": "Reveals at {time}",
-    "activity.closed": "The camera has closed. Photos at {time}.",
+    "activity.closed": "The camera has closed. Photos appear at {time}.",
     "activity.rollDone": "Your roll is done",
 
     "duration.days": "{days}d {hours}h",
     "duration.hours": "{hours}h {minutes}m",
     "duration.minutes": "{minutes}m",
+    "duration.seconds": "{seconds}s",
     "duration.now": "Now",
+
     "time.am": "am",
     "time.pm": "pm",
+
     "zone.named": "{when} {zone} time",
+
     "price.free": "Free",
+
     "counts.momentsFromPeople":
         "{moments, plural, one {# moment} other {# moments}} from {people, plural, one {# person} other {# people}}",
+
     "guests.ofLimit": "{count, number} of {limit, number} guests",
 
     "problem.network": "Linger couldn't reach the server. Check your connection and try again.",
@@ -303,65 +472,21 @@ const en = {
     "problem.not-purchased": "The purchase couldn't be found.",
     "problem.checkout-failed": "Checkout didn't start. Try again.",
     "problem.not-yours": "Only the person who took a photo can remove it.",
+    "problem.host-row": "As the host, you'll hear about the photos in the app.",
+    "problem.email-taken": "Another guest at this event left that email. Use a different one.",
 
     "a11y.step": "Step {step} of {total}",
-
-    "welcome.haveCode": "Have a code?",
-    "welcome.signedOut": "You've been signed out. Sign in to continue.",
-    "welcome.legalTerms": "Terms",
-    "welcome.legalPrivacy": "Privacy Policy",
-    "signIn.tooMany": "Please wait a few minutes before asking for another code.",
-    "signIn.resendIn": "Send a new code in {seconds}s",
-    "signIn.openMail": "Open Mail",
-    "signIn.nameTitle": "What should guests call you?",
-    "signIn.nameSave": "Save name",
-
-    "home.group.live": "Live now",
-    "home.group.upcoming": "Coming up",
-    "home.group.waiting": "Waiting for the reveal",
-    "home.group.drafts": "Drafts",
-    "home.group.revealed": "Revealed",
-    "home.group.past": "Past",
-    "home.line.live":
-        "Camera open · {left} left · {moments, plural, one {# moment} other {# moments}}",
-    "home.line.upcoming": "Opens {when}",
-    "home.line.waiting": "{day} · {reveal}",
-    "home.line.revealed": "{photos, plural, one {# photo} other {# photos}} · {date}",
-    "home.refreshFailed": "Couldn't refresh. Showing what was loaded earlier.",
-    "home.menu.showCode": "Show code",
-    "home.menu.shareLink": "Share link",
-    "home.menu.manage": "Manage",
-    "home.menu.delete": "Delete",
-
-    "create.close": "Close",
-    "create.discardTitle": "Discard this event?",
-    "create.discard": "Discard",
-    "create.keepEditing": "Keep editing",
-    "create.name.left": "{count, number} left",
-    "create.name.starts": "Starts",
-    "create.name.required": "Give it a name to continue.",
-    "create.name.timeZone": "Time zone",
-    "create.name.coverRemove": "Remove photo",
-    "create.name.coverFailed": "The cover couldn't be uploaded. Try another photo.",
-    "create.rules.pickTime": "Pick a time",
-    "create.rules.unlimitedPrice": "Unlimited shots add {price}",
-    "create.guests.included": "Included",
-    "create.testPurchase": "Test purchase",
-    "create.paymentFailedDraft": "The payment didn't go through. Your event is saved as a draft.",
-    "create.offlineDraft": "Linger couldn't reach the server. Your event is saved as a draft.",
-    "create.endPassed": "The end time has passed. Pick a new end time.",
-    "create.partlyPaid": "{tier} is paid. Unlimited shots wasn't added.",
-    "create.deleteDraftTitle": "Delete this draft?",
-    "create.deleteDraft": "Delete draft",
 
     "invite.copyLink": "Copy link",
     "invite.opens": "The camera opens {when}.",
     "invite.code": "Code {code}",
-    "print.rules": "{shots, plural, one {# shot} other {# shots}} each. Photos appear {when}.",
-    "print.rulesUnlimited": "Unlimited shots. Photos appear {when}.",
+    "invite.shareText": "Join {title} on Linger and take photos with everyone.",
 
     "host.makeRoom": "Make room",
     "host.manage": "Manage",
+    "host.makeRoomFor": "Make room for {price}",
+    "host.roomMade": "There's room for up to {count, number} guests now.",
+
     "manage.title": "Manage",
     "manage.name": "Name",
     "manage.cover": "Cover",
@@ -380,68 +505,13 @@ const en = {
     "manage.deleteBody":
         "This deletes every photo for every guest and can't be undone. Payments aren't refunded.",
     "manage.saved": "Saved",
-    "people.host": "Host",
+    "manage.save": "Save",
+    "manage.whoLocked": "Photos can't go back to every guest once the event is live.",
 
     "code.title": "Have a code?",
     "code.body": "Enter the 6-character code from the card or the link.",
     "code.label": "Join code",
     "code.join": "Join",
-
-    "join.byHost": "{name} invited you",
-    "join.cameraOnly": "Photos come from this camera only.",
-    "join.joinNow": "Join now",
-    "join.as": "Join as {name}",
-    "join.notMe": "Not {name}?",
-    "join.fullTitle": "{title} is full",
-    "join.fullBody": "Ask the host to make room.",
-    "join.draftTitle": "{title} isn't open yet",
-    "join.draftBody": "The host is still setting it up.",
-    "join.endedTitle": "The camera has closed",
-    "join.endedBody": "Photos appear {when}.",
-    "join.seeEvent": "See the event",
-    "join.revealedTitle": "The photos are ready",
-    "join.notMemberTitle": "These photos are for the people who were there",
-    "join.notMemberBody":
-        "If you joined on another phone or browser, open the email link or rejoin there.",
-    "join.otherDevice": "I joined on another device",
-    "join.notFoundTitle": "There's no event with that code",
-    "join.notFoundBody": "Check the code and try again.",
-    "join.offlineTitle": "This event couldn't be loaded",
-    "join.offlineBody": "Check your connection and try again.",
-    "join.cameraDenied": "Linger needs the camera to take photos. Turn it on in Settings.",
-    "event.gone": "This event isn't available any more.",
-    "event.backToEvents": "Back to your events",
-
-    "camera.opensAt": "The camera opens at {time}.",
-    "camera.closesIn": "Closes in {minutes, number} min",
-    "camera.closed": "The camera has closed. Photos appear {when}.",
-    "camera.readyTitle": "The photos are ready",
-    "camera.offline": "Offline. Photos will send later.",
-    "camera.usingSamples": "Using sample photos",
-    "camera.flash": "Flash",
-    "camera.flashAuto": "Auto",
-    "camera.flashOnValue": "On",
-    "camera.flashOffValue": "Off",
-
-    "uploads.kept":
-        "{count, plural, one {# photo couldn't be added to the event, so it was saved to your Photos.} other {# photos couldn't be added to the event, so they were saved to your Photos.}}",
-    "uploads.unreadable":
-        "{count, plural, one {# photo couldn't be read.} other {# photos couldn't be read.}}",
-    "uploads.returned":
-        "{count, plural, one {# photo couldn't be developed. You got the shot back.} other {# photos couldn't be developed. You got the shots back.}}",
-    "uploads.allIn":
-        "{count, plural, one {Your photo is in.} other {All # of your photos are in.}}",
-    "uploads.stillSending":
-        "{count, plural, one {# of your photos is still sending. It'll appear here.} other {# of your photos are still sending. They'll appear here.}}",
-
-    "event.yourRoll": "Your roll: {taken, number} taken, {left, number} left",
-    "event.yourRollUnlimited": "Your roll: {taken, number} taken",
-    "event.live": "Live",
-    "event.nightOver": "That's the night. {counts}.",
-    "event.developingAll": "{count, plural, one {# photo developing} other {# photos developing}}",
-    "event.readyOffline": "The photos are ready. They'll load when you're back online.",
-    "event.hiddenBadge": "Hidden",
-    "event.reportedBadge": "Reported",
 
     "notify.hostCard": "We'll tell you when the photos are ready.",
     "notify.guestCard": "Get a nudge at {time} when the photos are ready.",
@@ -455,88 +525,18 @@ const en = {
     "notify.homeScreen": "Add to Home Screen to come back later",
     "notify.revealLocal": "{title}: the photos are ready.",
 
-    "moment.yours": "{count, plural, one {# of these is yours.} other {# of these are yours.}}",
-
-    "photo.more": "More",
-    "photo.hiddenNote": "Hidden from guests.",
-    "photo.remove": "Remove my photo",
-    "photo.removeTitle": "Remove this photo?",
-    "photo.removeBody": "It's removed from the event for everyone. This can't be undone.",
-
     "save.partial":
         "{saved, number} of {total, number} saved. {failed, plural, one {# couldn't be saved.} other {# couldn't be saved.}}",
     "save.denied": "Linger needs access to Photos to save them.",
     "save.size": "Photos are saved at 2048 px on the longest side.",
     "save.webPhone": "Save photos one at a time from the viewer.",
 
-    "recap.watchAgain": "Watch again",
-    "recap.next": "Next photo",
-    "recap.previous": "Previous photo",
-
-    "settings.name": "Name",
-    "settings.notifications": "Notifications",
-    "settings.notificationsOn": "On",
-    "settings.notificationsOff": "Off",
-    "settings.signOutWaiting":
-        "{count, plural, one {# photo is still uploading. Sign out anyway?} other {# photos are still uploading. Sign out anyway?}}",
-    "settings.signOutPurchase": "A purchase is still being applied. Sign out anyway?",
-    "settings.deleteBodyEvents":
-        "This deletes your account, {count, plural, =0 {your events} one {your # event} other {your # events}} and every photo in them. Live events end for every guest. Payments aren't refunded.",
-
-    "web.notFoundTitle": "This page doesn't exist",
-    "web.notFoundLink": "Go to Linger",
-    "web.homeBody":
-        "Linger gives every guest at an event a camera. The photos stay hidden until the reveal, then everyone gets them at the same time.",
-    "web.siteLink": "About Linger",
-
-    "signIn.nameBody": "Guests see this name when they join your events.",
-    "home.deleted": "{title} was deleted.",
-    "settings.signOutTitle": "Sign out?",
-    "create.discardBody": "What you've entered so far won't be kept.",
-    "create.discardBodyResumed": "Changes since you opened this draft won't be kept.",
-    "create.deleteDraftBody": "The draft and its cover photo are deleted. This can't be undone.",
-    "create.name.zoneChange": "Change time zone",
-    "create.name.zoneSearch": "Search by city",
-    "create.rules.revealBefore": "The reveal needs to be at or after the end.",
-
-    "invite.shareText": "Join {title} on Linger and take photos with everyone.",
-    "print.point": "Point your phone's camera at the code. No download needed.",
-    "print.rulesRightAway":
-        "{shots, plural, one {# shot} other {# shots}} each. Photos appear as soon as they're developed.",
-    "print.rulesRightAwayUnlimited": "Unlimited shots. Photos appear as soon as they're developed.",
-    "manage.save": "Save",
-    "manage.whoLocked": "Photos can't go back to every guest once the event is live.",
-    "host.makeRoomFor": "Make room for {price}",
-    "host.roomMade": "There's room for up to {count, number} guests now.",
-
-    "join.opensWhen": "The camera opens {when}.",
-    "join.countsLine": "{counts}.",
-    "join.loading": "Loading the event",
-    "join.restoreTitle": "Find your photos",
-    "join.restoreBody":
-        "Enter the email you left at this event. Linger will send a link that opens your photos on this device.",
-    "join.restoreEmail": "Email",
-    "join.restoreSend": "Send link",
-    "join.restoreSent":
-        "If that email is on this event, a link is on its way. Open it on this device.",
-    "join.restoring": "Opening your photos on this device",
-    "join.badLink": "This link has expired or a newer one replaced it. Ask for a new link.",
-    "join.alreadyJoined":
-        "This device already joined this event under another name, so the link can't move it here.",
     "joined.title": "Events you joined",
     "joined.open": "Camera open",
     "joined.before": "Camera opens {when}",
     "joined.waiting": "Photos appear {when}",
     "joined.ready": "Photos ready",
     "joined.draft": "Not open yet",
-    "camera.opensIn": "Opens in {time}",
-    "camera.lastShot": "Last photo. See the event",
-    "camera.lastSending":
-        "{count, plural, one {See the event. # photo is still sending} other {See the event. # photos are still sending}}",
-    "camera.noLastShot": "See the event",
-    "camera.seePhotos": "See the photos",
-
-    "recap.paused": "Paused",
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -594,6 +594,8 @@ const PROBLEMS: Record<string, MessageKey> = {
     "checkout-failed": "problem.checkout-failed",
     "checkout-not-configured": "problem.checkout-failed",
     "not-yours": "problem.not-yours",
+    "host-row": "problem.host-row",
+    "email-taken": "problem.email-taken",
     "not-member": "join.notMemberTitle",
     "bad-link": "join.badLink",
     "already-joined": "join.alreadyJoined",
@@ -690,6 +692,12 @@ export function formatDuration(ms: number): string {
     if (days > 0) return t("duration.days", { days, hours });
     if (hours > 0) return t("duration.hours", { hours, minutes: String(mins).padStart(2, "0") });
     return t("duration.minutes", { minutes: mins });
+}
+
+/** As `formatDuration`, but in seconds under a minute: the event screen counts the last one down. */
+export function formatCountdown(ms: number): string {
+    if (ms > 0 && ms < 60_000) return t("duration.seconds", { seconds: Math.ceil(ms / 1000) });
+    return formatDuration(ms);
 }
 
 /** "14 June" */

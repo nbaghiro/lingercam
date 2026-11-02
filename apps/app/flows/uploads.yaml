@@ -1,6 +1,6 @@
 # The upload queue on iOS. A photo taken just before the app goes to the background still reaches
-# the server (G12), and a photo the event refuses for good is saved to Photos with a line saying
-# so (G1). Needs the API's dev routes for the demo sign-in.
+# the server, and a photo the event refuses for good is saved to Photos with a line saying so.
+# Needs the API's dev routes for the demo sign-in.
 appId: app.galleo.linger
 ---
 - runScript:

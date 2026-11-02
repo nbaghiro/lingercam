@@ -76,7 +76,7 @@ appId: app.galleo.linger
 - assertVisible: "Emma & Daniel's Wedding day"
 
 # Download all asks for Photos once, then saves every photo into the event's album.
-- tapOn: "Download all photos"
+- tapOn: "Save all photos"
 - runFlow:
     when:
       visible: "Allow Full Access"

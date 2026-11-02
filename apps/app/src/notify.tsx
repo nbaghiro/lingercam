@@ -214,6 +214,17 @@ export function handleNotificationOpen(response: Notifications.NotificationRespo
     else router.push(href);
 }
 
+/** Handles notification taps once the navigator is `ready`, including the tap that launched the app. */
+export function useNotificationTaps(ready: boolean): void {
+    useEffect(() => {
+        if (!ready || Platform.OS === "web") return;
+        handleNotificationOpen(Notifications.getLastNotificationResponse());
+        const subscription =
+            Notifications.addNotificationResponseReceivedListener(handleNotificationOpen);
+        return () => subscription.remove();
+    }, [ready]);
+}
+
 /**
  * Brings every reminder on this device in line with the server: events this device joined and
  * any event with a reminder scheduled. A deleted event's reminder goes. Called once on launch.

@@ -1,7 +1,7 @@
 import type { ExpoPushMessage } from "expo-server-sdk";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { db, events, pushTokens, startQueue, stopQueue } from "./db.ts";
+import { db, events, guests, pushTokens, startQueue, stopQueue } from "./db.ts";
 import { checkReceipts, push, sendPush } from "./notify.ts";
 import { advance, revealOverdue, startRevealWorker } from "./reveal.ts";
 import { developShot, startShotWorkers } from "./shots.ts";
@@ -251,7 +251,7 @@ describe("telling people", () => {
             403,
         );
         const wrong = await call("POST", `/v1/e/${event.code}/restore`, {
-            json: { token: "x".repeat(43), device: browser },
+            json: { token: "x".repeat(43), device: "another-browser-0001" },
         });
         expect(wrong.body.code).toBe("bad-link");
     });
@@ -272,6 +272,70 @@ describe("telling people", () => {
         const email = await mailTo(address);
         expect(email.subject).toBe("Open Book club on this device");
         expect(email.text).toMatch(/\?restore=[A-Za-z0-9_-]{40,}/);
+    });
+
+    test("a restore link works once, for a week, and never for the host's own row", async () => {
+        const { token } = await newHost();
+        const event = await newEvent(token, { live: true, settings: { title: "Picnic" } });
+        const kim = await join(event.code, "Kim");
+        const address = `kim-${event.code.toLowerCase()}@example.com`;
+        await call("POST", `/v1/e/${event.code}/email`, {
+            device: kim.device,
+            json: { email: address },
+        });
+        await call("POST", `/v1/e/${event.code}/restore/send`, { json: { email: address } });
+        const link = /\?restore=([A-Za-z0-9_-]+)/.exec((await mailTo(address)).text)?.[1];
+        const restore = (device: string, linkToken = link) =>
+            call("POST", `/v1/e/${event.code}/restore`, { json: { token: linkToken, device } });
+
+        const phone = "kim-second-phone-0001";
+        expect((await restore(phone)).body.guest?.id).toBe(kim.guestId);
+        // Opening it again where it landed just opens the event; anywhere else it's used up.
+        expect((await restore(phone)).body.guest?.id).toBe(kim.guestId);
+        expect((await restore("kim-third-browser-001")).body.code).toBe("bad-link");
+
+        await call("POST", `/v1/e/${event.code}/restore/send`, { json: { email: address } });
+        const stale = await waitFor(async () => {
+            const found = /\?restore=([A-Za-z0-9_-]+)/.exec((await mailTo(address)).text)?.[1];
+            return found && found !== link ? found : null;
+        });
+        await db
+            .update(guests)
+            .set({ restoreIssuedAt: new Date(Date.now() - 8 * 86_400_000) })
+            .where(eq(guests.id, kim.guestId));
+        expect((await restore("kim-fourth-browser-01", stale)).body.code).toBe("bad-link");
+
+        const asHost = await call("POST", `/v1/e/${event.code}/email`, {
+            token,
+            json: { email: `host-${event.code.toLowerCase()}@example.com` },
+        });
+        expect(asHost.body.code).toBe("host-row");
+        expect((await call("GET", `/v1/e/${event.code}/me`, { token })).status).toBe(200);
+    });
+
+    test("after the reveal a guest gets one email, and an address belongs to one guest", async () => {
+        const { token } = await newHost();
+        const event = await newEvent(token, { live: true, settings: { title: "Quiz night" } });
+        const lee = await join(event.code, "Lee");
+        const rob = await join(event.code, "Rob");
+        const first = `lee-${event.code.toLowerCase()}@example.com`;
+        const second = `lee2-${event.code.toLowerCase()}@example.com`;
+        const setEmail = (device: string, email: string) =>
+            call("POST", `/v1/e/${event.code}/email`, { device, json: { email } });
+
+        expect((await setEmail(lee.device, first)).body.email).toBe(first);
+        expect((await setEmail(rob.device, first)).body.code).toBe("email-taken");
+
+        await call("POST", `/v1/events/${event.id}/end`, { token });
+        expect((await mailTo(first)).subject).toBe("Quiz night: the photos are ready");
+        expect((await setEmail(lee.device, second)).body.email).toBe(second);
+        await new Promise((r) => setTimeout(r, 500));
+        const query = encodeURIComponent(`to:"${second}"`);
+        const mailpit = process.env.MAILPIT_URL ?? "http://localhost:8176";
+        const found = (await (await fetch(`${mailpit}/api/v1/search?query=${query}`)).json()) as {
+            messages?: unknown[];
+        };
+        expect(found.messages ?? []).toHaveLength(0);
     });
 
     test("a host hears once when the event fills, and again after making room", async () => {

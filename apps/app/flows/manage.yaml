@@ -31,7 +31,7 @@ appId: app.galleo.linger
     timeout: 15000
 
 # The invite sheet shows the code, Copy link and, for the host, Print table cards
-- tapOn: "Show join code"
+- tapOn: "Show code"
 - assertVisible: ".*Code G A M E N T.*"
 - assertVisible: "Copy link"
 - assertVisible: "Share link"

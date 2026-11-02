@@ -194,7 +194,9 @@ test("reconnecting sends a waiting photo at once instead of at the next retry", 
     await context.close();
 });
 
-test("a photo the event refuses for good is saved and the guest is told", async ({ browser }) => {
+test("a photo the event refuses for good is kept until the guest downloads it", async ({
+    browser,
+}) => {
     const event = await liveEvent("Garden party", 5);
     const context = await browser.newContext({ acceptDownloads: true });
     const page = await context.newPage();
@@ -203,15 +205,26 @@ test("a photo the event refuses for good is saved and the guest is told", async 
     await context.route(`${API}/v1/e/${event.code}/shots`, (route) =>
         route.request().method() === "POST" ? problem(route, 403, "not-open") : route.continue(),
     );
-    const download = page.waitForEvent("download");
+    let downloads = 0;
+    page.on("download", () => {
+        downloads += 1;
+    });
     await shoot(page, 1);
-    const saved = await download;
-    expect(saved.suggestedFilename()).toMatch(/\.jpg$/);
-    expect((await saved.path()).length).toBeGreaterThan(0);
 
     await page.goto(`/e/${event.code}`);
     await expect(
-        page.getByText("1 photo couldn't be added to the event, so it was saved to your Photos."),
+        page.getByText("1 photo couldn't be added to the event. Download it to keep it."),
+    ).toBeVisible();
+    expect(downloads).toBe(0);
+    await expect.poll(() => storedPhotos(page)).toBe(1);
+
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Download" }).click();
+    const saved = await download;
+    expect(saved.suggestedFilename()).toMatch(/\.jpg$/);
+    expect((await saved.path()).length).toBeGreaterThan(0);
+    await expect(
+        page.getByText("1 photo couldn't be added to the event, so it was downloaded."),
     ).toBeVisible();
     await expect.poll(() => storedPhotos(page)).toBe(0);
     expect(await arrived(event)).toBe(0);

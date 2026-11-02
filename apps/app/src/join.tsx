@@ -1,7 +1,7 @@
-import { EMAIL_MAX, NAME_MAX, firstName } from "@linger/core/events";
+import { EMAIL_MAX, NAME_MAX, firstName, normalizeJoinCode } from "@linger/core/events";
 import { shootingPhase } from "@linger/core/shots";
 import { Image } from "expo-image";
-import { useLocalSearchParams, useRouter, type Href } from "expo-router";
+import { Redirect, useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from "react-native";
 import Animated, { FadeIn, LinearTransition } from "react-native-reanimated";
@@ -24,6 +24,7 @@ import { useCameraAccess } from "@/camera";
 import { formatWhen, momentsFromPeople, problem, revealWhen, t } from "@/copy";
 import { useCode } from "@/event";
 import { CodeEntry } from "@/joined";
+import { MissingScreen } from "@/missing";
 import { eventMarks, isGone, isRevealed, useEventClock } from "@/shutter";
 import {
     Button,
@@ -69,6 +70,14 @@ function restoreProblem(code: string | undefined): string {
     if (code === "bad-link") return t("join.badLink");
     if (code === "already-joined") return t("join.alreadyJoined");
     return problem(code);
+}
+
+/** Printed codes link to join.lingercam.app/<code>, which lands here; other paths don't exist. */
+export function CodeRedirect() {
+    const { code } = useLocalSearchParams<{ code: string }>();
+    const joinCode = normalizeJoinCode(code ?? "");
+    if (!joinCode) return <MissingScreen />;
+    return <Redirect href={`/j/${joinCode}` as Href} />;
 }
 
 export function JoinScreen() {

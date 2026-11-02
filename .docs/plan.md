@@ -586,3 +586,11 @@ Checked at hand-off on 2026-11-01. "Passed" means the command was run in that ph
   later, the reservation has been released and the photo is reserved and sent again. Confirming in
   the background needs either a background task or the API confirming uploaded originals itself.
   The Android foreground service is not built (Android is out of this run, Q9).
+- 2026-11-02, polish, review fixes: an email link that moves a guest to another device now works
+  once and for 7 days (`guests.restore_issued_at`, migration 0003); opening a used link again on
+  the device it moved to just opens the event. The host's own guest row can't take an email or be
+  moved. After the reveal a guest gets at most one immediate reveal email, an address belongs to
+  one guest per event, and "I joined on another device" replies before the email is sent. A photo
+  the event refuses for good is no longer deleted when it can't go to Photos at once: it stays on
+  the device until the guest taps Save (or Download in the browser, which never saves without a
+  tap). The last server clock offset is stored, so a screen opened offline keeps the server's time.

@@ -40,7 +40,8 @@ linger/
 │   │   │   ├── accounts.ts      host sign-in, sessions, account deletion
 │   │   │   ├── events.ts        create, settings, go live, end early, join by code, guests
 │   │   │   ├── shots.ts         reserve, signed upload, confirm, develop job, gallery, report, hide
-│   │   │   ├── reveal.ts        schedule and run the reveal, push notifications
+│   │   │   ├── reveal.ts        schedule and run the reveal
+│   │   │   ├── notify.ts        push tokens, push and receipts, reveal and restore email
 │   │   │   ├── billing.ts       RevenueCat claim and webhook, Stripe Checkout and webhook
 │   │   │   ├── seed.ts          demo host and events for local QA
 │   │   │   └── *.test.ts        beside each concept

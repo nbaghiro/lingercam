@@ -1,5 +1,4 @@
 import NetInfo from "@react-native-community/netinfo";
-import * as Notifications from "expo-notifications";
 import { useFonts } from "expo-font";
 import { DarkTheme, Stack, ThemeProvider } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -10,7 +9,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { endPastActivities } from "@/activity";
 import { loadSession } from "@/api";
-import { handleNotificationOpen, resyncReminders } from "@/notify";
+import { resyncReminders, useNotificationTaps } from "@/notify";
 import { claimPending } from "@/purchase";
 import { ConfirmHost, FONTS, ToastHost, color } from "@/ui";
 import { resumeUploads } from "@/uploads";
@@ -55,15 +54,7 @@ export default function RootLayout() {
         if (ready) SplashScreen.hideAsync().catch(() => null);
     }, [ready]);
 
-    // Notification taps are handled once the navigator exists, including the tap that launched
-    // the app.
-    useEffect(() => {
-        if (!ready || Platform.OS === "web") return;
-        handleNotificationOpen(Notifications.getLastNotificationResponse());
-        const subscription =
-            Notifications.addNotificationResponseReceivedListener(handleNotificationOpen);
-        return () => subscription.remove();
-    }, [ready]);
+    useNotificationTaps(ready);
 
     if (!ready) return null;
     return (

@@ -143,7 +143,7 @@ function Welcome() {
                 <Text variant="small" tone="ash" style={{ marginTop: 12, marginBottom: 28 }}>
                     {t("welcome.body")}
                 </Text>
-                {showSignedOut ? <Notice>{t("welcome.signedOut")}</Notice> : null}
+                {showSignedOut ? <Notice>{problem("signed-out")}</Notice> : null}
                 <JoinedEvents onOpen={(code) => router.push(`/e/${code}` as Href)} />
                 <View style={{ gap: 10 }}>
                     <Button
@@ -1002,9 +1002,11 @@ function Settings() {
     const confirmDelete = () => {
         confirm(
             t("settings.deleteTitle"),
-            list
-                ? t("settings.deleteBodyEvents", { count: list.length })
-                : t("settings.deleteBody"),
+            !list
+                ? t("settings.deleteBody")
+                : list.length === 0
+                  ? t("settings.deleteBodyEmpty")
+                  : t("settings.deleteBodyEvents", { count: list.length }),
             t("settings.deleteConfirm"),
             () => {
                 remove.run().then((done) => {

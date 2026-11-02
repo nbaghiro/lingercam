@@ -1460,7 +1460,7 @@ function Footer({
         // A dropped session sends the host to sign in; the draft is kept on the device.
         if (status === 401) return;
         if (code === "already-over") {
-            setProblemLine(t("create.endPassed"));
+            setProblemLine(problem("already-over"));
             onEndPassed();
             return;
         }

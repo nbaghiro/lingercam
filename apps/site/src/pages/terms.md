@@ -34,8 +34,8 @@ to the host's settings.
 
 - You don't need an account. The name you enter is shown with your photos.
 - Each event has a number of shots per guest set by the host. Photos you take can't be retaken.
-  After the reveal you can remove your own photos from the event or ask the host to hide one.
-  Before the reveal, contact us.
+  Once you can see your own photos in the event, you can remove them or ask the host to hide one.
+  Before then, contact us.
 
 ## Your photos
 

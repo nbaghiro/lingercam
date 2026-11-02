@@ -25,8 +25,8 @@ the table cards or share the link.
 
 Open the event in the app and tap Manage. While the event is live you can change the name, the
 cover and the end time, move the reveal later, and change who sees the photos from every guest to
-only you. The reveal can't move earlier once guests are shooting, and photos shared with every
-guest can't go back to only you. The film look and shots per guest are fixed once the event goes
+only you. The reveal can't move earlier once guests are shooting, and photos kept to only you
+can't be opened up to every guest once the event is live. The film look and shots per guest are fixed once the event goes
 live, so every photo matches and every guest has the same number of shots.
 
 ### Can I end the event early?
@@ -37,7 +37,8 @@ shows when the photos will appear.
 ### How do I delete an event?
 
 In Manage, tap Delete event. This deletes every photo for every guest and can't be undone, and
-payments aren't refunded. A draft can also be deleted from its card in your events list.
+payments aren't refunded. You can also delete any event, including a draft, from its card in your
+events list.
 
 ### Why can't I see the photos yet?
 
@@ -47,7 +48,7 @@ time you chose.
 ### How do I remove a photo?
 
 As the host, open the photo and hide it. A hidden photo disappears for everyone at the event.
-Guests can remove their own photos after the reveal.
+Guests can remove their own photos once they can see them in the event.
 
 ## Guests
 
@@ -62,8 +63,8 @@ The host sets the number of shots per guest. They can't be topped up by guests.
 
 ### Can I remove a photo I took?
 
-After the reveal, open the photo, open its menu and remove it. Before the reveal nobody can see
-the photos, so email us with the event name and your name if one needs to go.
+Once you can see your photo in the event, open it, open its menu and remove it. If you can't see
+it yet, email us with the event name and your name.
 
 ### I joined in a different browser or on another phone
 

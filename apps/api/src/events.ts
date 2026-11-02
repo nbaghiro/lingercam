@@ -21,7 +21,20 @@ import {
 import { revealTime } from "@linger/core/reveal";
 import { canSeePhotos, type Viewer } from "@linger/core/shots";
 import { tier } from "@linger/core/pricing";
-import { and, count, countDistinct, desc, eq, inArray, lt, ne, or, sql } from "drizzle-orm";
+import {
+    and,
+    count,
+    countDistinct,
+    desc,
+    eq,
+    gt,
+    inArray,
+    isNull,
+    lt,
+    ne,
+    or,
+    sql,
+} from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type { Context } from "hono";
 import { Hono } from "hono";
@@ -45,6 +58,7 @@ import {
     hashToken,
     notifyFull,
     notifyQuietly,
+    RESTORE_DAYS,
     revealLine,
 } from "./notify.ts";
 import { advance, cancelReveal, revealedCounts, scheduleReveal } from "./reveal.ts";
@@ -150,15 +164,18 @@ export async function ownedEvent(host: Host, id: string): Promise<EventRow> {
 
 // Join codes are short enough to guess, so an address that keeps missing is turned away.
 const codeMisses = limiter("code-miss", 20, 10 * 60_000);
+// Shared links can all arrive through the join site's proxy under one address, and the page
+// gives away no more than a title and a cover, so it has its own, looser count.
+const pageMisses = limiter("page-miss", 300, 10 * 60_000);
 
 /** The event for the `:code` in the route. */
-export async function eventByCode(c: Context): Promise<EventRow> {
+export async function eventByCode(c: Context, misses = codeMisses): Promise<EventRow> {
     const ip = clientIp(c);
-    codeMisses.check(ip);
+    misses.check(ip);
     const code = normalizeJoinCode(c.req.param("code") ?? "");
     const [event] = code ? await db.select().from(events).where(eq(events.code, code)) : [];
     if (!event) {
-        codeMisses.hit(ip);
+        misses.hit(ip);
         throw notFound();
     }
     return event;
@@ -355,6 +372,7 @@ export async function deleteEvent(event: EventRow): Promise<void> {
 const JOIN_STATES: readonly EventState[] = ["live", "ended"];
 
 const emailsPerIp = limiter("guest-email-ip", 20, 60 * 60_000);
+const emailsPerGuest = limiter("guest-email-guest", 5, 86_400_000);
 const restoreSendsPerIp = limiter("restore-send-ip", 10, 15 * 60_000);
 const restoreSendsPerEmail = limiter("restore-send-email", 3, 15 * 60_000);
 const restoresPerIp = limiter("restore-ip", 20, 15 * 60_000);
@@ -385,6 +403,7 @@ const FALLBACK_INDEX =
 
 /** index.html with an event's link preview tags in its head. */
 export function withPreview(html: string, tags: Record<string, string>, title: string): string {
+    // Function replacers, so a `$` in a host's title is never read as a replacement pattern.
     const metas = Object.entries(tags)
         .map(([property, content]) => {
             const attr = property.startsWith("twitter:") ? "name" : "property";
@@ -392,9 +411,9 @@ export function withPreview(html: string, tags: Record<string, string>, title: s
         })
         .join("");
     const titled = /<title>[^<]*<\/title>/i.test(html)
-        ? html.replace(/<title>[^<]*<\/title>/i, `<title>${escapeHtml(title)}</title>`)
+        ? html.replace(/<title>[^<]*<\/title>/i, () => `<title>${escapeHtml(title)}</title>`)
         : html.replace(/<head[^>]*>/i, (open) => `${open}<title>${escapeHtml(title)}</title>`);
-    return titled.replace(/<\/head>/i, `${metas}</head>`);
+    return titled.replace(/<\/head>/i, () => `${metas}</head>`);
 }
 
 function icsText(value: string): string {
@@ -638,7 +657,7 @@ eventRoutes.get("/v1/e/:code/page", async (c) => {
     c.header("Cache-Control", "public, max-age=300");
     let event: EventRow;
     try {
-        event = await eventByCode(c);
+        event = await eventByCode(c, pageMisses);
     } catch (error) {
         // A mistyped path or a visitor over the code-miss limit still gets the app.
         if (
@@ -777,36 +796,63 @@ eventRoutes.get("/v1/e/:code/people", async (c) => {
         joinedAt: r.joinedAt.toISOString(),
         host: r.isHost,
     }));
-    return c.json({ people, guestLimit: event.guestLimit });
+    return c.json({ people, guestLimit: viewer.kind === "host" ? event.guestLimit : null });
 });
 
 /**
- * Where a guest wants the reveal email, or null to forget it. Set after the reveal, the email
- * goes out at once.
+ * Where a guest wants the reveal email, or null to forget it. Set after the reveal, the email goes
+ * out at once, but only once per guest, so the route can't be used to send mail to anyone.
  */
 eventRoutes.post("/v1/e/:code/email", async (c) => {
     const event = await eventByCode(c);
     const guest = await requireGuest(c, event);
+    // The host hears about their own event through their account, and their row never moves.
+    if (guest.isHost) {
+        throw new ApiError(409, "host-row", "You'll hear about your own event in the app.");
+    }
     const { email } = await body(c, GuestEmailRequest);
     emailsPerIp.take(clientIp(c));
+    emailsPerGuest.take(guest.id);
+    if (email) {
+        const [taken] = await db
+            .select({ id: guests.id })
+            .from(guests)
+            .where(
+                and(eq(guests.eventId, event.id), eq(guests.email, email), ne(guests.id, guest.id)),
+            );
+        if (taken) {
+            throw new ApiError(
+                409,
+                "email-taken",
+                "Another guest at this event left that email. Use a different one.",
+            );
+        }
+    }
     const [saved] = await db
         .update(guests)
-        .set({ email, emailedAt: null })
+        .set({ email })
         .where(eq(guests.id, guest.id))
         .returning();
     const state = dueState(event.state, event.settings, event.revealedAt, new Date());
     if (saved?.email && (state === "revealed" || state === "archived")) {
-        const { photos, people } = await revealedCounts(event.id);
-        const line = revealLine(event.settings.title, photos, people);
-        await db.update(guests).set({ emailedAt: new Date() }).where(eq(guests.id, guest.id));
-        await emailReveal({ id: guest.id, email: saved.email }, event, line);
+        const [claimed] = await db
+            .update(guests)
+            .set({ emailedAt: new Date() })
+            .where(and(eq(guests.id, guest.id), isNull(guests.emailedAt)))
+            .returning({ id: guests.id });
+        if (claimed) {
+            const { photos, people } = await revealedCounts(event.id);
+            const line = revealLine(event.settings.title, photos, people);
+            await emailReveal({ id: guest.id, email: saved.email }, event, line);
+        }
     }
     return c.json({ email: saved?.email ?? null });
 });
 
 /**
  * "I joined on another device": emails a fresh link to the guest who left this address. The
- * reply is the same whether or not anyone did, so it can't be used to look addresses up.
+ * reply is the same, and comes as quickly, whether or not anyone did, so it can't be used to
+ * look addresses up.
  */
 eventRoutes.post("/v1/e/:code/restore/send", async (c) => {
     const event = await eventByCode(c);
@@ -816,35 +862,58 @@ eventRoutes.post("/v1/e/:code/restore/send", async (c) => {
     const [guest] = await db
         .select({ id: guests.id, email: guests.email })
         .from(guests)
-        .where(and(eq(guests.eventId, event.id), eq(guests.email, email)));
-    if (guest?.email) await emailRestore({ id: guest.id, email: guest.email }, event);
+        .where(
+            and(eq(guests.eventId, event.id), eq(guests.email, email), eq(guests.isHost, false)),
+        );
+    if (guest?.email) {
+        emailRestore({ id: guest.id, email: guest.email }, event).catch((error: unknown) => {
+            log("error", "restore email failed", { error: errorDetail(error) });
+        });
+    }
     return c.json({ sent: true });
 });
 
 /**
- * Moves the guest an email link belongs to onto this device. A device that already joined as
- * someone else gives that place up only when it hasn't taken a photo.
+ * Moves the guest an email link belongs to onto this device. A link works once, within a week.
+ * A device that already joined as someone else gives that place up only when it hasn't taken a
+ * photo.
  */
 eventRoutes.post("/v1/e/:code/restore", async (c) => {
     const event = await eventByCode(c);
     const input = await body(c, RestoreRequest);
     restoresPerIp.take(clientIp(c));
+    const issuedAfter = new Date(Date.now() - RESTORE_DAYS * 86_400_000);
     const guest = await db.transaction(async (tx) => {
         const [found] = await tx
             .select()
             .from(guests)
             .where(
-                and(eq(guests.eventId, event.id), eq(guests.restoreHash, hashToken(input.token))),
+                and(
+                    eq(guests.eventId, event.id),
+                    eq(guests.restoreHash, hashToken(input.token)),
+                    eq(guests.isHost, false),
+                    gt(guests.restoreIssuedAt, issuedAfter),
+                ),
             )
             .for("update");
         if (!found) {
+            // Opening a used link again on the device it moved to just opens the event.
+            const [already] = await tx
+                .select()
+                .from(guests)
+                .where(and(eq(guests.eventId, event.id), eq(guests.device, input.device)));
+            if (already && !already.isHost) return already;
             throw new ApiError(
                 404,
                 "bad-link",
-                "That link has expired or belongs to another event.",
+                "That link has expired, was used already or belongs to another event.",
             );
         }
-        if (found.device === input.device) return found;
+        const used = { restoreHash: null, restoreIssuedAt: null };
+        if (found.device === input.device) {
+            await tx.update(guests).set(used).where(eq(guests.id, found.id));
+            return found;
+        }
         const [here] = await tx
             .select()
             .from(guests)
@@ -865,7 +934,7 @@ eventRoutes.post("/v1/e/:code/restore", async (c) => {
         if (here) await tx.delete(guests).where(eq(guests.id, here.id));
         const [moved] = await tx
             .update(guests)
-            .set({ device: input.device })
+            .set({ device: input.device, ...used })
             .where(eq(guests.id, found.id))
             .returning();
         return moved ?? found;

@@ -236,15 +236,18 @@ export function hashToken(token: string): string {
     return createHash("sha256").update(token).digest("hex");
 }
 
+/** How long an email link can move a guest to another device. */
+export const RESTORE_DAYS = 7;
+
 /**
- * A fresh link that moves a guest to whichever device opens it. Each new link replaces the last,
- * so only the newest email works.
+ * A fresh link that moves a guest to whichever device opens it, once, within a week. Each new
+ * link replaces the last, so only the newest email works.
  */
 export async function restoreLink(guestId: string, code: string): Promise<string> {
     const token = randomBytes(32).toString("base64url");
     await db
         .update(guests)
-        .set({ restoreHash: hashToken(token) })
+        .set({ restoreHash: hashToken(token), restoreIssuedAt: new Date() })
         .where(eq(guests.id, guestId));
     return `${joinUrl}/j/${code}?restore=${token}`;
 }
@@ -262,8 +265,9 @@ export async function emailReveal(
         subject: `${title}: the photos are ready`,
         text:
             `${line}\n\nOpen the event to see them:\n${link}\n\n` +
-            "The link opens the event as you, in any browser. You asked for this email when " +
-            `you joined ${title}, and it's the only one we send about it.\n`,
+            "The link opens the event as you, in any browser. It works once, for " +
+            `${RESTORE_DAYS} days. You asked for this email when you joined ${title}, and it's ` +
+            "the only one we send about it.\n",
     });
 }
 
@@ -280,7 +284,7 @@ export async function emailRestore(
         text:
             `Here's your link to ${title}:\n${link}\n\n` +
             "It opens the event as you, with your photos, on the phone or browser you open it " +
-            "on. Your other device will need a new link to get back in. If you didn't ask for " +
-            "this, you can ignore it.\n",
+            `on. It works once, for ${RESTORE_DAYS} days. Your other device will need a new ` +
+            "link to get back in. If you didn't ask for this, you can ignore it.\n",
     });
 }

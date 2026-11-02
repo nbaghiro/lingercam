@@ -159,7 +159,7 @@ test("the reveal lands on the moment within seconds, with the server's three car
         await expect(ana.page.getByText("Your roll: 3 taken, 2 left")).toBeVisible();
         await expect(ana.page.getByLabel("5 photos developing")).toBeAttached();
         await expect(ana.page.getByText("Ana", { exact: true }).first()).toBeVisible();
-        await expect(ana.page.getByRole("button", { name: "Download all photos" })).toHaveCount(0);
+        await expect(ana.page.getByRole("button", { name: "Save all photos" })).toHaveCount(0);
         await ana.page.screenshot({ path: testInfo.outputPath("developing.png") });
 
         // Cara takes two photos while her uploads can't get through.
@@ -214,8 +214,8 @@ test("the reveal lands on the moment within seconds, with the server's three car
         await expect(ana.page.getByText("It's all here.")).toHaveCount(0);
         await expect(ana.page.getByRole("button", { name: "Watch the recap" })).toBeVisible();
         await expect(ana.page.getByText("Watch the recap")).toBeVisible();
-        await expect(ana.page.getByRole("button", { name: "Show join code" })).toHaveCount(0);
-        await expect(ana.page.getByRole("button", { name: "Download all photos" })).toBeVisible();
+        await expect(ana.page.getByRole("button", { name: "Show code" })).toHaveCount(0);
+        await expect(ana.page.getByRole("button", { name: "Save all photos" })).toBeVisible();
 
         // Ben's stat reads "Now" until his gallery arrives, then the moment under reduced motion.
         await expect(ben.page.getByText("Now", { exact: true })).toBeVisible({ timeout: 30_000 });
@@ -234,8 +234,33 @@ test("the reveal lands on the moment within seconds, with the server's three car
         await expect(
             cara.page.getByText("2 of your photos are still sending. They'll appear here."),
         ).toBeVisible();
+        // The gallery leaves Cara's photos out for 10 s after they're sent, as if they were still
+        // developing, so they only appear if the screen keeps checking after her queue empties.
+        let developedAt = Infinity;
+        await cara.page.route("**/v1/e/*/gallery*", async (route) => {
+            const response = await route.fetch();
+            if (Date.now() >= developedAt) return route.fulfill({ response });
+            const page = (await response.json()) as {
+                kind: string;
+                total: number;
+                mine: number;
+                items?: { photographer: { name: string } }[];
+            };
+            if (page.kind === "photos" && page.items) {
+                const others = page.items.filter((item) => item.photographer.name !== "Cara");
+                page.total -= page.items.length - others.length;
+                page.mine = 0;
+                page.items = others;
+            }
+            return route.fulfill({ response, json: page });
+        });
         await cara.page.unroute("**/v1/e/*/shots");
-        await expect(cara.page.getByLabel("Photo by Cara")).toHaveCount(2, { timeout: 90_000 });
+        await expect(
+            cara.page.getByText("2 of your photos are still sending.", { exact: false }),
+        ).toBeVisible();
+        await until(gallery(code, token), (g) => g.kind === "photos" && g.total === 7);
+        developedAt = Date.now() + 10_000;
+        await expect(cara.page.getByLabel("Photo by Cara")).toHaveCount(2, { timeout: 40_000 });
         await expect(cara.page.getByText("7", { exact: true }).first()).toBeVisible();
 
         for (const g of [ana, ben, cara]) expect(g.errors).toEqual([]);

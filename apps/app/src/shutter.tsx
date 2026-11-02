@@ -190,11 +190,13 @@ export function useCameraEvent(): CameraEvent {
     }, [code, me.error, router]);
 
     // A photo refused for good usually means the camera closed early, so check at once.
-    const failed = useRef(shots.failed);
+    // Whether it was lost, saved to Photos or is waiting to be saved, it counts.
+    const refused = shots.failed + shots.keptInPhotos + shots.refused;
+    const lastRefused = useRef(refused);
     useEffect(() => {
-        if (shots.failed > failed.current) invalidate(`summary:${code}`);
-        failed.current = shots.failed;
-    }, [code, shots.failed]);
+        if (refused > lastRefused.current) invalidate(`summary:${code}`);
+        lastRefused.current = refused;
+    }, [code, refused]);
 
     return {
         code,

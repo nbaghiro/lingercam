@@ -60,7 +60,10 @@ const GuestResponse = z.object({
 });
 export type GuestResponse = z.infer<typeof GuestResponse>;
 
-const PeopleResponse = z.object({ people: z.array(Person), guestLimit: z.number().int() });
+const PeopleResponse = z.object({
+    people: z.array(Person),
+    guestLimit: z.number().int().nullable(),
+});
 export type People = z.infer<typeof PeopleResponse>;
 
 const Reservation = z.object({
@@ -231,9 +234,21 @@ export function dismissSignedOutNotice(): void {
 
 // The server's clock. Each response's `Date` header gives the offset from the device clock, so
 // countdowns and the shooting window don't depend on a phone set to the wrong time. Browsers
-// only see the header when the API lists it in Access-Control-Expose-Headers.
+// only see the header when the API lists it in Access-Control-Expose-Headers. The last offset is
+// kept, so a screen opened offline from the cache still runs on the server's time.
 
-let clockOffset = 0;
+const CLOCK_KEY = "clockOffset";
+
+function storedOffset(): number {
+    try {
+        const kept = storage.getNumber(CLOCK_KEY);
+        return kept !== undefined && Number.isFinite(kept) ? kept : 0;
+    } catch {
+        return 0;
+    }
+}
+
+let clockOffset = storedOffset();
 
 function noteServerTime(response: Response, sentAt: number): void {
     const header = response.headers.get("date");
@@ -241,7 +256,15 @@ function noteServerTime(response: Response, sentAt: number): void {
     if (!Number.isFinite(server)) return;
     const receivedAt = Date.now();
     // The header has whole seconds, so it trails the real time by half a second on average.
-    clockOffset = server + 500 - (sentAt + receivedAt) / 2;
+    const offset = server + 500 - (sentAt + receivedAt) / 2;
+    const moved = Math.abs(offset - clockOffset) > 1000;
+    clockOffset = offset;
+    if (!moved) return;
+    try {
+        storage.set(CLOCK_KEY, Math.round(offset));
+    } catch {
+        // Browser storage can be full; the offset still holds for this visit.
+    }
 }
 
 /** The current time by the server's clock, as far as the last response tells. */

@@ -282,7 +282,7 @@ test("Download all carries on past a failure and says how many were saved", asyn
         await route.continue();
     });
     await page.goto(`/e/${code}`);
-    await page.getByRole("button", { name: "Download all photos" }).click();
+    await page.getByRole("button", { name: "Save all photos" }).click();
     await expect(
         page.getByText(`${TOTAL - 1} of ${TOTAL} saved. 1 couldn't be saved.`, { exact: false }),
     ).toBeVisible({ timeout: 120_000 });
@@ -295,7 +295,7 @@ test("phone browsers are told to save from the viewer", async ({ browser }) => {
         "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
     );
     await page.goto(`/e/${code}`);
-    await page.getByRole("button", { name: "Download all photos" }).click();
+    await page.getByRole("button", { name: "Save all photos" }).click();
     await expect(page.getByText("Save photos one at a time from the viewer.")).toBeVisible();
 });
 

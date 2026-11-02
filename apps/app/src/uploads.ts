@@ -26,6 +26,8 @@ const Upload = z.object({
     uploaded: z.boolean().optional(),
     /** Set once the photo has been made smaller after the server said it was too large. */
     resized: z.boolean().optional(),
+    /** Refused by the event for good and waiting for the guest to save it from a tap. */
+    refused: z.boolean().optional(),
     attempts: z.number().int(),
     nextAt: z.number(),
 });
@@ -176,9 +178,16 @@ function discard(upload: Upload): void {
     }
 }
 
+/** Photos still on their way: everything in the queue except refused ones waiting to be saved. */
+const sending = (u: Upload) => !u.refused;
+
+function settle(code: string): void {
+    if (!queue.some((u) => u.code === code && sending(u))) drainedAt.set(code, Date.now());
+}
+
 function remove(upload: Upload): void {
     queue = queue.filter((u) => u.id !== upload.id);
-    if (!queue.some((u) => u.code === upload.code)) drainedAt.set(upload.code, Date.now());
+    settle(upload.code);
     changed();
     discard(upload);
 }
@@ -278,23 +287,63 @@ async function shrink(upload: Upload, local: Local): Promise<string> {
     return smaller;
 }
 
-/** A photo the server will never take: saved to the guest's photos first, then let go. */
+/**
+ * A photo the server will never take. In the app it goes to the guest's photos; when that can't
+ * happen yet, and always in the browser, it stays in the queue until the guest taps Save, so the
+ * permission prompt or the download has a tap behind it. The file goes only once it's saved.
+ */
 async function refuse(upload: Upload, code: string): Promise<void> {
     if (code === "no-shots-left") setShotsLeft(upload.code, 0);
     const local = await open(upload);
+    if (!local) {
+        count(failedKey(upload.code));
+        remove(upload);
+        return;
+    }
     let kept = false;
-    if (local) {
+    if (!WEB) {
         try {
             await keepInPhotos(local.uri);
             kept = true;
         } catch {
-            // No permission or no space: the guest is told the photo couldn't be added.
+            // No permission, no prompt in the background or no space: kept for a Save tap.
+        }
+    }
+    local.release();
+    if (kept) {
+        count(keptKey(upload.code));
+        remove(upload);
+        return;
+    }
+    queue = queue.map((u) => (u.id === upload.id ? { ...u, refused: true } : u));
+    settle(upload.code);
+    changed();
+}
+
+/**
+ * Saves the event's refused photos from a tap. A browser allows one download per tap, so the web
+ * saves one at a time. Resolves to how many are still waiting.
+ */
+export async function saveRefused(code: string): Promise<number> {
+    const waiting = queue.filter((u) => u.code === code && u.refused);
+    for (const upload of WEB ? waiting.slice(0, 1) : waiting) {
+        const local = await open(upload);
+        if (!local) {
+            count(failedKey(code));
+            remove(upload);
+            continue;
+        }
+        try {
+            await keepInPhotos(local.uri);
+            count(keptKey(code));
+            remove(upload);
+        } catch {
+            // Still waiting; the line stays so the guest can try again.
         } finally {
             local.release();
         }
     }
-    count(kept ? keptKey(upload.code) : failedKey(upload.code));
-    remove(upload);
+    return queue.filter((u) => u.code === code && u.refused).length;
 }
 
 function unreadable(upload: Upload): void {
@@ -381,7 +430,7 @@ async function pump(): Promise<void> {
     try {
         for (;;) {
             const now = Date.now();
-            const next = queue.find((u) => u.nextAt <= now);
+            const next = queue.find((u) => sending(u) && u.nextAt <= now);
             if (!next) break;
             inFlight = next;
             notify();
@@ -394,7 +443,7 @@ async function pump(): Promise<void> {
         }
     } finally {
         running = false;
-        const soonest = Math.min(...queue.map((u) => u.nextAt));
+        const soonest = Math.min(...queue.filter(sending).map((u) => u.nextAt));
         if (Number.isFinite(soonest)) {
             timer = setTimeout(resumeUploads, Math.max(250, soonest - Date.now()));
         }
@@ -410,7 +459,7 @@ export function resumeUploads(): void {
 
 /** Drops the backoff, for the moments signal is likely back. */
 function retryNow(): void {
-    if (queue.length === 0) return;
+    if (!queue.some(sending)) return;
     queue = queue.map((u) => ({ ...u, nextAt: 0 }));
     resumeUploads();
 }
@@ -452,6 +501,8 @@ export interface ShotsState {
     failed: number;
     /** Refused photos that were saved to the guest's photo library instead. */
     keptInPhotos: number;
+    /** Refused photos still on this device, waiting for the guest to save them. */
+    refused: number;
     /** Queued photos whose local file couldn't be read, so they were dropped. */
     unreadable: number;
     /** True while a photo for this event is on its way to the server. */
@@ -461,7 +512,8 @@ export interface ShotsState {
 }
 
 function measure(code: string): ShotsState {
-    const mine = queue.filter((u) => u.code === code);
+    const all = queue.filter((u) => u.code === code);
+    const mine = all.filter(sending);
     const known = knownLeft(code);
     const unreserved = mine.filter((u) => !u.shotId).length;
     return {
@@ -470,6 +522,7 @@ function measure(code: string): ShotsState {
         retrying: mine.some((u) => u.attempts > 0),
         failed: storage.getNumber(failedKey(code)) ?? 0,
         keptInPhotos: storage.getNumber(keptKey(code)) ?? 0,
+        refused: all.length - mine.length,
         unreadable: storage.getNumber(unreadableKey(code)) ?? 0,
         sending: inFlight?.code === code,
         drained: drainedAt.get(code) ?? 0,

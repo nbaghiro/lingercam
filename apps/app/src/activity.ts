@@ -6,7 +6,7 @@ import { formatTime, revealLabel, t } from "@/copy";
 
 // The Live Activity on the lock screen and in the Dynamic Island while a guest shoots. Its job is
 // the shooting window: it starts with the first photo, moves with each one, goes stale at the
-// end and then reads "The camera has closed. Photos at 10:00." The native side lives in
+// end and then reads "The camera has closed. Photos appear at 10:00." The native side lives in
 // modules/live-activity and the views in targets/activity; elsewhere these calls do nothing.
 
 interface ActivityState {

@@ -84,7 +84,9 @@ account. A guest's email address is kept with their place in the event until the
 remove it or the event is deleted. Sign-in codes expire after a short time. When an event is
 deleted, we delete what we store for it: its guests' names, email addresses and photos, likes,
 reports, purchase records and the stored photo files. When an account is deleted, we do the same
-for each of the host's events and also delete the host's push tokens. [To confirm before
+for each of the host's events and also delete the host's push tokens. A guest's push token
+belongs to the phone, not to one event, so it isn't deleted with an event. We delete it when
+the push service tells us it no longer works, for example after the app is removed. [To confirm before
 publishing: retention of backups and any records we must keep for tax purposes.]
 
 ## Deleting your data

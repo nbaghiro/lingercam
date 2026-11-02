@@ -91,12 +91,17 @@ export const guests = pgTable(
         emailedAt: time("emailed_at"),
         /** Hash of the token in the latest email link; the link moves this guest to a device. */
         restoreHash: text("restore_hash").unique(),
+        /** When that link was sent; it stops working a week later. */
+        restoreIssuedAt: time("restore_issued_at"),
     },
     (t) => [
         uniqueIndex("guests_event_device_idx").on(t.eventId, t.device),
         uniqueIndex("guests_event_host_idx")
             .on(t.eventId)
             .where(raw`${t.isHost}`),
+        uniqueIndex("guests_event_email_idx")
+            .on(t.eventId, t.email)
+            .where(raw`${t.email} is not null`),
     ],
 );
 
