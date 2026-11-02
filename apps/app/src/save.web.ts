@@ -6,9 +6,7 @@ async function blobOf(url: string): Promise<Blob> {
     return response.blob();
 }
 
-/** Downloads a photo as a file. Signed URLs are on another origin, so it goes through a blob. */
-export async function savePhoto(url: string): Promise<void> {
-    const blob = await blobOf(url);
+function downloadBlob(blob: Blob): void {
     const href = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = href;
@@ -19,6 +17,11 @@ export async function savePhoto(url: string): Promise<void> {
     setTimeout(() => URL.revokeObjectURL(href), 10_000);
 }
 
+/** Downloads a photo as a file. Signed URLs are on another origin, so it goes through a blob. */
+export async function savePhoto(url: string): Promise<void> {
+    downloadBlob(await blobOf(url));
+}
+
 /** Shares the photo file where the browser can, and downloads it otherwise. */
 export async function sharePhoto(url: string): Promise<void> {
     const blob = await blobOf(url);
@@ -27,31 +30,50 @@ export async function sharePhoto(url: string): Promise<void> {
         await navigator.share({ files: [file] });
         return;
     }
-    await savePhoto(url);
+    downloadBlob(blob);
 }
 
 /**
- * Downloads each photo in turn, reporting how many are done. Stops at the first failure and
+ * Phone browsers turn each download into its own prompt or tab, so saving every photo only
+ * runs on a desktop browser until a ZIP download exists.
+ */
+export function canSaveAll(): boolean {
+    if (typeof navigator === "undefined") return true;
+    const phone = /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent);
+    const touchMac = /Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1;
+    return !phone && !touchMac;
+}
+
+/** Browsers have no album or permission to ask for; each photo is a download. */
+export async function photoSaver(_album: string): Promise<(url: string) => Promise<void>> {
+    return savePhoto;
+}
+
+/**
+ * Downloads each photo in turn, reporting how many are done. A photo that fails is skipped;
  * resolves to the number saved.
  */
 export async function saveAll(
     urls: readonly string[],
     onProgress: (done: number) => void,
 ): Promise<number> {
-    let done = 0;
-    for (const url of urls) {
+    let saved = 0;
+    for (const [i, url] of urls.entries()) {
         try {
             await savePhoto(url);
+            saved += 1;
         } catch {
-            break;
+            // Counted by the caller as total minus saved.
         }
-        done += 1;
-        onProgress(done);
+        onProgress(i + 1);
     }
-    return done;
+    return saved;
 }
 
 /** Downloads a photo that is already in the browser, such as one the event refused. */
 export async function keepInPhotos(uri: string): Promise<void> {
     await savePhoto(uri);
 }
+
+/** Browsers have no settings page for this. */
+export function openPhotoSettings(): void {}
