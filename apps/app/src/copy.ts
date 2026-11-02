@@ -521,6 +521,15 @@ const en = {
     "web.siteLink": "About Linger",
 
     // W1, host setup and account. Add strings below this line.
+    "signIn.nameBody": "Guests see this name when they join your events.",
+    "home.deleted": "{title} was deleted.",
+    "settings.signOutTitle": "Sign out?",
+    "create.discardBody": "What you've entered so far won't be kept.",
+    "create.discardBodyResumed": "Changes since you opened this draft won't be kept.",
+    "create.deleteDraftBody": "The draft and its cover photo are deleted. This can't be undone.",
+    "create.name.zoneChange": "Change time zone",
+    "create.name.zoneSearch": "Search by city",
+    "create.rules.revealBefore": "The reveal needs to be at or after the end.",
     // End of W1.
 
     // W2, hosting tools and invite. Add strings below this line.

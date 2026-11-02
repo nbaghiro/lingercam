@@ -1,4 +1,7 @@
-# Demo host signs in, sees the seeded events and creates a free event through all five steps.
+# Demo host: the grouped events list, the discard question, a free event through all five steps
+# with a start time and a custom reveal, the seeded draft resuming at step 5 with Back to every
+# step, and the name row in Settings. The first-sign-in name sheet needs an email account, so the
+# name is checked through Settings, which uses the same sheet.
 appId: app.galleo.linger
 ---
 - runFlow: open.yaml
@@ -14,19 +17,56 @@ appId: app.galleo.linger
 - extendedWaitUntil:
     visible: "Your events"
     timeout: 20000
-- assertVisible: "Maya turns thirty, Live.*"
+
+# Grouped by what needs the host, each card with its own line.
+- assertVisible: "Live now"
+- assertVisible: "Maya turns thirty, Live. Camera open.*"
+- scrollUntilVisible:
+    element: "Coming up"
+- assertVisible: "Sam & Ria's wedding, Coming up. Opens.*"
+- scrollUntilVisible:
+    element: "Waiting for the reveal"
+- assertVisible: "Jun's housewarming, Ended.*Reveals.*"
+- scrollUntilVisible:
+    element: "Drafts"
 - assertVisible: "Tofino, the long weekend, Draft.*"
 - scrollUntilVisible:
-    element: "Emma & Daniel's Wedding day, Revealed.*"
+    element: "Emma & Daniel's Wedding day, Revealed.*photos.*"
+
+# Leaving a half-made event asks first.
 - tapOn: "New event"
 - assertVisible: "What are we capturing?"
 - tapOn: "Party"
+- tapOn: "Close"
+- assertVisible: "Discard this event?"
+- tapOn: "Keep editing"
+- assertVisible: "What are we capturing?"
+- tapOn: "Close"
+- tapOn: "Discard"
+- extendedWaitUntil:
+    visible: "Your events"
+    timeout: 10000
+
+# A new event with a start time and a custom reveal.
+- tapOn: "New event"
+- tapOn: "Party"
 - tapOn: "Continue"
 - assertVisible: "What's it called?"
+- tapOn: "Continue"
+- assertVisible: "Give it a name to continue."
 - inputText: "Maestro test party"
 - pressKey: Enter
+- assertVisible: "Starts, .*"
+- tapOn: "Starts, .*"
+- tapOn: "Done"
 - tapOn: "Continue"
 - assertVisible: "How should it work?"
+- tapOn: "Pick a time"
+- tapOn: "Done"
+- assertVisible:
+    text: "Pick a time"
+    selected: true
+- assertVisible: "Everyone sees the photos .*"
 - tapOn: "Continue"
 - assertVisible: "Pick a look"
 - tapOn: "Warm '98.*"
@@ -43,3 +83,42 @@ appId: app.galleo.linger
 - extendedWaitUntil:
     visible: "Maestro test party.*"
     timeout: 10000
+
+# The seeded draft opens at step 5, and Back reaches every step.
+- scrollUntilVisible:
+    element: "Tofino, the long weekend, Draft.*"
+- tapOn: "Tofino, the long weekend, Draft.*"
+- extendedWaitUntil:
+    visible: "How many guests?"
+    timeout: 10000
+- tapOn: "Back"
+- assertVisible: "Pick a look"
+- tapOn: "Back"
+- assertVisible: "How should it work?"
+- tapOn: "Back"
+- assertVisible: "What's it called?"
+- assertVisible: "Tofino, the long weekend"
+- tapOn: "Back"
+- assertVisible: "What are we capturing?"
+- tapOn: "Close"
+- extendedWaitUntil:
+    visible: "Your events"
+    timeout: 10000
+
+# The name guests see, from Settings.
+- scrollUntilVisible:
+    element: "Settings"
+    direction: UP
+- tapOn: "Settings"
+- tapOn: "Name, Alex Morgan"
+- assertVisible: "What should guests call you?"
+- eraseText: 20
+- inputText: "Alex M"
+- tapOn: "Save name"
+- assertVisible: "Name, Alex M"
+- tapOn: "Name, Alex M"
+- eraseText: 20
+- inputText: "Alex Morgan"
+- tapOn: "Save name"
+- assertVisible: "Name, Alex Morgan"
+- tapOn: "Close"
