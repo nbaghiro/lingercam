@@ -1,0 +1,60 @@
+# The upload queue on iOS. A photo taken just before the app goes to the background still reaches
+# the server (G12), and a photo the event refuses for good is saved to Photos with a line saying
+# so (G1). Needs the API's dev routes for the demo sign-in.
+appId: app.galleo.linger
+---
+- runScript:
+    file: uploads.js
+    env:
+      STEP: create
+- runFlow: open.yaml
+- openLink: linger://j/${output.code}
+- extendedWaitUntil:
+    visible: "You're invited to shoot Upload check"
+    timeout: 20000
+- tapOn: "Open camera"
+- runFlow:
+    when:
+      visible: "What should we call you?"
+    commands:
+      - tapOn: "Your name"
+      - inputText: "Robin"
+      - tapOn: "Continue"
+- runFlow:
+    when:
+      visible: "Allow camera"
+    commands:
+      - tapOn: "Allow camera"
+- extendedWaitUntil:
+    visible: "\\d+ shots? left"
+    timeout: 20000
+
+# Shoot and leave at once. The PUT goes through a background session; the photo is on the
+# server once the app is back.
+- tapOn: "Take photo"
+- pressKey: Home
+- waitForAnimationToEnd:
+    timeout: 10000
+- launchApp:
+    stopApp: false
+- runScript:
+    file: uploads.js
+    env:
+      STEP: arrived
+      COUNT: "1"
+
+# The host ends the event while the camera is still open, so the next photo is refused for good.
+- runScript:
+    file: uploads.js
+    env:
+      STEP: end
+- tapOn: "Take photo"
+- runFlow:
+    when:
+      visible: "Allow|Allow Access|Allow Full Access"
+    commands:
+      - tapOn: "Allow|Allow Access|Allow Full Access"
+- openLink: linger://e/${output.code}
+- extendedWaitUntil:
+    visible: "1 photo couldn't be added to the event, so it was saved to your Photos."
+    timeout: 30000

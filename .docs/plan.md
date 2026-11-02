@@ -519,3 +519,11 @@ Checked at hand-off on 2026-11-01. "Passed" means the command was run in that ph
   data, deep links and stand-ins, and `.docs/qa.md` holds the manual QA checklist. Remaining gaps
   are the ones listed per phase; `@bacons/apple-targets` warns that `ios.appleTeamId` is unset,
   which needs a real team id before a device or App Store build.
+- 2026-11-02, polish, upload queue (G12, decision Q5): SDK 58's `expo-file-system` has
+  background upload sessions (`File.upload` with `sessionType: "background"`), so on iOS the PUT
+  of a queued photo now carries on after the app is suspended. Reserving and confirming the shot
+  are API calls that still need the app running, so a photo whose PUT finishes while the phone is
+  locked is confirmed when Linger next comes to the foreground; if that is more than 10 minutes
+  later, the reservation has been released and the photo is reserved and sent again. Confirming in
+  the background needs either a background task or the API confirming uploaded originals itself.
+  The Android foreground service is not built (Android is out of this run, Q9).
