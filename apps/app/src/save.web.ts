@@ -1,7 +1,8 @@
 export class PhotosDenied extends Error {}
 
 async function blobOf(url: string): Promise<Blob> {
-    const response = await fetch(url);
+    // An <img> already cached this URL without CORS headers, which a cors fetch can't reuse.
+    const response = await fetch(url, { cache: "no-store" });
     if (!response.ok) throw new Error(`Download failed with ${response.status}`);
     return response.blob();
 }

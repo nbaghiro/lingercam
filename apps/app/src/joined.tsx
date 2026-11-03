@@ -129,8 +129,8 @@ export function CodeEntry({ initialCode, onSubmit }: CodeEntryProps) {
         if (next.length > value.length) haptic("selection");
         setValue(next);
         const code = normalizeJoinCode(next);
-        // The sixth character, typed or pasted, joins straight away.
-        if (code && value.length < JOIN_CODE_LENGTH) onSubmit(code);
+        // The sixth character, or a different whole code pasted over a full one, joins straight away.
+        if (code && next !== value) onSubmit(code);
     };
 
     return (

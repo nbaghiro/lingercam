@@ -1,6 +1,6 @@
 import type { LookId } from "@linger/core/film";
 import { Asset } from "expo-asset";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { StyleSheet, View } from "react-native";
 
 import { t } from "@/copy";
@@ -180,6 +180,29 @@ async function takeStill(
     }
 }
 
+/** How long a tap made while the camera is still starting waits for its first frame. */
+const START_WAIT_MS = 3000;
+
+/**
+ * The playing video and its track, waiting for the first frame when the shutter is tapped as the
+ * camera opens, so that tap takes the photo instead of failing.
+ */
+async function firstFrame(
+    video: RefObject<HTMLVideoElement | null>,
+): Promise<{ element: HTMLVideoElement; track: MediaStreamTrack }> {
+    const deadline = Date.now() + START_WAIT_MS;
+    for (;;) {
+        const element = video.current;
+        const track =
+            element?.srcObject instanceof MediaStream
+                ? element.srcObject.getVideoTracks()[0]
+                : undefined;
+        if (element && track && element.videoWidth > 0) return { element, track };
+        if (Date.now() > deadline) throw new Error("The camera isn't ready.");
+        await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+}
+
 type Status = "starting" | "live" | "denied" | "none";
 
 interface TorchTrack {
@@ -306,10 +329,7 @@ function useWebLens(look: LookId): Lens {
             </View>
         ),
         async capture(flash) {
-            const element = video.current;
-            if (!element || !track || element.videoWidth === 0) {
-                throw new Error("The camera isn't ready.");
-            }
+            const { element, track } = await firstFrame(video);
             const still = await takeStill(track, front ? "off" : flash, front);
             if (still) return still;
             const lit = torch && flash === "on";

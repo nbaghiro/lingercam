@@ -4,9 +4,9 @@ import { expect, test } from "@playwright/test";
 // Try Linger code opens the guest home, unknown paths read as missing pages, and the join domain
 // serves its link files and preview tags.
 
-const SITE = process.env.SITE_E2E_URL ?? "http://127.0.0.1:8170";
-const JOIN = "http://localhost:8173";
-const API = "http://localhost:8171";
+const SITE = process.env.E2E_SITE_URL ?? "http://127.0.0.1:8170";
+const JOIN = process.env.E2E_APP_URL ?? "http://localhost:8173";
+const API = process.env.E2E_API_URL ?? "http://localhost:8171";
 /** A seeded event (`pnpm --filter api seed`). */
 const SEEDED_CODE = "EMMADN";
 
@@ -37,8 +37,9 @@ test.describe("site", () => {
     test("privacy covers the guest's optional email", async ({ page }) => {
         await page.goto(`${SITE}/privacy/`);
         await expect(page.locator("main")).toContainText("Email address, if you leave one.");
+        // Markdown turns the apostrophe into a typographic one.
         await expect(page.locator("main")).toContainText(
-            "A guest's email address is kept with their place in the event",
+            /A guest['’]s email address is kept with their place in the event/,
         );
     });
 
@@ -85,7 +86,10 @@ test.describe("join domain", () => {
         const res = await request.get(`${API}/v1/e/${SEEDED_CODE}/page`);
         expect(res.ok()).toBe(true);
         const html = await res.text();
-        expect(html).toMatch(/<meta property="og:title" content="You're invited to shoot [^"]+">/);
+        // The title is HTML-escaped, so the apostrophe arrives as &#39;.
+        expect(html).toMatch(
+            /<meta property="og:title" content="You(?:'|&#39;)re invited to shoot [^"]+">/,
+        );
         expect(html).toContain(
             '<meta property="og:description" content="Scan to join. No download needed.">',
         );

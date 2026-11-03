@@ -4,7 +4,7 @@ import { expect, test, type Browser, type Page, type Response } from "@playwrigh
 // Chromium's fake camera, nothing leaks before the reveal, then the gallery shows every photo
 // signed with the guest who took it.
 
-const API = "http://localhost:8171";
+const API = process.env.E2E_API_URL ?? "http://localhost:8171";
 const MAILPIT = "http://localhost:8176";
 const STORAGE = "localhost:8174";
 const SHOTS = 5;

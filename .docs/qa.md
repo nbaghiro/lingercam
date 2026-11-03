@@ -74,7 +74,7 @@ Create an event
 Hosting a live event
 
 - [ ] Open MAYA3X from the list: cover, title, stats (Left, To reveal, Revealed), "Open camera",
-      "Show join code" and the developing tiles. No photo is visible before the reveal.
+      "Show code" and the developing tiles. No photo is visible before the reveal.
 - [ ] "People ›" opens the people sheet with names and when they joined.
 - [ ] The notification prompt appears, and a local reminder is scheduled for the reveal.
 
@@ -82,7 +82,8 @@ Hosting a live event
 
 - [ ] `linger://j/MAYA3X` opens the join sheet over the blurred cover: "You're invited to shoot
       Maya turns thirty", the rules line and "Open camera".
-- [ ] "What should we call you?" accepts a name; the camera permission step follows.
+- [ ] "What should we call you?" accepts a name; the system camera prompt follows, with no
+      screen of Linger's own before it.
 - [ ] On the simulator the camera says it's using sample photos. Taking a photo flashes, gives a
       haptic, rolls the counter down by one and shows the last shot thumbnail with the look.
 - [ ] Flash, 0.5 (where the device has it) and flip respond. The top bar shows the time left.
@@ -111,9 +112,9 @@ Hosting a live event
 - [ ] People: tapping a person shows "<name>'s roll"; "Show everyone" goes back.
 - [ ] "Watch the recap" plays up to 12 photos, 5 s each, with progress bars; tap right and left to
       move, hold to pause, "Save photo" and "Share" work, close returns to the event.
-- [ ] "Download all photos" shows "Saving N of 24" and ends with "24 photos saved to Photos".
+- [ ] "Save all photos" shows "Saving N of 24" and ends with "24 photos saved to Photos".
 - [ ] To watch a live reveal: create an at-end event that ends in a few minutes, join and shoot,
-      then wait. The gallery switches to photos within about 30 s, the local notification fires
+      then wait. The moment appears within a few seconds of the reveal, the local notification fires
       and tapping it opens the event. The Live Activity ends.
 
 ## Guest web app (http://localhost:8173)
@@ -127,7 +128,9 @@ Use Chrome or Safari, ideally at phone width in the device toolbar.
 - [ ] `/e/EMMADN` shows the gallery after the reveal moment; the viewer, likes, save (a download)
       and the recap work.
 - [ ] Reloading the page keeps you joined (the device id is in browser storage).
-- [ ] Host routes (`/`, `/new`) show "Hosting happens in the app" with store buttons.
+- [ ] `/` is the guest home: events this browser joined, "Have a code?" and a link to the site.
+      Host routes (`/new`, `/settings`) show "Hosting happens in the app" with one button per
+      store.
 - [ ] The tab shows the Linger favicon and title.
 - [ ] No errors in the console, apart from the known expo-notifications warning about push tokens
       on the web.
@@ -293,6 +296,79 @@ These wait for the Android pass (decision Q9):
 - G191: the app has not run on Android. Its parts written in this run are untested there: the
   upload foreground service (G12), App Links (G17), Android back on create (G68), and
   `ImageCapture.takePhoto()` in Android Chrome (G239).
+
+## Hand-off, 2026-11-02
+
+### Running the web tests beside other servers
+
+Naib's servers from the main checkout held 8170, 8171 and 8173 for the whole run, so the web tests
+ran against this branch on the two spare ports: the API on 8179 and, in turn, the Expo web app or
+the site on 8178. The e2e files and `playwright.config.ts` read `E2E_API_URL`, `E2E_APP_URL` and
+`E2E_SITE_URL`, with the usual ports as defaults, and the storage CORS rules allow 8178.
+
+```sh
+cd apps/api && PORT=8179 API_URL=http://localhost:8179 JOIN_URL=http://localhost:8178 \
+  CORS_ORIGINS=http://localhost:8178 node --env-file-if-exists=../../.env src/server.ts
+cd apps/app && CI=1 EXPO_PUBLIC_API_URL=http://localhost:8179 \
+  EXPO_PUBLIC_JOIN_URL=http://localhost:8178 npx expo start --web --port 8178
+E2E_API_URL=http://localhost:8179 E2E_APP_URL=http://localhost:8178 \
+  E2E_SITE_URL=http://localhost:8178 npx playwright test apps/app
+```
+
+For the four site page tests, serve the site instead (`npx astro dev --port 8178` in `apps/site`)
+and set `E2E_SITE_URL=http://127.0.0.1:8178`. Metro started with `CI=1` doesn't reload, so restart
+it after changing app code. The API keeps its rate limits in memory, so restart it between full
+runs.
+
+### Screens and states covered by the web tests
+
+All 54 tests pass on this branch, run in groups because only two ports were free. Each new screen
+and state from the polish run has a test:
+
+- Guest home on the web root, "Have a code?", the joined list (a deleted event drops out), and
+  one store button per host route.
+- Join sheet: live, loading shape, before the start, draft, full, ended, revealed as a member and
+  not a member, unknown code with the code prefilled, a pasted link, offline, a returning guest
+  ("Join as Sam", "Not Sam?"), a sheet left open as the clock passes, and the email link that
+  moves a guest to another browser.
+- Camera: before the start, closing soon, closed while open (End now and the end passing), after
+  the reveal, the server's clock against a wrong device clock, offline with and without a cached
+  event, flash and zoom, the last shot after reopening, staying awake, a hidden tab, and a deleted
+  event.
+- Uploads: thirty photos offline across a reload, an immediate retry on reconnecting, a refused
+  photo kept until Download, a too-large photo shrunk and sent again, and a missing file reported.
+- Event screen and reveal: the roll line, the developing grid, "Left" then "Now", the moment with
+  the server's three cards and the personal line, late photos slotting in, the seconds countdown,
+  and a right-away event's "Live" and closing line.
+- Gallery: a roll paged by the server, the viewer's arrow keys, renewed signed URLs, the recap's
+  fixed set, end card and share, Save all past a failure, the phone-browser line and the 250-guest
+  people list.
+- Site and join domain: the copy that ships, Try Linger, privacy and support, the link files,
+  the page shell, per-event preview tags, missing pages and a bare code path.
+
+### What the hand-off fixed
+
+- The web camera's first shot as it opened failed with "The photo didn't take". It now waits for
+  the first video frame.
+- Pasting a different whole code or link over a full code entry didn't join.
+- Share and save in the browser failed for a photo already shown, because the browser reused the
+  `<img>` copy without CORS headers.
+
+### Maestro at hand-off
+
+The review fixes after the native pass changed app code (refused photos and the Save line,
+`useNotificationTaps`, renamed buttons) but no native modules, so the dev client from the native
+pass was reused with Metro on 8178 and the API on 8179, after a fresh seed. All six flows passed
+in one ordered run (host, guest, uploads, gallery, notify, manage; 6m 34s).
+
+### Built, not verified at hand-off
+
+Beyond the lists in the native pass above:
+
+- Device (Q16): a refused photo saved to Photos straight away when access is granted, and the
+  Save line with Open Settings when it isn't; a photo sent while the phone is locked and confirmed
+  on the next foreground (G12); the restore email link opened on a second iPhone.
+- Android (Q9): nothing new; the list above still holds.
 
 ## Known gaps
 

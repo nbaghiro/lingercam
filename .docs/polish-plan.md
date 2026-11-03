@@ -1049,3 +1049,98 @@ match their "Now". What changed:
   (`ios/**`, `open.yaml`, `config.yaml`) and gives the existing `web.e2e.ts` to W3.
 - **Copy**: the quoted strings match `product.md`; the new items' strings follow the same voice
   and go through F2's catalogue or the owner's copy block.
+
+---
+
+## Results
+
+The run finished on 2026-11-02 on the `polish` branch. Every item from G1 to G249 has code on
+the branch except the ones listed under "Not done" below. `.docs/product.md` now marks each
+requirement against that code, `.docs/qa.md` has the native pass and this hand-off, and
+`.docs/plan.md` has dated lines for each decision made along the way.
+
+### How it ran
+
+- F1 and F2 laid the contract and the shared app files (`48e54f8`). W1 to W7 worked in parallel
+  worktrees and merged without conflicts (`6018a90`).
+- The native pass rebuilt the dev client and ran every Maestro flow on the iPhone 17 Pro
+  simulator (`bc543e9`). It found 11 app bugs, each fixed in the file that owns it.
+- A review pass fixed its findings (`f9bd5a3`): restore links work once and for 7 days, the host's
+  row can't take an email, one email per guest after the reveal, refused photos are kept until
+  the guest saves them, and the stored server clock offset.
+- The hand-off ran the web tests for the first time against this branch. Naib's own servers from
+  the main checkout held 8170, 8171 and 8173 throughout, so the polish API ran on 8179 and the web
+  app and the site took turns on 8178. The e2e files and `playwright.config.ts` now take
+  `E2E_API_URL`, `E2E_APP_URL` and `E2E_SITE_URL`, and the storage CORS rules allow 8178.
+
+### Verified
+
+- `pnpm check`: format, lint, typecheck for every package, 108 core tests and 103 API tests.
+- Playwright: all 54 tests in `apps/app/*.e2e.ts` and `apps/site/site.e2e.ts` pass on this branch,
+  run in groups because only two spare ports were free. The hand-off fixed three app bugs and one
+  setup gap these tests found:
+  - The web camera failed the first shot taken as it opened. It now waits up to 3 s for the first
+    video frame (`camera.web.tsx`).
+  - A whole link pasted over a full code in the code entry didn't join (`joined.tsx`).
+  - Share in the recap and the viewer failed after an `<img>` had cached the photo without CORS
+    headers. The download now skips the cache (`save.web.ts`).
+  - Storage CORS refused any origin but 8170 and 8173 (`docker/storage-cors.json`).
+- The rest were test fixes: one signed-in host per file (the API starts at most 20 sign-ins per
+  IP address in 15 minutes), the join helper waiting for the name step or the camera, selectors
+  scoped to the sheet over the guest home, and checks that matched escaped or typographic
+  apostrophes.
+- Maestro: the six flows on the simulator, once after the native pass and again at hand-off (see
+  `.docs/qa.md`).
+- Shot: 59 `after-*.png` screenshots in `.docs/vision/shots/`, compared with the scratchpad.
+
+### Not done, and why
+
+- **G216**, the volume-button shutter: moved to Later. VisionCamera 5 has no event for the volume
+  buttons.
+- **G134**, the front screen flash: a white overlay that fires on On, not Auto, with no brightness
+  boost, because `expo-brightness` isn't installed.
+- **Q11**, the shutter sound: the system shutter sound, which the silent switch mutes, stands in
+  for a sound of Linger's own.
+- **G12**, uploads in the background: iOS sends the photo in a background upload session and
+  confirms it when Linger next comes to the foreground; a photo confirmed more than 10 minutes
+  later is still kept, because the API confirms an intact upload at expiry. The Android
+  foreground service isn't built (Q9). A background task that confirms while the phone is locked
+  wasn't added.
+- **G191** and every Android part (G12, G17 App Links, G68 Android back, G239 `ImageCapture` in
+  Android Chrome): written where the plan asked, but Android is out of this run (Q9).
+- **G17**, universal links: the association files are served, but the app id carries the
+  placeholder team `TEAMID` and `assetlinks.json` has no certificate fingerprints. Both need the
+  real values.
+- **G235** and **G237**, the App Store link and the legal placeholders: left for the listing and a
+  lawyer (Q13).
+- **G188** and **G242**, tokens: the spacing, radius and divider scales exist and most screens use
+  them, but about 40 literal radii and a few literal colours remain in screen styles.
+- Silent pushes for reminder changes are handled while the app is open and caught up at launch.
+  No background task was added: silent pushes only reach devices registered for push, and those
+  never hold a local reminder.
+- From the review: no `guest_devices` table, so restoring a guest still moves their single device,
+  and anyone who knows a guest's address can ask for a new restore link (3 per 15 minutes). The
+  API doesn't repair a missing host row; it can no longer be moved, so it shouldn't go missing.
+
+### Built, not verified
+
+- On a physical iPhone (Q16): G14, G37, G147 and G148 (remote push, which also needs
+  `EXPO_ACCESS_TOKEN`), G16 (the native film look), G17, G21 (the shutter row above Safari's
+  toolbar), G55, G134, G135, G12 with the phone locked, and the haptics, sounds and timing in the
+  spec's tables. The simulator has no camera, haptics, remote push or volume buttons.
+- Per-item checks the native pass didn't add to flows or do by hand: G11, the G50 deny paths, G57,
+  G70, G71, G72, G84, G87, G97, G98, G100, G101, G115, G126, G166, G173 to G175, G194, G230 and
+  G234. Spoken announcements (G91, G130, G184) were checked in the code only.
+- The Render rewrites (join domain `/<code>` to the API's page route, the AASA header) can only be
+  checked on the first deploy.
+
+### Open questions for Naib
+
+- On an at-end event, moving Ends earlier through Manage also moves the reveal earlier, and
+  `lockedSettings` allows it.
+- An open event screen hears about a moved end on its next 30 s poll, so the moment can land up to
+  that much later than the new reveal time. A screen opened after the change lands within seconds.
+- The Live Activity's reveal line truncates when the device's zone differs from the event's,
+  because the zone name is added.
+- A newly created event sits under "Coming up", above the list's scroll position, so it isn't on
+  screen when the invite's Done returns to the list.

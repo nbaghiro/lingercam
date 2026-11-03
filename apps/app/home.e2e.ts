@@ -27,7 +27,8 @@ test("the web root is the guest home", async ({ page }) => {
     const opened = await recordOpens(page);
     await page.reload();
     await page.getByText("About Linger").click();
-    await expect.poll(opened).toContain(SITE);
+    // The browser opens the site's root with its trailing slash.
+    await expect.poll(opened).toContain(`${SITE}/`);
 });
 
 test("host routes send each store button to its own place", async ({ page }) => {

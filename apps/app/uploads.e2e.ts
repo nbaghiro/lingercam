@@ -4,8 +4,8 @@ import { expect, test, type BrowserContext, type Page, type Route } from "@playw
 // sends at once, a photo the event refuses is downloaded instead of lost, a `too-large` refusal
 // is retried once with a smaller copy, and a photo whose file is gone is reported.
 
-const API = "http://localhost:8171";
-const APP = "http://localhost:8173";
+const API = process.env.E2E_API_URL ?? "http://localhost:8171";
+const APP = process.env.E2E_APP_URL ?? "http://localhost:8173";
 const MAILPIT = "http://localhost:8176";
 const STORAGE = "localhost:8174";
 
@@ -55,8 +55,12 @@ interface Event {
     token: string;
 }
 
+// One host for the whole file: the API starts at most 20 sign-ins per IP address in 15 minutes.
+let host: Promise<string> | undefined;
+
 async function liveEvent(title: string, shots: number): Promise<Event> {
-    const token = await signIn();
+    host ??= signIn();
+    const token = await host;
     const now = Date.now();
     const created = await call("POST", "/v1/events", token, {
         occasion: "party",
@@ -158,9 +162,13 @@ test("thirty photos taken without signal survive a reload and all upload", async
     await expect(page.getByLabel("No shots left", { exact: true })).toBeVisible();
     await expect.poll(() => storedPhotos(page)).toBe(30);
 
-    // Only small metadata goes to localStorage; no photo is kept there as a data: URL.
-    const local = await page.evaluate(() => JSON.stringify({ ...localStorage }));
-    expect(local).not.toContain("data:image");
+    // Only small metadata goes to localStorage: no photo is kept there as a data: URL, apart from
+    // the camera's last-shot thumbnail, which is a few kilobytes.
+    const local = await page.evaluate(() => ({ ...localStorage }));
+    for (const [key, value] of Object.entries(local)) {
+        if (key.includes("lastShot:")) expect(value.length).toBeLessThan(64_000);
+        else expect(value).not.toContain("data:image");
+    }
 
     await page.reload();
     await expect.poll(() => storedPhotos(page)).toBe(30);
@@ -210,6 +218,7 @@ test("a photo the event refuses for good is kept until the guest downloads it", 
         downloads += 1;
     });
     await shoot(page, 1);
+    await expect.poll(() => storedPhotos(page)).toBe(1);
 
     await page.goto(`/e/${event.code}`);
     await expect(

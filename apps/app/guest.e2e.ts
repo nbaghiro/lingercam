@@ -5,7 +5,7 @@ import { expect, test, type Page } from "@playwright/test";
 // while a guest has it open. Each test makes its own events through the API and a fresh host, so
 // the seeded demo data is only read, never changed.
 
-const API = "http://localhost:8171";
+const API = process.env.E2E_API_URL ?? "http://localhost:8171";
 const MAILPIT = "http://localhost:8176";
 const MINUTE = 60_000;
 
@@ -61,10 +61,11 @@ async function signIn(): Promise<string> {
     return String(verified.session);
 }
 
-const hosts: string[] = [];
+// One host for the whole file: the API starts at most 20 sign-ins per IP address in 15 minutes.
+let host: Promise<string> | undefined;
 
 test.afterAll(async () => {
-    for (const token of hosts) await call("DELETE", "/v1/me", { token }).catch(() => null);
+    if (host) await call("DELETE", "/v1/me", { token: await host }).catch(() => null);
 });
 
 interface Made {
@@ -84,8 +85,8 @@ async function makeEvent(
     } = {},
     live = true,
 ): Promise<Made> {
-    const token = await signIn();
-    hosts.push(token);
+    host ??= signIn();
+    const token = await host;
     const now = Date.now();
     const created = await call("POST", "/v1/events", {
         token,
@@ -122,12 +123,36 @@ async function joinByApi(code: string, name: string, id = device()): Promise<str
 async function joinInBrowser(page: Page, code: string, name: string): Promise<void> {
     await page.goto(`/j/${code}`);
     await page.getByRole("button", { name: /^(Open camera|Join as .+)$/ }).click();
+    const camera = new RegExp(`/e/${code}/camera$`);
     const field = page.getByLabel("Your name");
-    if (await field.isVisible().catch(() => false)) {
+    // A first-time guest gets the name step; a returning one goes straight to the camera.
+    const named = await Promise.race([
+        field.waitFor().then(
+            () => true,
+            () => false,
+        ),
+        page.waitForURL(camera).then(
+            () => false,
+            () => false,
+        ),
+    ]);
+    if (named) {
         await field.fill(name);
         await page.getByRole("button", { name: "Continue" }).click();
     }
-    await expect(page).toHaveURL(new RegExp(`/e/${code}/camera$`));
+    await expect(page).toHaveURL(camera);
+}
+
+/**
+ * Chromium's emulated offline fires `online` and `offline` but not the connection's `change`
+ * event, which is what NetInfo listens to on the web when `navigator.connection` exists.
+ */
+async function connectionChanged(page: Page): Promise<void> {
+    await page.evaluate(() =>
+        (navigator as Navigator & { connection?: EventTarget }).connection?.dispatchEvent(
+            new Event("change"),
+        ),
+    );
 }
 
 const sheetTitle = (page: Page, text: string | RegExp) => page.getByRole("heading", { name: text });
@@ -221,7 +246,8 @@ test.describe("the join sheet", () => {
     test("an unknown code offers the code entry, prefilled", async ({ page }) => {
         await page.goto("/j/XQXQXQ");
         await expect(sheetTitle(page, "There's no event with that code")).toBeVisible();
-        const field = page.getByLabel("Join code");
+        // The sheet's field comes after the guest home's own, which sits behind it.
+        const field = page.getByLabel("Join code").last();
         await expect(field).toHaveValue("XQXQXQ");
         await field.fill("");
         await field.pressSequentially("maya3x");
@@ -231,7 +257,8 @@ test.describe("the join sheet", () => {
 
     test("pasting a whole link into the code entry joins that event", async ({ page }) => {
         await page.goto("/j/XQXQXQ");
-        const field = page.getByLabel("Join code");
+        await expect(sheetTitle(page, "There's no event with that code")).toBeVisible();
+        const field = page.getByLabel("Join code").last();
         await field.fill("https://join.lingercam.app/maya3x");
         await expect(page).toHaveURL(/\/j\/MAYA3X$/);
     });
@@ -391,6 +418,7 @@ test.describe("the camera", () => {
         await joinInBrowser(page, event.code, "Uma");
         await expect(page.getByLabel("5 shots left")).toBeVisible();
         await context.setOffline(true);
+        await connectionChanged(page);
         await expect(
             page.getByText("You're offline. Your photos will send when you're back online."),
         ).toBeVisible();
@@ -407,7 +435,11 @@ test.describe("the camera", () => {
         await page.reload();
         await expect(page.getByText("This event couldn't be loaded")).toBeVisible();
         await page.unroute(`${API}/v1/e/${event.code}`);
-        await page.getByRole("button", { name: "Try again" }).click();
+        // The screen can also retry by itself once requests work again, which removes the button.
+        await page
+            .getByRole("button", { name: "Try again" })
+            .click({ timeout: 5_000 })
+            .catch(() => null);
         await expect(page.getByText("This event couldn't be loaded")).toHaveCount(0);
     });
 

@@ -594,3 +594,13 @@ Checked at hand-off on 2026-11-01. "Passed" means the command was run in that ph
   the event refuses for good is no longer deleted when it can't go to Photos at once: it stays on
   the device until the guest taps Save (or Download in the browser, which never saves without a
   tap). The last server clock offset is stored, so a screen opened offline keeps the server's time.
+- 2026-11-02, polish hand-off: the web tests ran against this branch for the first time and all 54
+  pass. Naib's servers held 8170, 8171 and 8173, so the API ran on 8179 and the web app and the
+  site took turns on 8178; the e2e files read `E2E_API_URL`, `E2E_APP_URL` and `E2E_SITE_URL`,
+  and the storage CORS rules allow 8178. Three app bugs came out of the run: the web camera's
+  first shot failed while the video was starting (it now waits up to 3 s for a frame), a link
+  pasted over a full code entry didn't join, and browser saves and shares failed for a photo the
+  page had already shown, because the cached `<img>` response had no CORS headers (the download
+  now skips the cache). The e2e files share one signed-in host each, since the API starts at most
+  20 sign-ins per IP address in 15 minutes. Migration 0003 is applied to the dev database and the
+  seed was re-run. What's left is in `.docs/polish-plan.md` under Results.

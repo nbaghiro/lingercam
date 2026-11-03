@@ -4,7 +4,7 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
 // again before they lapse, the recap's fixed set, end card and share, and Download all. A host
 // and two guests are made through the API; the browser takes over a guest's device id.
 
-const API = "http://localhost:8171";
+const API = process.env.E2E_API_URL ?? "http://localhost:8171";
 const MAILPIT = "http://localhost:8176";
 const ANA_SHOTS = 31;
 const BEN_SHOTS = 3;
@@ -218,14 +218,19 @@ test("signed URLs are renewed before they lapse", async ({ browser }) => {
     // URLs last an hour; 52 minutes in, the viewer is inside the 10-minute window.
     await page.clock.fastForward("52:00");
     await expect.poll(() => requests.length).toBeGreaterThan(before);
-    const loaded = await page
-        .locator("img")
-        .evaluateAll((imgs) =>
-            imgs
-                .filter((img) => (img as HTMLImageElement).src.includes("/shots/"))
-                .every((img) => (img as HTMLImageElement).naturalWidth > 0),
-        );
-    expect(loaded).toBe(true);
+    // The renewed URLs load in place of the old ones. Lazy images further down haven't been
+    // fetched, so only the ones the browser finished are checked, and none of those is broken.
+    await expect
+        .poll(() =>
+            page.locator("img").evaluateAll((imgs) => {
+                const shots = (imgs as HTMLImageElement[]).filter((img) =>
+                    img.src.includes("/shots/"),
+                );
+                const done = shots.filter((img) => img.complete);
+                return done.length > 0 && done.every((img) => img.naturalWidth > 0);
+            }),
+        )
+        .toBe(true);
 });
 
 test("the recap plays a fixed set, ends on a card and shares the photo", async ({ browser }) => {
@@ -246,7 +251,8 @@ test("the recap plays a fixed set, ends on a card and shares the photo", async (
         if (req.url().includes(`/v1/e/${code}/highlights`)) highlights.push(req.url());
     });
     await page.goto(`/e/${code}/recap`);
-    await expect(page.getByText("Gallery night").first()).toBeVisible();
+    // The event screen sits under the recap with the same title, so only the visible one counts.
+    await expect(page.getByText("Gallery night").filter({ visible: true })).toBeVisible();
     expect(highlights).toHaveLength(1);
     expect(highlights[0]).toContain("for=recap");
 

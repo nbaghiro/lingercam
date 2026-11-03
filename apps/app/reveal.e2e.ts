@@ -6,7 +6,7 @@ import { expect, test, type Browser, type BrowserContext, type Page } from "@pla
 // same moment under reduced motion, and a right-away event that reads "Live" and then closes
 // with "That's the night.".
 
-const API = "http://localhost:8171";
+const API = process.env.E2E_API_URL ?? "http://localhost:8171";
 const MAILPIT = "http://localhost:8176";
 const SHOTS = 5;
 
@@ -174,6 +174,8 @@ test("the reveal lands on the moment within seconds, with the server's three car
             { token },
             { endsAt: new Date(revealsAt).toISOString() },
         );
+        // An open screen hears about a moved end on its next 30 s poll, so Ana's loads it now.
+        await ana.page.reload();
 
         // Ben's screen holds the gallery back past the reveal, so it must read "Now", not "0m".
         let release: () => void = () => undefined;
@@ -185,7 +187,8 @@ test("the reveal lands on the moment within seconds, with the server's three car
             await route.continue();
         });
         await ben.page.goto(`/e/${code}`);
-        await expect(ben.page.getByText("To reveal")).toBeVisible();
+        // The reveal is at the end, so until then the stat counts down to the end.
+        await expect(ben.page.getByText("Left", { exact: true })).toBeVisible();
         await cara.page.goto(`/e/${code}`);
         await expect(
             cara.page.getByText(/photos? waiting to upload|upload when you have signal/),
