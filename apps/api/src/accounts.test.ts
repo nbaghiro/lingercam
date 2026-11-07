@@ -76,13 +76,13 @@ describe("the App Review login", () => {
             SMTP_URL: "smtp://mail",
         };
         expect(productionProblems(base)).toEqual([]);
-        expect(productionProblems({ ...base, REVIEW_EMAIL: "review@galleo.app" })).toContain(
+        expect(productionProblems({ ...base, REVIEW_EMAIL: "review@lingercam.app" })).toContain(
             "REVIEW_CODE",
         );
         expect(
             productionProblems({
                 ...base,
-                REVIEW_EMAIL: "review@galleo.app",
+                REVIEW_EMAIL: "review@lingercam.app",
                 REVIEW_CODE: "135790",
             }),
         ).toEqual([]);

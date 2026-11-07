@@ -633,3 +633,6 @@ Checked at hand-off on 2026-11-01. "Passed" means the command was run in that ph
   app's home-screen name and wordmark, the permission prompts, the Live Activity, share messages,
   emails, the join page and the marketing site. Code names, package names and the bundle id
   (`app.galleo.linger`) stay as they are. The native project is now `ios/LingerCam`.
+- 2026-11-07: the support address is support@lingercam.app (was support@galleo.app): the site's
+  links and legal pages, and where photo reports are emailed. Mail for lingercam.app goes to Google
+  Workspace through its MX record.

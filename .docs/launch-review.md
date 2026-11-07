@@ -246,7 +246,7 @@ upgrades charging the full tier price; and a few RevenueCat webhook edge cases.
 ## Decisions for Naib
 
 - [ ] **D1.** Built as proposed, waiting for Naib to confirm. **The review account:** confirm a fixed review login is acceptable, and which events it shows.
-- [ ] **D2.** Built as proposed (reports email support@galleo.app; removing a guest removes their photos), waiting for Naib to confirm. **Moderation:** where reports should reach Linger (an email to support@galleo.app is enough to
+- [ ] **D2.** Built as proposed (reports email support@lingercam.app since 2026-11-07, support@galleo.app before; removing a guest removes their photos), waiting for Naib to confirm. **Moderation:** where reports should reach Linger (an email to support@galleo.app is enough to
       start), and whether removing a guest also removes their photos.
 - [ ] **D3.** **Plans:** Render Pro and the split services at about $97 a month, or the single-service $47
       setup to start.
@@ -323,3 +323,5 @@ unconfirmed.
   R2 and Resend (lingercam.app verified, a sending key limited to it). Review events seeded with a
   Render job and checked end to end. B10 done. Still to set: `EXPO_ACCESS_TOKEN`, and Render's
   GitHub app access for deploys on push.
+- 2026-11-07: support and report emails moved from support@galleo.app to support@lingercam.app, on
+  the site, in the API's default and in Render's `MODERATION_EMAIL`.

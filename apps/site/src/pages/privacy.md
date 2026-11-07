@@ -92,12 +92,12 @@ publishing: retention of backups and any records we must keep for tax purposes.]
 ## Deleting your data
 
 **Hosts** can delete their account in the app under Settings, or by emailing
-[support@galleo.app](mailto:support@galleo.app) from the account's email address. See
+[support@lingercam.app](mailto:support@lingercam.app) from the account's email address. See
 [Delete your account](/delete-account/) for what that removes.
 
 **Guests** can remove their own photos from an event after the reveal, from the photo's menu.
 Before the reveal, or to remove your name or email address, email
-[support@galleo.app](mailto:support@galleo.app) with the event name and the name you joined
+[support@lingercam.app](mailto:support@lingercam.app) with the event name and the name you joined
 under, and we'll remove them from that event. You can also ask the host to hide a photo.
 
 ## Children
@@ -109,7 +109,7 @@ permission. [To confirm the minimum ages for each region.]
 
 Depending on where you live, you may have the right to access, correct, export or delete your
 information, or to object to how we use it. Email
-[support@galleo.app](mailto:support@galleo.app) and we'll respond. You can also complain to
+[support@lingercam.app](mailto:support@lingercam.app) and we'll respond. You can also complain to
 your local data protection authority.
 
 ## Changes
@@ -121,4 +121,4 @@ change is significant.
 
 GalleoApp, Inc. [Postal address to add.]
 
-Email: [support@galleo.app](mailto:support@galleo.app)
+Email: [support@lingercam.app](mailto:support@lingercam.app)

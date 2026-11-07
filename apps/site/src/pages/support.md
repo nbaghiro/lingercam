@@ -4,7 +4,7 @@ title: Support
 description: Help with hosting an event, joining one as a guest, payments and your account.
 ---
 
-For anything not covered here, email [support@galleo.app](mailto:support@galleo.app). Include
+For anything not covered here, email [support@lingercam.app](mailto:support@lingercam.app). Include
 the event name, and if you're a host, the email you sign in with.
 
 ## Get the app

@@ -57,7 +57,7 @@ services:
       - key: REVIEW_CODE
         sync: false
       - key: MODERATION_EMAIL
-        value: support@galleo.app
+        value: support@lingercam.app
       - key: EXPO_ACCESS_TOKEN
         sync: false
       - key: REVENUECAT_SECRET_KEY

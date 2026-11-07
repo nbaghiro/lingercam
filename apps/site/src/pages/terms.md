@@ -27,7 +27,7 @@ to the host's settings.
   photos will be shared with the event.
 - Paid events are a one-time purchase for that event. Prices are shown before you pay. Purchases
   through the App Store or Google Play are also subject to their terms, including their refund
-  processes. For web purchases, email [support@galleo.app](mailto:support@galleo.app).
+  processes. For web purchases, email [support@lingercam.app](mailto:support@lingercam.app).
   [Refund policy to confirm.]
 
 ## Guests
@@ -77,4 +77,4 @@ changes.
 
 GalleoApp, Inc. [Postal address and governing law to add.]
 
-Email: [support@galleo.app](mailto:support@galleo.app)
+Email: [support@lingercam.app](mailto:support@lingercam.app)

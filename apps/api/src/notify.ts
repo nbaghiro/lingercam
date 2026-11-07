@@ -201,7 +201,7 @@ export async function notifyFull(event: Notified): Promise<boolean> {
 }
 
 /** Where reports reach LingerCam, so someone at LingerCam can act on them as the terms promise. */
-export const moderationEmail = () => process.env.MODERATION_EMAIL || "support@galleo.app";
+export const moderationEmail = () => process.env.MODERATION_EMAIL || "support@lingercam.app";
 
 /** Emails LingerCam about a new report, with enough to find the photo. */
 export async function emailReport(report: {
