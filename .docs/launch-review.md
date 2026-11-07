@@ -147,11 +147,12 @@ These stop submission or break a promise the product makes.
       Done 2026-11-07: the `lingercam` R2 bucket allows GET, PUT and HEAD from join.lingercam.app
       and lingercam.app (`wrangler r2 bucket cors list lingercam`). Checked from a browser when the
       API is live.
-- [ ] **B10.** **The database plan.** The current plan has a tenth of a CPU and no point-in-time recovery.
+- [x] **B10.** **The database plan.** The current plan has a tenth of a CPU and no point-in-time recovery.
       2026-11-07: decided Neon Launch in AWS us-east-2 (Ohio), with Render in Ohio beside it, 0.5 to 2 CU, scale to zero off, the
       longest restore window. `render.yaml` takes Neon's direct connection string, and the API
       drops Neon's `channel_binding` parameter, which the Postgres client would otherwise send to
       the server and fail on (tested). Ticked when the project exists and production runs on it.
+      Done 2026-11-07: production runs on it; `/health/deep` passes from api.lingercam.app.
 - [ ] **B11.** **No error tracking or alerting.** Add Sentry across the app, the web build and the API, and an
        alert for any event past its reveal time that hasn't revealed.
 
@@ -318,3 +319,7 @@ unconfirmed.
   group and the four `lingercam-*` services in Ohio, with domains added. Builds use
   `pnpm install --frozen-lockfile --prod=false`, because `corepack enable` fails on Render's
   read-only `/usr/bin`. Waiting on the R2 keys, Resend and the Expo token, and DNS at Squarespace.
+- 2026-11-07: production is live: api, worker, lingercam.app and join.lingercam.app on Render, Neon,
+  R2 and Resend (lingercam.app verified, a sending key limited to it). Review events seeded with a
+  Render job and checked end to end. B10 done. Still to set: `EXPO_ACCESS_TOKEN`, and Render's
+  GitHub app access for deploys on push.

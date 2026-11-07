@@ -16,18 +16,27 @@ Updated 2026-11-07.
 | --- | --- | --- |
 | GitHub `nbaghiro/lingercam` (public) | | `main` pushed; CI runs on push |
 | Neon project `lingercam` | `rough-rain-26031873`, compute `ep-still-leaf-be8wvgtt` | Ready, us-east-2, 0.5 to 2 CU, always on, 7-day restore |
-| R2 bucket `lingercam` | Cloudflare account `ebd017dd7cd53f94f99fb89d90102c07` | Created with its CORS rule; access keys still needed |
-| Render env group `lingercam-backend` | `evg-dbnn71brjlhs739apc0g` | Everything except the R2 keys, `SMTP_URL` and `EXPO_ACCESS_TOKEN` |
-| `lingercam-api` | `srv-dbnn74uc6qcc73ebmqtg` | Waiting for those secrets |
-| `lingercam-worker` | `srv-dbnn78bl550s73fm3thg` | Waiting for those secrets |
-| `lingercam-site` | `srv-dbnn78tg1s2s73d5nsfg` | Static, on lingercam-site.onrender.com |
-| `lingercam-join` | `srv-dbnn79bl550s73fm415g` | Static, rewrites and AASA header set |
+| R2 bucket `lingercam` | Cloudflare account `ebd017dd7cd53f94f99fb89d90102c07` | Live, with its CORS rule and access keys |
+| Render env group `lingercam-backend` | `evg-dbnn71brjlhs739apc0g` | Everything except `EXPO_ACCESS_TOKEN` (push) |
+| Resend domain `lingercam.app` | `0fd15068-09c5-4f62-bdbe-1c03942f573d` | Verified. `SMTP_URL` uses a key that can only send from lingercam.app; the account also sends for galleo.app |
+| `lingercam-api` | `srv-dbnn74uc6qcc73ebmqtg` | Live at https://api.lingercam.app |
+| `lingercam-worker` | `srv-dbnn78bl550s73fm3thg` | Running |
+| `lingercam-site` | `srv-dbnn78tg1s2s73d5nsfg` | Live at https://lingercam.app and www |
+| `lingercam-join` | `srv-dbnn79bl550s73fm415g` | Live at https://join.lingercam.app, rewrites and AASA header set |
 
 Render's CLI can't apply a Blueprint, so the services were created with `render services create`
 and Render's API (signed in through the CLI), from the values in `render.yaml`. The R2 bucket was
 created with `wrangler`. Neither tool can make R2 access keys or a Resend key.
 
-`lingercam.app`'s DNS is at Squarespace. The records Render needs there:
+Checked on 2026-11-07: `/health/deep` passes (Neon and R2), the worker runs, the review login signs
+in and lists RVW4PP, RVW8TF and RVW2DR (seeded with `render jobs create srv-dbnn74uc6qcc73ebmqtg
+--start-command "pnpm --filter api review-seed"`), a revealed photo downloads from R2 through its
+signed URL, and join.lingercam.app/RVW4PP returns the event's preview tags. `DATABASE_URL` uses
+`sslmode=verify-full`, which keeps the driver's full certificate check after its next major
+version. Pushes to `main` deploy only once Render's GitHub app has access to the repository.
+
+`lingercam.app`'s DNS is at Squarespace, with these records for Render (all verified) and Resend's
+DKIM and `send` records:
 
 | Type | Host | Value |
 | --- | --- | --- |
