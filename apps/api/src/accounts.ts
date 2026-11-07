@@ -10,7 +10,20 @@ import { mail } from "./notify.ts";
 import { keys, removePrefix } from "./storage.ts";
 
 export const DEMO_EMAIL = "demo@lingercam.app";
+
+/** The App Review login, when REVIEW_EMAIL and a six-digit REVIEW_CODE are both set. */
+export function reviewAccount(env = process.env): { email: string; code: string } | null {
+    const email = env.REVIEW_EMAIL?.trim().toLowerCase();
+    const code = env.REVIEW_CODE?.trim();
+    if (!email || !code || !/^\d{6}$/.test(code)) return null;
+    return { email, code };
+}
 export const DEMO_NAME = "Alex Morgan";
+/** The other demo hosts: one with no events yet and one partway in. */
+export const DEMO_PERSONAS = {
+    new: { email: "new@lingercam.app", name: "Sam Rivera" },
+    half: { email: "half@lingercam.app", name: "Jordan Lee" },
+} as const;
 export const CODE_MINUTES = 10;
 export const CODE_ATTEMPTS = 5;
 export const SESSION_DAYS = 90;
@@ -136,9 +149,15 @@ export const accounts = new Hono();
 accounts.post("/v1/auth/email/start", async (c) => {
     const { email } = await body(c, z.object({ email: Email }));
     startsPerIp.take(clientIp(c));
-    startsPerEmail.take(email);
-    startsPerEmailDay.take(email);
-    const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
+    // App Review signs in with a fixed code and no email, set by REVIEW_EMAIL and REVIEW_CODE.
+    // Reviewers may sign in many times, and no email goes out, so the per-email limits don't apply.
+    const review = reviewAccount();
+    const forReview = review !== null && email === review.email;
+    if (!forReview) {
+        startsPerEmail.take(email);
+        startsPerEmailDay.take(email);
+    }
+    const code = forReview ? review.code : String(randomInt(0, 1_000_000)).padStart(6, "0");
     const expiresAt = new Date(Date.now() + CODE_MINUTES * 60_000);
     const codeHash = hashCode(email, code);
     await db
@@ -148,11 +167,12 @@ accounts.post("/v1/auth/email/start", async (c) => {
             target: emailCodes.email,
             set: { codeHash, expiresAt, attempts: 0 },
         });
+    if (forReview) return c.json({ sent: true, expiresInMinutes: CODE_MINUTES });
     try {
         await mail.send({
             to: email,
-            subject: `${code} is your Linger code`,
-            text: `Your Linger sign-in code is ${code}.\n\nIt works for ${CODE_MINUTES} minutes. If you didn't ask for it, you can ignore this email.\n`,
+            subject: `${code} is your LingerCam code`,
+            text: `Your LingerCam sign-in code is ${code}.\n\nIt works for ${CODE_MINUTES} minutes. If you didn't ask for it, you can ignore this email.\n`,
         });
     } catch (error) {
         log("error", "sign-in email failed", { email: maskEmail(email), error: String(error) });
@@ -210,8 +230,25 @@ accounts.post("/v1/auth/email/verify", async (c) => {
 
 accounts.post("/v1/auth/demo", async (c) => {
     if (!devRoutes) throw new ApiError(404, "not-found", "Not found.");
-    const host = await findOrCreateHost(DEMO_EMAIL, DEMO_NAME);
+    const as = c.req.query("as");
+    const persona = as === "new" || as === "half" ? DEMO_PERSONAS[as] : null;
+    const host = persona
+        ? await findOrCreateHost(persona.email, persona.name)
+        : await findOrCreateHost(DEMO_EMAIL, DEMO_NAME);
     return c.json({ session: await createSession(host.id), host: hostJson(host) });
+});
+
+accounts.post("/v1/auth/demo-guest", async (c) => {
+    if (!devRoutes) throw new ApiError(404, "not-found", "Not found.");
+    const device = deviceOf(c);
+    if (!device) throw new ApiError(400, "no-device", "This needs a device.");
+    // Loaded here so the seed, which reads this file, isn't loaded with every request.
+    const { adoptSeedGuests, leaveSeedGuests } = await import("./seed.ts");
+    if (c.req.query("leave") === "1") {
+        await leaveSeedGuests(device);
+        return c.json({ codes: [] });
+    }
+    return c.json({ codes: await adoptSeedGuests(device) });
 });
 
 accounts.post("/v1/auth/sign-out", async (c) => {

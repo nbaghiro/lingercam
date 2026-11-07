@@ -1,6 +1,6 @@
 # Back from a deep link lands on the events list, and the notification card on the event screen:
 # not asked yet, it gives the reason and Turn on shows the system prompt; with notifications off
-# for Linger it points to Settings. Each part starts from a clean install state so the per-event
+# for LingerCam it points to Settings. Each part starts from a clean install state so the per-event
 # answers from earlier runs don't hide the card. The simulator can't preset the notification
 # permission, so the system prompt sets it, and Maestro answers that prompt with the
 # NOTIFICATIONS value open.yaml launches with.
@@ -49,11 +49,11 @@ appId: app.galleo.linger
 # Notifications now off: another event's card says how to turn them on and is gone after Not now.
 - openLink: linger://e/JNHSWM
 - extendedWaitUntil:
-    visible: "Notifications are off for Linger.*"
+    visible: "Notifications are off for LingerCam.*"
     timeout: 20000
 - assertVisible: "Open Settings"
 - tapOn: "Not now"
-- assertNotVisible: "Notifications are off for Linger.*"
+- assertNotVisible: "Notifications are off for LingerCam.*"
 
 # Allowed from the prompt: the card goes away.
 - launchApp:

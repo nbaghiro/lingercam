@@ -23,6 +23,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 
 import {
+    devChrome,
     SITE_URL,
     api,
     asApiError,
@@ -42,6 +43,7 @@ import {
 } from "@/api";
 import {
     dayLabel,
+    deviceZone,
     formatDay,
     formatDuration,
     formatWhen,
@@ -68,6 +70,7 @@ import {
     Wordmark,
     color,
     confirm,
+    Scrim,
     gutter,
     haptic,
     icons,
@@ -89,6 +92,16 @@ const eventsKey = (hostId: string) => `events:${hostId}`;
  * returns, so the events list reads this to know the sign-in came through email.
  */
 const EMAIL_SIGN_IN_KEY = "emailSignIn";
+
+/** Behind the welcome text: a fade into Night, then Night nearly opaque. */
+const WELCOME_FADE = [
+    [0, 0],
+    [1, 0.9],
+] as const satisfies readonly [number, number][];
+const WELCOME_SHADE = "rgba(13, 13, 13, 0.9)";
+
+/** Long enough for a closing sheet to finish leaving. */
+const SHEET_GONE_MS = 500;
 
 /** An account this new is treated as a first sign-in. */
 const NEW_ACCOUNT_MS = 10 * 60_000;
@@ -136,46 +149,53 @@ function Welcome() {
                 ]}
                 showsVerticalScrollIndicator={false}
             >
-                <Wordmark size={34} />
-                <Text variant="display" style={{ marginTop: 22 }}>
-                    {t("welcome.title")}
-                </Text>
-                <Text variant="small" tone="ash" style={{ marginTop: 12, marginBottom: 28 }}>
-                    {t("welcome.body")}
-                </Text>
-                {showSignedOut ? <Notice>{problem("signed-out")}</Notice> : null}
-                <JoinedEvents onOpen={(code) => router.push(`/e/${code}` as Href)} />
-                <View style={{ gap: 10 }}>
-                    <Button
-                        label={t("welcome.email")}
-                        icon={icons.email}
-                        onPress={() => setSigningIn(true)}
-                    />
-                    {__DEV__ ? (
-                        <Button
-                            label={t("welcome.demo")}
-                            variant="dark"
-                            loading={demo.busy}
-                            onPress={() => {
-                                demo.run().then((session) => {
-                                    if (session) haptic("success");
-                                });
-                            }}
-                        />
-                    ) : null}
-                </View>
-                {demo.error ? <Notice>{problem(demo.error.code)}</Notice> : null}
-                <Pressable
-                    onPress={() => setEnteringCode(true)}
-                    accessibilityRole="button"
-                    hitSlop={8}
-                    style={{ alignSelf: "center", marginTop: space.l }}
-                >
-                    <Text variant="small" tone="ash" weight="medium">
-                        {t("welcome.haveCode")}
+                <View style={styles.welcomeText}>
+                    {/* With events joined, the text rises over the photo; this keeps it on dark. */}
+                    <View style={styles.welcomeFade} pointerEvents="none">
+                        <Scrim stops={WELCOME_FADE} />
+                    </View>
+                    <View style={styles.welcomeShade} pointerEvents="none" />
+                    <Wordmark size={34} />
+                    <Text variant="display" style={{ marginTop: 22 }}>
+                        {t("welcome.title")}
                     </Text>
-                </Pressable>
-                <LegalLine />
+                    <Text variant="small" tone="ash" style={{ marginTop: 12, marginBottom: 28 }}>
+                        {t("welcome.body")}
+                    </Text>
+                    {showSignedOut ? <Notice>{problem("signed-out")}</Notice> : null}
+                    <JoinedEvents onOpen={(code) => router.push(`/e/${code}` as Href)} />
+                    <View style={{ gap: 10 }}>
+                        <Button
+                            label={t("welcome.email")}
+                            icon={icons.email}
+                            onPress={() => setSigningIn(true)}
+                        />
+                        {devChrome() ? (
+                            <Button
+                                label={t("welcome.demo")}
+                                variant="dark"
+                                loading={demo.busy}
+                                onPress={() => {
+                                    demo.run().then((session) => {
+                                        if (session) haptic("success");
+                                    });
+                                }}
+                            />
+                        ) : null}
+                    </View>
+                    {demo.error ? <Notice>{problem(demo.error.code)}</Notice> : null}
+                    <Pressable
+                        onPress={() => setEnteringCode(true)}
+                        accessibilityRole="button"
+                        hitSlop={8}
+                        style={{ alignSelf: "center", marginTop: space.l }}
+                    >
+                        <Text variant="small" tone="ash" weight="medium">
+                            {t("welcome.haveCode")}
+                        </Text>
+                    </Pressable>
+                    <LegalLine />
+                </View>
             </ScrollView>
             <SignInSheet visible={signingIn} onClose={() => setSigningIn(false)} />
             <Sheet visible={enteringCode} onClose={() => setEnteringCode(false)}>
@@ -197,8 +217,8 @@ function Welcome() {
 }
 
 /** "By continuing you agree to the Terms and the Privacy Policy.", with two separate links. */
-function LegalLine() {
-    const sentence = t("welcome.legal");
+/** A sentence naming the Terms and the Privacy Policy, each a link. */
+export function LegalLine({ sentence = t("welcome.legal") }: { sentence?: string }) {
     const links = [
         { label: t("welcome.legalTerms"), url: siteLink("terms") },
         { label: t("welcome.legalPrivacy"), url: siteLink("privacy") },
@@ -579,9 +599,8 @@ function grouped(list: readonly Event[], now: Date): { group: Group; events: Eve
     });
 }
 
-/** The one line under a card's title, in the event's time zone. */
+/** The one line under a card's title, in this device's time. */
 function cardLine(event: Event, group: Group, now: Date): string {
-    const zone = event.settings.timeZone;
     switch (group) {
         case "live":
             return t("home.line.live", {
@@ -590,12 +609,12 @@ function cardLine(event: Event, group: Group, now: Date): string {
             });
         case "upcoming":
             return t("home.line.upcoming", {
-                when: formatWhen(now, new Date(event.settings.startsAt), zone),
+                when: formatWhen(now, new Date(event.settings.startsAt)),
             });
         case "waiting":
             return t("home.line.waiting", {
-                day: formatDay(new Date(event.settings.startsAt), zone),
-                reveal: revealLabel(now, new Date(event.revealsAt), zone),
+                day: formatDay(new Date(event.settings.startsAt), deviceZone()),
+                reveal: revealLabel(now, new Date(event.revealsAt)),
             });
         case "drafts":
             return t("home.draft");
@@ -603,7 +622,7 @@ function cardLine(event: Event, group: Group, now: Date): string {
         case "past":
             return t("home.line.revealed", {
                 photos: event.photoCount,
-                date: dayLabel(new Date(event.revealedAt ?? event.revealsAt), now, zone),
+                date: dayLabel(new Date(event.revealedAt ?? event.revealsAt), now),
             });
     }
 }
@@ -629,8 +648,13 @@ function Events({ session }: { session: Session }) {
             storage.getString(EMAIL_SIGN_IN_KEY) === "1" &&
             Date.now() - Date.parse(session.host.createdAt) < NEW_ACCOUNT_MS,
     );
+    // The sign-in sheet is still closing as this list appears, and iOS won't present one sheet
+    // while another goes, so the name sheet waits until it has gone.
+    const [settled, setSettled] = useState(false);
     useEffect(() => {
         storage.remove(EMAIL_SIGN_IN_KEY);
+        const timer = setTimeout(() => setSettled(true), SHEET_GONE_MS);
+        return () => clearTimeout(timer);
     }, []);
     const still = useReduceMotion();
 
@@ -820,7 +844,7 @@ function Events({ session }: { session: Session }) {
                 />
             ) : null}
             <NameSheet
-                visible={naming}
+                visible={naming && settled}
                 initial={session.host.name}
                 onClose={() => setNaming(false)}
             />
@@ -934,7 +958,7 @@ function EventCard({ event, group, now, onPress, onLongPress, actions }: EventCa
                 <Text variant="heading" numberOfLines={2}>
                     {event.settings.title}
                 </Text>
-                <Text variant="small" tone="soft" style={{ marginTop: 4 }} numberOfLines={1}>
+                <Text variant="small" tone="soft" style={{ marginTop: 4 }} numberOfLines={2}>
                     {line}
                 </Text>
             </View>
@@ -959,7 +983,7 @@ function PendingWatch({
     return null;
 }
 
-/** Whether Linger may show notifications, read again whenever Settings comes into view. */
+/** Whether LingerCam may show notifications, read again whenever Settings comes into view. */
 function useNotificationsAllowed(): boolean | null {
     const [allowed, setAllowed] = useState<boolean | null>(null);
     const read = useCallback(() => {
@@ -1241,6 +1265,16 @@ const styles = StyleSheet.create({
     fill0: { flex: 1 },
     welcomePhoto: { position: "absolute", left: 0, right: 0, top: 0, height: "62%" },
     welcomeBody: { flexGrow: 1, justifyContent: "flex-end", paddingHorizontal: gutter },
+    welcomeText: { paddingTop: space.l },
+    welcomeFade: { position: "absolute", left: -gutter, right: -gutter, top: -160, height: 160 },
+    welcomeShade: {
+        position: "absolute",
+        left: -gutter,
+        right: -gutter,
+        top: 0,
+        bottom: 0,
+        backgroundColor: WELCOME_SHADE,
+    },
     legalLink: { color: color.paper, textDecorationLine: "underline" },
     codeInput: { textAlign: "center", fontSize: 28, letterSpacing: 8 },
     sheetLinks: { flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 4 },

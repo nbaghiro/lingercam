@@ -1,0 +1,44 @@
+# The large demo events: the 3,000-photo festival from top to deep in the grid, its 251 people
+# and the recap, the 1,500 photos developing at the live wedding, and the festival as a guest.
+appId: app.galleo.linger
+---
+- runFlow:
+    file: _start.yaml
+    env: { PERSONA: power, WAIT: "Live now" }
+- openLink: linger://e/FSTV28
+- extendedWaitUntil: { visible: "It's all here.", timeout: 30000 }
+- tapOn: "See every moment"
+- extendedWaitUntil: { visible: "Watch the recap", timeout: 20000 }
+- waitForAnimationToEnd
+- takeScreenshot: scale-festival
+- tapOn: "\\d+ People"
+- extendedWaitUntil: { visible: "\\d+ people", timeout: 10000 }
+- waitForAnimationToEnd
+- takeScreenshot: scale-people
+- tapOn: "Close"
+- repeat:
+    times: 40
+    commands:
+      - swipe: { start: "50%, 85%", end: "50%, 10%", duration: 250 }
+- waitForAnimationToEnd
+- takeScreenshot: scale-festival-deep
+- openLink: linger://e/PRYA5M
+- extendedWaitUntil: { visible: "\\d+ of 150 guests", timeout: 30000 }
+- waitForAnimationToEnd
+- takeScreenshot: scale-wedding
+- repeat:
+    times: 8
+    commands:
+      - swipe: { start: "50%, 85%", end: "50%, 15%", duration: 250 }
+- takeScreenshot: scale-wedding-deep
+- runFlow:
+    file: _start.yaml
+    env: { PERSONA: guest, WAIT: "Events you joined" }
+- openLink: linger://e/FSTV28
+- extendedWaitUntil: { visible: "It's all here.", timeout: 30000 }
+- waitForAnimationToEnd
+- takeScreenshot: scale-guest-moment
+- tapOn: "See every moment"
+- extendedWaitUntil: { visible: "Watch the recap", timeout: 20000 }
+- waitForAnimationToEnd
+- takeScreenshot: scale-guest-festival

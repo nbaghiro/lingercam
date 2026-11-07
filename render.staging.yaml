@@ -1,0 +1,119 @@
+# Staging: the same services as render.yaml under -staging names, on Render's own onrender.com
+# addresses, with their own database and R2 bucket. Production settings (NODE_ENV=production, no
+# demo routes) so it behaves like the real thing. Create it as a separate Blueprint pointing at this
+# file; see .docs/device-testing.md. If Render adds a suffix to a service's address, update the
+# URLs here, in scripts/staging.json and in the staging profile of apps/app/eas.json.
+# One service runs both the API and the jobs (ROLE unset), and migrates on start, to keep staging
+# cheap. Suspend it in Render between test runs; Neon then scales the database to zero.
+# Secrets marked sync: false are entered in the dashboard.
+services:
+  - type: web
+    name: linger-staging-api
+    runtime: node
+    region: ohio
+    plan: starter
+    buildCommand: corepack enable && pnpm install --frozen-lockfile
+    startCommand: pnpm --filter api start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "26"
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: "1"
+      # The staging Neon project's direct connection string (the host without "-pooler").
+      - key: DATABASE_URL
+        sync: false
+      - key: API_URL
+        value: https://linger-staging-api.onrender.com
+      - key: SITE_URL
+        value: https://linger-staging-site.onrender.com
+      - key: JOIN_URL
+        value: https://linger-staging-join.onrender.com
+      - key: CORS_ORIGINS
+        value: https://linger-staging-join.onrender.com,https://linger-staging-site.onrender.com
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_REGION
+        value: auto
+      - key: S3_BUCKET
+        value: linger-staging
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: SMTP_URL
+        sync: false
+      # The sender your email provider has verified, e.g. Resend's onboarding@resend.dev until the
+      # Linger domain is set up there.
+      - key: MAIL_FROM
+        sync: false
+      # The App Review login: an email and a fixed six-digit code, no email sent.
+      - key: REVIEW_EMAIL
+        sync: false
+      - key: REVIEW_CODE
+        sync: false
+      - key: MODERATION_EMAIL
+        value: support@galleo.app
+      - key: EXPO_ACCESS_TOKEN
+        sync: false
+      - key: REVENUECAT_SECRET_KEY
+        sync: false
+      - key: REVENUECAT_WEBHOOK_AUTH
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+
+  - type: web
+    name: linger-staging-site
+    runtime: static
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter site build
+    staticPublishPath: apps/site/dist
+    envVars:
+      - key: NODE_VERSION
+        value: "26"
+      # The nav's App Store button; until the listing exists it goes to /support/#get-the-app.
+      - key: PUBLIC_APP_STORE_URL
+        sync: false
+
+  - type: web
+    name: linger-staging-join
+    runtime: static
+    buildCommand: >-
+      corepack enable && pnpm install --frozen-lockfile &&
+      pnpm --filter app exec expo export --platform web
+    staticPublishPath: apps/app/dist
+    # Files in the build are served as they are; these rules cover every other path, in order.
+    # A shared /<code> link goes to the API, which returns index.html with the event's preview
+    # tags. The app's own one-segment routes skip that trip.
+    routes:
+      - type: rewrite
+        source: /new
+        destination: /index.html
+      - type: rewrite
+        source: /settings
+        destination: /index.html
+      - type: rewrite
+        source: /:code
+        destination: https://linger-staging-api.onrender.com/v1/e/:code/page
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /.well-known/apple-app-site-association
+        name: Content-Type
+        value: application/json
+    envVars:
+      - key: NODE_VERSION
+        value: "26"
+      - key: EXPO_PUBLIC_API_URL
+        value: https://linger-staging-api.onrender.com
+      - key: EXPO_PUBLIC_JOIN_URL
+        value: https://linger-staging-join.onrender.com
+      - key: EXPO_PUBLIC_SITE_URL
+        value: https://linger-staging-site.onrender.com

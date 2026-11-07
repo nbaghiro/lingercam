@@ -20,16 +20,20 @@ appId: app.galleo.linger
 
 # Grouped by what needs the host, each card with its own line.
 - assertVisible: "Live now"
-- assertVisible: "Maya turns thirty, Live. Camera open.*"
+- scrollUntilVisible:
+    element: "Maya turns thirty, Live. Camera open.*"
 - scrollUntilVisible:
     element: "Coming up"
-- assertVisible: "Sam & Ria's wedding, Coming up. Opens.*"
+- scrollUntilVisible:
+    element: "Sam & Ria's wedding, Coming up. Opens.*"
 - scrollUntilVisible:
     element: "Waiting for the reveal"
-- assertVisible: "Jun's housewarming, Ended.*Reveals.*"
+- scrollUntilVisible:
+    element: "Jun's housewarming, Ended.*Reveals.*"
 - scrollUntilVisible:
     element: "Drafts"
-- assertVisible: "Tofino, the long weekend, Draft.*"
+- scrollUntilVisible:
+    element: "Tofino, the long weekend, Draft.*"
 - scrollUntilVisible:
     element: "Emma & Daniel's Wedding day, Revealed.*photos.*"
 
@@ -87,6 +91,7 @@ appId: app.galleo.linger
 - scrollUntilVisible:
     element: "Maestro test party, Coming up.*"
     direction: UP
+    timeout: 60000
 
 # The seeded draft opens at step 5, and Back reaches every step.
 - scrollUntilVisible:
@@ -113,6 +118,8 @@ appId: app.galleo.linger
 - scrollUntilVisible:
     element: "Settings"
     direction: UP
+    speed: 80
+    timeout: 60000
 - tapOn: "Settings"
 - tapOn: "Name, Alex Morgan"
 - assertVisible: "What should guests call you?"

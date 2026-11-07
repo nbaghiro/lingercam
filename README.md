@@ -1,6 +1,6 @@
-# Linger
+# LingerCam
 
-Linger is a shared camera for events. A host creates an event, guests join by scanning a QR code
+LingerCam is a shared camera for events. A host creates an event, guests join by scanning a QR code
 and each takes a set number of photos. Nothing is visible until the reveal, when everyone receives
 every photo from the event at once, each signed by the guest who took it.
 
@@ -41,7 +41,7 @@ cd apps/app
 npx expo run:ios --device <simulator udid> --port 8173
 ```
 
-Once it's installed, `pnpm --filter app start` and opening Linger on the simulator is enough.
+Once it's installed, `pnpm --filter app start` and opening LingerCam on the simulator is enough.
 
 ### Checks
 
@@ -97,7 +97,7 @@ Nothing needs a key locally. These parts behave differently from production:
 
 ## Ports
 
-Every port sits in the 8170 block so Linger can run beside the other projects on this machine.
+Every port sits in the 8170 block so LingerCam can run beside the other projects on this machine.
 
 | Port | Service                                                           |
 | ---- | ----------------------------------------------------------------- |
@@ -117,4 +117,4 @@ Every port sits in the 8170 block so Linger can run beside the other projects on
 `brand/mark.svg` is the source for the app icon, splash, favicons and social image. The palette and
 type are listed in the plan.
 
-Linger is made by GalleoApp, Inc.
+LingerCam is made by GalleoApp, Inc.

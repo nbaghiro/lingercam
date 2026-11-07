@@ -2,7 +2,7 @@ import { revealCountdown } from "@linger/core/reveal";
 import { requireOptionalNativeModule } from "expo";
 
 import type { EventSummary } from "@/api";
-import { formatTime, revealLabel, t } from "@/copy";
+import { deviceZone, formatTime, revealLabel, t } from "@/copy";
 
 // The Live Activity on the lock screen and in the Dynamic Island while a guest shoots. Its job is
 // the shooting window: it starts with the first photo, moves with each one, goes stale at the
@@ -35,10 +35,10 @@ const lastState = new Map<string, ActivityState>();
 function revealPhrase(summary: EventSummary, now: Date): string {
     const at = new Date(summary.revealsAt);
     // A countdown such as "in 3h" would go stale on the lock screen, so it reads as a clock time.
-    if (revealCountdown(now, at, summary.timeZone).kind === "in") {
-        return t("activity.revealsAt", { time: formatTime(at, summary.timeZone) });
+    if (revealCountdown(now, at, deviceZone()).kind === "in") {
+        return t("activity.revealsAt", { time: formatTime(at, deviceZone()) });
     }
-    return revealLabel(now, at, summary.timeZone);
+    return revealLabel(now, at);
 }
 
 function stateFor(summary: EventSummary, left: number | null, count: number): ActivityState {
@@ -57,7 +57,7 @@ function stateFor(summary: EventSummary, left: number | null, count: number): Ac
         moments: t("activity.moments", { count }),
         reveal: revealPhrase(summary, new Date()),
         closed: t("activity.closed", {
-            time: formatTime(new Date(summary.revealsAt), summary.timeZone),
+            time: formatTime(new Date(summary.revealsAt), deviceZone()),
         }),
         endsAt: Date.parse(summary.endsAt),
         revealsAt: Date.parse(summary.revealsAt),

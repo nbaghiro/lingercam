@@ -1,0 +1,33 @@
+# Opens the development build and puts the device in a demo state through linger://dev/<persona>,
+# with the development-only controls hidden. Shared by the screen flows here.
+appId: app.galleo.linger
+env:
+  NOTIFICATIONS: ${NOTIFICATIONS || "allow"}
+---
+- launchApp:
+    stopApp: true
+    permissions:
+      camera: allow
+      photos: allow
+      medialibrary: allow
+      notifications: ${NOTIFICATIONS}
+- openLink: exp+linger://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8173
+- runFlow:
+    when:
+      visible: "This is the developer menu.*"
+    commands:
+      - tapOn: "Continue"
+- runFlow:
+    when:
+      visible: "Toggle performance monitor"
+    commands:
+      - tapOn:
+          id: "xmark"
+- extendedWaitUntil:
+    visible: "Your events|No events yet|Every guest gets a camera.*|Events you joined"
+    timeout: 60000
+- openLink: linger://dev/${PERSONA}?shots=1
+- extendedWaitUntil:
+    visible: ${WAIT}
+    timeout: 30000
+- waitForAnimationToEnd

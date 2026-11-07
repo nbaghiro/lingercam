@@ -1,0 +1,9 @@
+# Opens a link, waits for a text and saves a screenshot as SHOT.
+appId: app.galleo.linger
+---
+- openLink: ${LINK}
+- extendedWaitUntil:
+    visible: ${WAIT}
+    timeout: 30000
+- waitForAnimationToEnd
+- takeScreenshot: ${SHOT}

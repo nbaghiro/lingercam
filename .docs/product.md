@@ -58,8 +58,9 @@ These decide trade-offs when a screen or a feature pulls two ways.
    room and remove things, but they see the photos at the same moment as everyone else.
 7. **Say the rules before the first shot.** Shots per guest, when photos appear, and that photos
    come from this camera only. No surprises after the event.
-8. **Event facts in the event's time zone.** A reveal at 10:00 means 10:00 where the event is,
-   and the zone is shown when it differs from the viewer's.
+8. **Times in the viewer's own clock.** A reveal set for 10:00 where the event is reads as the
+   viewer's local time, with no zone name: a guest in Toronto reads 13:00. The event's zone still
+   sets when things happen (next morning, the host's pickers) and the printed table cards.
 
 ## Decisions this spec makes
 
@@ -404,7 +405,9 @@ States, each with its own title and line:
 | Live, before start (D5) | You're invited to shoot {title} | The camera opens Saturday at 15:00. | Join now | **[yes]** |
 | Full, not joined | {title} is full | Ask the host to make room. | Try again | **[yes]** |
 | Draft | {title} isn't open yet | The host is still setting it up. | Try again | **[yes]** |
-| Ended, joined or not | The camera has closed | Photos appear tomorrow at 10:00. | See the event | **[yes]** |
+| Ended, joined | The camera has closed | Photos appear tomorrow at 10:00. | See the event | **[yes]** |
+| Ended under an hour ago, not joined | The camera has closed | Photos appear tomorrow at 10:00. | Join now | **[yes]** |
+| Ended over an hour ago, not joined | These photos are for the people who were there | As after the reveal | I joined on another device | **[yes]** |
 | Revealed, member | The photos are ready | 612 moments from 34 people. | See the photos | **[yes]** |
 | Revealed, not a member | These photos are for the people who were there | If you joined on another phone or browser, open the email link or rejoin there. | (none, or "I joined on another device" from D2) | **[yes]** |
 | Unknown code | There's no event with that code | Check the code and try again. | Code entry with the code prefilled | **[yes]** |

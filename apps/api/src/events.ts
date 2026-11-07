@@ -1,6 +1,7 @@
 import {
     canTransition,
     dueState,
+    joinsOpen,
     EventSettings,
     EventSettingsPatch,
     GuestEmailRequest,
@@ -40,7 +41,7 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 import { z } from "zod";
 import { currentHost, hostDevice, requireHost, type Host } from "./accounts.ts";
-import { db, events, guests, hosts, pushTokens, shots } from "./db.ts";
+import { db, events, guests, hosts, likes, pushTokens, removedGuests, shots } from "./db.ts";
 import {
     ApiError,
     body,
@@ -365,12 +366,6 @@ export async function deleteEvent(event: EventRow): Promise<void> {
     await db.delete(events).where(eq(events.id, event.id));
 }
 
-/**
- * New guests can join while the camera is open and until the reveal. After it, only people who
- * already joined get in, so a code found later doesn't open the photos.
- */
-const JOIN_STATES: readonly EventState[] = ["live", "ended"];
-
 const emailsPerIp = limiter("guest-email-ip", 20, 60 * 60_000);
 const emailsPerGuest = limiter("guest-email-guest", 5, 86_400_000);
 const restoreSendsPerIp = limiter("restore-send-ip", 10, 15 * 60_000);
@@ -399,7 +394,7 @@ async function fetchJoinIndex(): Promise<string> {
 export const joinPage = { index: fetchJoinIndex };
 
 const FALLBACK_INDEX =
-    '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Linger</title></head><body></body></html>';
+    '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>LingerCam</title></head><body></body></html>';
 
 /** index.html with an event's link preview tags in its head. */
 export function withPreview(html: string, tags: Record<string, string>, title: string): string {
@@ -451,7 +446,7 @@ export function revealCalendar(event: EventRow, now = new Date()): string {
     const lines = [
         "BEGIN:VCALENDAR",
         "VERSION:2.0",
-        "PRODID:-//GalleoApp//Linger//EN",
+        "PRODID:-//GalleoApp//LingerCam//EN",
         "CALSCALE:GREGORIAN",
         "METHOD:PUBLISH",
         "BEGIN:VEVENT",
@@ -588,6 +583,48 @@ eventRoutes.post("/v1/events/:id/live", async (c) => {
     return c.json({ event: await hostEventJson((await advance(live.id)) ?? live) });
 });
 
+/**
+ * Removes a guest, with their photos and likes, and keeps that device from joining again. The
+ * host's answer to someone who shouldn't be there.
+ */
+eventRoutes.delete("/v1/events/:id/guests/:guestId", async (c) => {
+    const event = await ownedEvent(await requireHost(c), c.req.param("id"));
+    const guestId = c.req.param("guestId");
+    const [guest] = z.uuid().safeParse(guestId).success
+        ? await db
+              .select()
+              .from(guests)
+              .where(and(eq(guests.id, guestId), eq(guests.eventId, event.id)))
+        : [];
+    if (!guest || guest.isHost) {
+        throw new ApiError(404, "not-found", "That guest isn't at this event.");
+    }
+    const theirs = await db.select({ id: shots.id }).from(shots).where(eq(shots.guestId, guest.id));
+    await db.transaction(async (tx) => {
+        await tx
+            .insert(removedGuests)
+            .values({ eventId: event.id, device: guest.device })
+            .onConflictDoNothing();
+        const liked = await tx
+            .delete(likes)
+            .where(eq(likes.who, `guest:${guest.id}`))
+            .returning({ shotId: likes.shotId });
+        // Their photos and their rows go with the guest row.
+        await tx.delete(guests).where(eq(guests.id, guest.id));
+        for (const { shotId } of liked) {
+            await tx
+                .update(shots)
+                .set({
+                    likes: sql`(select count(*) from ${likes} l where l.shot_id = ${shotId})::int`,
+                })
+                .where(eq(shots.id, shotId));
+        }
+    });
+    for (const shot of theirs) await removePrefix(keys.shotFolder(event.id, shot.id));
+    log("info", "guest removed", { eventId: event.id, photos: theirs.length });
+    return c.body(null, 204);
+});
+
 eventRoutes.post("/v1/events/:id/end", async (c) => {
     const event = await ownedEvent(await requireHost(c), c.req.param("id"));
     if (event.state !== "live")
@@ -671,7 +708,7 @@ eventRoutes.get("/v1/e/:code/page", async (c) => {
     const title = `You're invited to shoot ${event.settings.title}`;
     const tags: Record<string, string> = {
         "og:type": "website",
-        "og:site_name": "Linger",
+        "og:site_name": "LingerCam",
         "og:title": title,
         "og:description": "Scan to join. No download needed.",
         "og:url": `${joinUrl}/${event.code}`,
@@ -710,6 +747,18 @@ eventRoutes.post("/v1/e/:code/join", async (c) => {
                 .select()
                 .from(guests)
                 .where(and(eq(guests.eventId, event.id), eq(guests.device, input.device)));
+            const [removed] = await tx
+                .select()
+                .from(removedGuests)
+                .where(
+                    and(
+                        eq(removedGuests.eventId, event.id),
+                        eq(removedGuests.device, input.device),
+                    ),
+                );
+            if (removed) {
+                throw new ApiError(403, "removed", "The host removed you from this event.");
+            }
             if (existing) {
                 if (existing.name === input.name) return existing;
                 const [renamed] = await tx
@@ -720,16 +769,17 @@ eventRoutes.post("/v1/e/:code/join", async (c) => {
                 return renamed ?? existing;
             }
             if (!locked) throw notFound();
-            const state = dueState(locked.state, locked.settings, locked.revealedAt, new Date());
-            if (state === "revealed" || state === "archived") {
+            const now = new Date();
+            const state = dueState(locked.state, locked.settings, locked.revealedAt, now);
+            if (state === "draft") {
+                throw new ApiError(409, "not-open", "This event isn't open to new guests.");
+            }
+            if (!joinsOpen(locked.state, locked.settings, locked.revealedAt, now)) {
                 throw new ApiError(
                     403,
                     "not-member",
                     "These photos are for the people who were there.",
                 );
-            }
-            if (!JOIN_STATES.includes(state)) {
-                throw new ApiError(409, "not-open", "This event isn't open to new guests.");
             }
             const [row] = await tx
                 .select({ n: count() })

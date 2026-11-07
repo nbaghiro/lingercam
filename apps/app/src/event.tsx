@@ -30,7 +30,7 @@ import {
     dayLabel,
     formatCount,
     formatCountdown,
-    formatTime,
+    formatWhen,
     momentsFromPeople,
     problem,
     revealLabel,
@@ -156,6 +156,7 @@ export function EventScreen() {
     const summary = useLoad(`summary:${code}`, () => api.guest.summary(code));
     const gallery = useGallery(code);
     const people = useLoad(`people:${code}`, () => api.guest.people(code));
+    const hostEvent = useHostEvent(code);
     const shots = useShots(code);
     const [inviting, setInviting] = useState(false);
     const [showPeople, setShowPeople] = useState(false);
@@ -351,7 +352,6 @@ export function EventScreen() {
         );
     }
 
-    const tz = event.timeZone;
     const items = first?.kind === "photos" ? gallery.items : [];
     const host = role === "host";
     const member = role !== "none";
@@ -363,7 +363,7 @@ export function EventScreen() {
         rightAway && shooting
             ? { value: t("event.live"), label: revealModeLabel("right-away") }
             : revealed
-              ? { value: t("event.revealed"), label: dayLabel(new Date(revealsAt), now, tz) }
+              ? { value: t("event.revealed"), label: dayLabel(new Date(revealsAt), now) }
               : shooting
                 ? { value: formatCountdown(endsAt - now.getTime()), label: t("event.left") }
                 : { value: formatCountdown(revealsAt - now.getTime()), label: t("event.toReveal") };
@@ -491,11 +491,11 @@ export function EventScreen() {
         primary !== null
             ? null
             : phase === "before"
-              ? t("camera.opensAt", { time: formatTime(new Date(startsAt), tz) })
+              ? t("join.opensWhen", { when: formatWhen(now, new Date(startsAt)) })
               : revealed
                 ? t("event.revealed")
                 : revealsAt > now.getTime()
-                  ? revealLabel(now, new Date(revealsAt), tz)
+                  ? revealLabel(now, new Date(revealsAt))
                   : t("revealLabel.future", { when: t("revealWhen.past") });
 
     const shareEvent = () => {
@@ -552,7 +552,7 @@ export function EventScreen() {
                     />
                 ) : (
                     <View style={styles.closed} accessibilityRole="text">
-                        <Text variant="small" tone="ash" align="center" numberOfLines={1}>
+                        <Text variant="small" tone="ash" align="center" numberOfLines={2}>
                             {closedLine ?? ""}
                         </Text>
                     </View>
@@ -589,8 +589,8 @@ export function EventScreen() {
             <HostRow summary={event} onChanged={summary.reload} />
             {showRollLine ? (
                 <Text variant="caption" tone="ash" align="center" style={styles.rollLine}>
-                    {left === null
-                        ? t("event.yourRollUnlimited", { taken })
+                    {left === null || phase === "closed"
+                        ? t("event.yourRollTaken", { taken })
                         : t("event.yourRoll", { taken, left: left ?? 0 })}
                 </Text>
             ) : null}
@@ -652,7 +652,9 @@ export function EventScreen() {
                         ? t("event.emptyRevealed")
                         : shooting
                           ? t("event.empty")
-                          : t("event.emptyClosed")}
+                          : phase === "before"
+                            ? t("event.emptyBefore")
+                            : t("event.emptyClosed")}
                 </Text>
             ) : null}
             {gallery.error && offline && !gallery.loading && revealsAt > now.getTime() ? (
@@ -787,7 +789,11 @@ export function EventScreen() {
                 people={people.data?.people ?? []}
                 items={items}
                 revealed={photos}
-                timeZone={tz}
+                removeFrom={host ? hostEvent?.id : undefined}
+                onRemoved={() => {
+                    people.reload();
+                    summary.reload();
+                }}
                 onPick={(person) => {
                     showRoll(code, { id: person.id, name: person.name });
                     setShowPeople(false);
@@ -931,6 +937,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         paddingHorizontal: space.m,
+        paddingVertical: space.xs,
     },
     rollLine: { paddingHorizontal: gutter, marginBottom: space.xs },
     status: {

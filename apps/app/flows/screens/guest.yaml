@@ -1,0 +1,114 @@
+# The demo guest: joined events at every stage, the camera with shots left and with none, the
+# first reveal, the gallery, a photo of their own and someone else's, the recap and the people.
+appId: app.galleo.linger
+---
+- runFlow:
+    file: _start.yaml
+    env: { PERSONA: guest, WAIT: "Events you joined", NOTIFICATIONS: unset }
+- takeScreenshot: guest-welcome
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://e/SATWED", WAIT: "The camera opens .*", SHOT: guest-event-before },
+    }
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://e/MAYA3X", WAIT: "Your roll: .*", SHOT: guest-event-live },
+    }
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://e/MAYA3X/camera", WAIT: "\\d+ shots? left", SHOT: guest-camera },
+    }
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://e/DRNKS4/camera", WAIT: "That's your roll", SHOT: guest-camera-out },
+    }
+- runFlow:
+    {
+      file: _open.yaml,
+      env:
+        { LINK: "linger://e/DRNKS4", WAIT: "Your roll: 10 taken, 0 left", SHOT: guest-event-out },
+    }
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://e/JNHSWM", WAIT: "Your roll: .*", SHOT: guest-event-waiting },
+    }
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://e/BRNCH5", WAIT: "Photo by .*", SHOT: guest-event-rightaway },
+    }
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://e/EMMADN", WAIT: "It's all here.", SHOT: guest-moment },
+    }
+- tapOn: "See every moment"
+- extendedWaitUntil: { visible: "Watch the recap", timeout: 15000 }
+- waitForAnimationToEnd
+- takeScreenshot: guest-event-revealed
+- tapOn: "\\d+ People"
+- extendedWaitUntil: { visible: "\\d+ people", timeout: 10000 }
+- waitForAnimationToEnd
+- takeScreenshot: guest-people
+- tapOn: "Close"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Photo by Sofia M\\."
+    index: 0
+- extendedWaitUntil: { visible: "\\d+ of \\d+", timeout: 15000 }
+- waitForAnimationToEnd
+- takeScreenshot: guest-photo
+- tapOn: "More"
+- extendedWaitUntil: { visible: "Remove my photo", timeout: 10000 }
+- takeScreenshot: guest-photo-mine
+- tapOn: "Cancel"
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://e/EMMADN/recap", WAIT: "Save photo", SHOT: guest-recap },
+    }
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://e/BKCB27", WAIT: "It's all here.", SHOT: guest-moment-book },
+    }
+- tapOn: "See every moment"
+- extendedWaitUntil: { visible: "Watch the recap", timeout: 15000 }
+- waitForAnimationToEnd
+- tapOn:
+    text: "Photo by Tom B\\."
+    index: 0
+- extendedWaitUntil: { visible: "\\d+ of \\d+", timeout: 15000 }
+- tapOn: "More"
+- extendedWaitUntil: { visible: "Report photo", timeout: 10000 }
+- takeScreenshot: guest-photo-report
+- tapOn: "Cancel"
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://e/MAYA3X", WAIT: "Your roll: .*", SHOT: guest-event-live },
+    }
+- tapOn: "Show code"
+- extendedWaitUntil: { visible: ".*Scan to join.*", timeout: 10000 }
+- waitForAnimationToEnd
+- takeScreenshot: guest-invite
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://e/RTRT5W", WAIT: "Your roll: .*", SHOT: guest-event-unlimited },
+    }
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://e/RTRT5W/camera", WAIT: "Take photo", SHOT: guest-camera-unlimited },
+    }
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://e/TRVA7M", WAIT: "That's the night.*", SHOT: guest-event-nightover },
+    }

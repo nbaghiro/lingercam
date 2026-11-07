@@ -222,6 +222,39 @@ describe("joining", () => {
         expect(stranger.body.code).toBe("not-member");
     });
 
+    test("someone new can join for an hour after the camera closes, then only guests", async () => {
+        const { token } = await newHost();
+        const event = await newEvent(token, {
+            live: true,
+            settings: { revealMode: "next-morning" },
+        });
+        const early = await join(event.code, "Early");
+        const ended = await call("POST", `/v1/events/${event.id}/end`, { token });
+        expect(ended.body.event?.state).toBe("ended");
+        const late = await call("POST", `/v1/e/${event.code}/join`, {
+            json: { name: "Late", device: newDevice() },
+        });
+        expect(late.status).toBe(200);
+
+        // Two hours on, the late-join hour is over.
+        const [row] = await db.select().from(events).where(eq(events.id, event.id));
+        if (!row) throw new Error("missing event");
+        const twoHoursAgo = new Date(Date.now() - 2 * 3_600_000).toISOString();
+        await db
+            .update(events)
+            .set({ settings: { ...row.settings, startsAt: twoHoursAgo, endsAt: twoHoursAgo } })
+            .where(eq(events.id, event.id));
+        const stranger = await call("POST", `/v1/e/${event.code}/join`, {
+            json: { name: "Stranger", device: newDevice() },
+        });
+        expect(stranger.status).toBe(403);
+        expect(stranger.body.code).toBe("not-member");
+        const back = await call("POST", `/v1/e/${event.code}/join`, {
+            json: { name: "Early", device: early.device },
+        });
+        expect(back.status).toBe(200);
+    });
+
     test("people lists guests with their confirmed shot counts", async () => {
         const { token } = await newHost();
         const event = await newEvent(token, { live: true });
@@ -493,7 +526,7 @@ describe("the shared link", () => {
         await call("POST", `/v1/events/${event.id}/cover`, { token });
         const index = joinPage.index;
         joinPage.index = async () =>
-            '<!doctype html><html><head><title>Linger</title></head><body><div id="root"></div></body></html>';
+            '<!doctype html><html><head><title>LingerCam</title></head><body><div id="root"></div></body></html>';
         try {
             const res = await call("GET", `/v1/e/${event.code}/page`);
             const html = String(res.body.text);
@@ -506,7 +539,7 @@ describe("the shared link", () => {
             expect(html).toMatch(/<meta property="og:image" content="http[^"]+\/cover\?v=1">/);
             expect(html).toContain('<div id="root"></div>');
             const unknown = await call("GET", "/v1/e/ZZZZZZ/page");
-            expect(String(unknown.body.text)).toContain("<title>Linger</title>");
+            expect(String(unknown.body.text)).toContain("<title>LingerCam</title>");
         } finally {
             joinPage.index = index;
         }
@@ -514,7 +547,7 @@ describe("the shared link", () => {
 
     test("a title with replacement patterns stays as written", () => {
         const html =
-            "<!doctype html><html><head><title>Linger</title><style>x</style></head><body></body></html>";
+            "<!doctype html><html><head><title>LingerCam</title><style>x</style></head><body></body></html>";
         const title = "Dollars $` $& $' $$";
         const out = withPreview(html, { "og:title": title }, title);
         expect(out).toBe(

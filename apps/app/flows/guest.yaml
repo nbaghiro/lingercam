@@ -101,11 +101,12 @@ appId: app.galleo.linger
     visible: ".* isn't open yet"
     timeout: 20000
 - assertVisible: "Try again"
-- openLink: linger://j/JNHSWM
+- openLink: linger://j/KRK2NT
 - extendedWaitUntil:
     visible: "The camera has closed"
     timeout: 20000
-- assertVisible: "See the event"
+# A new guest can still join until the reveal.
+- assertVisible: "Join now|Join as .*|See the event"
 - openLink: linger://j/EMMADN
 - extendedWaitUntil:
     visible: "The photos are ready|These photos are for the people who were there"

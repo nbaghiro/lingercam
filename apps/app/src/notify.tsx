@@ -17,7 +17,7 @@ import {
     useOnForeground,
     type EventSummary,
 } from "@/api";
-import { formatTime, problem, t } from "@/copy";
+import { deviceZone, formatTime, problem, t } from "@/copy";
 import { Button, Input, Text, color, grid, haptic, radius, space } from "@/ui";
 
 // Notifications. A device that registered for push hears about the reveal from the server; one
@@ -326,7 +326,7 @@ export function NotifyCard({ event, audience }: NotifyCardProps) {
             : audience === "host"
               ? t("notify.hostCard")
               : t("notify.guestCard", {
-                    time: formatTime(new Date(event.revealsAt), event.timeZone),
+                    time: formatTime(new Date(event.revealsAt), deviceZone()),
                 });
 
     return (

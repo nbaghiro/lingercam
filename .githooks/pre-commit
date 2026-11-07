@@ -1,0 +1,5 @@
+#!/bin/sh
+# Runs the same checks as CI before every commit. `pnpm install` wires this up through the "prepare"
+# script, which sets core.hooksPath to .githooks.
+set -e
+pnpm check

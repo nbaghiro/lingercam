@@ -139,7 +139,7 @@ linger/
 ├── package.json
 ├── pnpm-workspace.yaml
 ├── prettier.config.json
-├── render.yaml
+├── render.yaml                API and worker on Render, Postgres on Neon (.docs/deployment.md)
 └── tsconfig.base.json
 ```
 

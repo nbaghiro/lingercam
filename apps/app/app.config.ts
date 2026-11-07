@@ -2,15 +2,18 @@ import type { ExpoConfig } from "expo/config";
 
 const NIGHT = "#0D0D0D";
 const CAMERA =
-    "Linger uses the camera to take the photos you share with an event. Photos stay hidden until the reveal.";
+    "LingerCam uses the camera to take the photos you share with an event. Photos stay hidden until the reveal.";
 const PHOTOS =
-    "Linger opens your photo library so you can choose a cover photo, and saves an event's photos into an album named after it.";
-const SAVE_PHOTOS = "Linger saves the photos you choose to your photo library.";
+    "LingerCam opens your photo library so you can choose a cover photo, and saves an event's photos into an album named after it.";
+const SAVE_PHOTOS = "LingerCam saves the photos you choose to your photo library.";
+// The camera library links the microphone API, so App Store Connect needs a purpose string even
+// though LingerCam never asks for the microphone.
+const MICROPHONE = "LingerCam only takes photos and never records sound.";
 /** Guests' links and printed codes point here; the app opens them when it's installed. */
 const JOIN_HOST = "join.lingercam.app";
 
 const config: ExpoConfig = {
-    name: "Linger",
+    name: "LingerCam",
     slug: "linger",
     scheme: "linger",
     version: "0.1.0",
@@ -21,9 +24,16 @@ const config: ExpoConfig = {
     runtimeVersion: { policy: "fingerprint" },
     ios: {
         bundleIdentifier: "app.galleo.linger",
+        // GalleoApp, Inc.'s team, for signing builds for a phone. Set APPLE_TEAM_ID in the shell
+        // or in apps/app/.env.local; simulator builds don't need it.
+        ...(process.env.APPLE_TEAM_ID ? { appleTeamId: process.env.APPLE_TEAM_ID } : {}),
         supportsTablet: false,
         config: { usesNonExemptEncryption: false },
-        infoPlist: { NSCameraUsageDescription: CAMERA, NSSupportsLiveActivities: true },
+        infoPlist: {
+            NSCameraUsageDescription: CAMERA,
+            NSMicrophoneUsageDescription: MICROPHONE,
+            NSSupportsLiveActivities: true,
+        },
         associatedDomains: [`applinks:${JOIN_HOST}`],
     },
     android: {
@@ -48,8 +58,8 @@ const config: ExpoConfig = {
         favicon: "./assets/favicon.png",
         backgroundColor: NIGHT,
         themeColor: NIGHT,
-        name: "Linger",
-        shortName: "Linger",
+        name: "LingerCam",
+        shortName: "LingerCam",
     },
     plugins: [
         "expo-router",
@@ -63,7 +73,11 @@ const config: ExpoConfig = {
         "expo-secure-store",
         [
             "expo-image-picker",
-            { photosPermission: PHOTOS, cameraPermission: CAMERA, microphonePermission: false },
+            {
+                photosPermission: PHOTOS,
+                cameraPermission: CAMERA,
+                microphonePermission: MICROPHONE,
+            },
         ],
         ["expo-media-library", { photosPermission: PHOTOS, savePhotosPermission: SAVE_PHOTOS }],
         "@bacons/apple-targets",

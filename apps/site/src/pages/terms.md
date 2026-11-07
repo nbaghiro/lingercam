@@ -1,20 +1,20 @@
 ---
 layout: ../layout.astro
 title: Terms of use
-description: The terms for hosts and guests using Linger.
+description: The terms for hosts and guests using LingerCam.
 updated: 2 November 2026
 ---
 
 > **Draft for lawyer review.** This is a first draft. It has not been reviewed by a lawyer and is
 > not yet the final agreement.
 
-These terms cover your use of Linger, the app, the guest camera at join.lingercam.app and this
+These terms cover your use of LingerCam, the app, the guest camera at join.lingercam.app and this
 website, all provided by GalleoApp, Inc. ("we"). By creating an event or joining one, you agree to
 them.
 
 ## The service
 
-Linger lets a host create an event and invite guests to take photos with a shared camera. Photos
+LingerCam lets a host create an event and invite guests to take photos with a shared camera. Photos
 stay hidden until the reveal time the host chooses, then appear to the event's members according
 to the host's settings.
 
@@ -27,7 +27,7 @@ to the host's settings.
   photos will be shared with the event.
 - Paid events are a one-time purchase for that event. Prices are shown before you pay. Purchases
   through the App Store or Google Play are also subject to their terms, including their refund
-  processes. For web purchases, email [support@lingercam.app](mailto:support@lingercam.app).
+  processes. For web purchases, email [support@galleo.app](mailto:support@galleo.app).
   [Refund policy to confirm.]
 
 ## Guests
@@ -46,7 +46,7 @@ anything else.
 
 ## Acceptable use
 
-Don't use Linger to share photos that are illegal, that show someone in a private or intimate
+Don't use LingerCam to share photos that are illegal, that show someone in a private or intimate
 setting without their consent, that sexualise minors, or that harass, threaten or exploit anyone.
 Don't try to see photos before the reveal, get around shot limits, or interfere with the service.
 We may hide photos and suspend accounts or events that break these rules, and we report child
@@ -54,7 +54,7 @@ sexual abuse material to the relevant authorities.
 
 ## Availability
 
-We work to keep Linger running and your photos safe, but we provide the service as it is and can't
+We work to keep LingerCam running and your photos safe, but we provide the service as it is and can't
 promise it will always be available or free of errors. Save copies of photos you want to keep.
 
 ## Liability
@@ -65,7 +65,7 @@ and our total liability is limited to the amount you paid us for the event conce
 
 ## Ending
 
-You can stop using Linger and delete your account at any time, see
+You can stop using LingerCam and delete your account at any time, see
 [Delete your account](/delete-account/). We may end access for anyone who breaks these terms.
 
 ## Changes
@@ -77,4 +77,4 @@ changes.
 
 GalleoApp, Inc. [Postal address and governing law to add.]
 
-Email: [support@lingercam.app](mailto:support@lingercam.app)
+Email: [support@galleo.app](mailto:support@galleo.app)

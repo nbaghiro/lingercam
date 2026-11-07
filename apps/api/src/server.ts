@@ -5,7 +5,7 @@ import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { accounts, startAccountWorkers } from "./accounts.ts";
 import { billing } from "./billing.ts";
-import { migrate, sql, startQueue, stopQueue } from "./db.ts";
+import { migrate, role, runsJobs, sql, startQueue, stopQueue } from "./db.ts";
 import { eventRoutes } from "./events.ts";
 import { ApiError, errorDetail, isProduction, log, productionProblems } from "./http.ts";
 import { startNotifyWorkers } from "./notify.ts";
@@ -17,6 +17,13 @@ const origins = (process.env.CORS_ORIGINS ?? "http://localhost:8173,http://local
     .split(",")
     .map((o) => o.trim())
     .filter(Boolean);
+
+function reachable(): Promise<boolean> {
+    return sql`select 1`.then(
+        () => true,
+        () => false,
+    );
+}
 
 export function createApp(): Hono {
     const app = new Hono();
@@ -55,11 +62,15 @@ export function createApp(): Hono {
         }),
     );
 
+    // Render's check: only this instance's own state, so a storage blip doesn't restart every
+    // instance at once. Monitoring polls /health/deep, which includes storage.
     app.get("/health", async (c) => {
-        const database = await sql`select 1`.then(
-            () => true,
-            () => false,
-        );
+        const database = await reachable();
+        return c.json({ ok: database, database }, database ? 200 : 503);
+    });
+
+    app.get("/health/deep", async (c) => {
+        const database = await reachable();
         const storage = await storageHealthy();
         return c.json(
             { ok: database && storage, database, storage },
@@ -108,15 +119,20 @@ async function main(): Promise<void> {
         });
         process.exit(1);
     }
-    await migrate();
-    await startWorkers();
-    const port = Number(process.env.PORT ?? 8171);
-    const server = serve({ fetch: createApp().fetch, port }, (info) =>
-        log("info", "api listening", { port: info.port }),
-    );
+    // In production migrations run once per deploy, in Render's pre-deploy step.
+    if (role === "all") await migrate();
+    if (runsJobs) await startWorkers();
+    else await startQueue();
+    const server =
+        role === "worker"
+            ? null
+            : serve({ fetch: createApp().fetch, port: Number(process.env.PORT ?? 8171) }, (info) =>
+                  log("info", "api listening", { port: info.port, role }),
+              );
+    if (role === "worker") log("info", "worker running");
     const shutdown = (signal: string) => {
         log("info", "shutting down", { signal });
-        server.close();
+        server?.close();
         stopQueue()
             .then(() => sql.end({ timeout: 5 }))
             .catch((error: unknown) =>

@@ -11,7 +11,7 @@ import { boss, db, events, guests, pushTokens } from "./db.ts";
 import { errorDetail, log, maskEmail } from "./http.ts";
 
 const accessToken = process.env.EXPO_ACCESS_TOKEN || undefined;
-const mailFrom = process.env.MAIL_FROM ?? "Linger <hello@lingercam.app>";
+const mailFrom = process.env.MAIL_FROM ?? "LingerCam <hello@lingercam.app>";
 const mailer = nodemailer.createTransport(process.env.SMTP_URL ?? "smtp://localhost:8177");
 const joinUrl = process.env.JOIN_URL ?? "http://localhost:8173";
 
@@ -198,6 +198,33 @@ export async function notifyFull(event: Notified): Promise<boolean> {
         })),
     );
     return true;
+}
+
+/** Where reports reach LingerCam, so someone at LingerCam can act on them as the terms promise. */
+export const moderationEmail = () => process.env.MODERATION_EMAIL || "support@galleo.app";
+
+/** Emails LingerCam about a new report, with enough to find the photo. */
+export async function emailReport(report: {
+    code: string;
+    title: string;
+    shotId: string;
+    photographer: string;
+    reports: number;
+    hidden: boolean;
+}): Promise<boolean> {
+    return sendMail({
+        to: moderationEmail(),
+        subject: `Report: a photo in ${report.title} (${report.code})`,
+        text: [
+            `A photo was reported at ${report.title}, event code ${report.code}.`,
+            ``,
+            `Photo: ${report.shotId}`,
+            `Taken by: ${report.photographer}`,
+            `Reports so far: ${report.reports}${report.hidden ? " (hidden from guests)" : ""}`,
+            ``,
+            `The host can hide or remove it from the event's Manage tools.`,
+        ].join("\n"),
+    });
 }
 
 /** Tells the host that reports hid a photo. */

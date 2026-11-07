@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { revealCountdown, revealTime, wallTime, zonedInstant, zonesDiffer } from "./reveal.ts";
+import { revealCountdown, revealTime, wallTime, zonedInstant } from "./reveal.ts";
 
 const base = {
     startsAt: "2026-06-20T15:00:00-07:00",
@@ -201,16 +201,5 @@ describe("revealCountdown", () => {
             hours: 0,
             minutes: 30,
         });
-    });
-});
-
-describe("zonesDiffer", () => {
-    const at = new Date("2026-06-21T17:00:00Z");
-
-    test("names the zone only when the viewer's clock reads differently", () => {
-        expect(zonesDiffer(at, "America/Vancouver", "America/Vancouver")).toBe(false);
-        expect(zonesDiffer(at, "America/Vancouver", "America/Los_Angeles")).toBe(false);
-        expect(zonesDiffer(at, "America/Vancouver", "America/Toronto")).toBe(true);
-        expect(zonesDiffer(at, "Asia/Kolkata", "Asia/Dhaka")).toBe(true);
     });
 });

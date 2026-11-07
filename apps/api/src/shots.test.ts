@@ -13,7 +13,17 @@ import {
     type Candidate,
 } from "./shots.ts";
 import { exists, keys } from "./storage.ts";
-import { call, join, newEvent, newHost, samplePhoto, shoot, upload } from "./testing.ts";
+import {
+    call,
+    join,
+    mailTo,
+    newDevice,
+    newEvent,
+    newHost,
+    samplePhoto,
+    shoot,
+    upload,
+} from "./testing.ts";
 
 beforeAll(startQueue);
 afterAll(stopQueue);
@@ -260,6 +270,58 @@ describe("after the reveal", () => {
         await developShot(id);
         return { token, event, people, id };
     }
+
+    test("a report reaches LingerCam by email, with the event and the photo", async () => {
+        const moderation = `moderation-${Date.now()}@example.com`;
+        process.env.MODERATION_EMAIL = moderation;
+        try {
+            const { event, people, id } = await revealedShot();
+            const ben = people[1];
+            if (!ben) throw new Error("guest");
+            await call("POST", `/v1/shots/${id}/report`, { device: ben.device });
+            const mail = await mailTo(moderation);
+            expect(mail.subject).toContain(event.code);
+            expect(mail.text).toContain(id);
+            expect(mail.text).toContain("Taken by: Ana");
+        } finally {
+            delete process.env.MODERATION_EMAIL;
+        }
+    });
+
+    test("the host removes a guest: their photos and likes go, and that phone can't rejoin", async () => {
+        const { token, event, people, id } = await revealedShot();
+        const [ana, ben] = people;
+        if (!ana || !ben) throw new Error("guests");
+        await call("POST", `/v1/shots/${id}/like`, { device: ben.device });
+        const benShot = await shoot(event.code, ben.device);
+        await developShot(benShot);
+
+        // Only the host can remove someone, and never the host's own row.
+        const byGuest = await call("DELETE", `/v1/events/${event.id}/guests/${ben.guestId}`, {
+            device: ana.device,
+        });
+        expect(byGuest.status).toBe(401);
+
+        const removed = await call("DELETE", `/v1/events/${event.id}/guests/${ben.guestId}`, {
+            token,
+        });
+        expect(removed.status).toBe(204);
+        expect(await exists(keys.shot(event.id, benShot, "developed"))).toBe(false);
+        const [liked] = await db.select().from(shots).where(eq(shots.id, id));
+        expect(liked?.likes).toBe(0);
+        const gallery = await call("GET", `/v1/e/${event.code}/gallery`, { device: ana.device });
+        expect(gallery.body.total).toBe(1);
+
+        const again = await call("POST", `/v1/e/${event.code}/join`, {
+            json: { name: "Ben", device: ben.device },
+        });
+        expect(again.status).toBe(403);
+        expect(again.body.code).toBe("removed");
+        const someoneElse = await call("POST", `/v1/e/${event.code}/join`, {
+            json: { name: "Cleo", device: newDevice() },
+        });
+        expect(someoneElse.status).toBe(200);
+    });
 
     test("three reports hide a photo from guests but not from the host", async () => {
         const { token, event, people, id } = await revealedShot();

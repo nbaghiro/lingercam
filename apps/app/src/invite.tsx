@@ -443,7 +443,7 @@ export function Invite({ event, onDone }: { event: Event; onDone: () => void }) 
             {scheduled ? (
                 <Text variant="small" tone="ash" align="center" style={{ marginBottom: space.l }}>
                     {t("invite.opens", {
-                        when: formatWhen(now, startsAt, event.settings.timeZone),
+                        when: formatWhen(now, startsAt),
                     })}
                 </Text>
             ) : null}

@@ -58,7 +58,47 @@ function read(key: string): GalleryState {
 }
 
 function setGallery(key: string, patch: Partial<GalleryState>): void {
-    galleries.set(key, { ...read(key), ...patch });
+    const code = codeOf(key);
+    const items = patch.items?.filter((item) => !isHiddenPerson(code, item.photographer.id));
+    galleries.set(key, { ...read(key), ...patch, ...(items ? { items } : {}) });
+    emit();
+}
+
+// People this device chose to hide at an event. Their photos stay at the event for everyone else,
+// and stop showing here.
+const hiddenKey = (code: string) => `hiddenPeople:${code}`;
+
+function hiddenPeople(code: string): string[] {
+    try {
+        const raw = storage.getString(hiddenKey(code));
+        const parsed: unknown = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed.filter((id) => typeof id === "string") : [];
+    } catch {
+        return [];
+    }
+}
+
+export function isHiddenPerson(code: string, guestId: string): boolean {
+    return hiddenPeople(code).includes(guestId);
+}
+
+/** Stops showing one person's photos on this device, in every gallery of the event. */
+export function hidePerson(code: string, guestId: string): void {
+    storage.set(hiddenKey(code), JSON.stringify([...new Set([...hiddenPeople(code), guestId])]));
+    eachGallery(code, (state) => {
+        const items = state.items.filter((item) => item.photographer.id !== guestId);
+        const gone = state.items.length - items.length;
+        const first =
+            state.first?.kind === "photos"
+                ? { ...state.first, total: Math.max(0, state.first.total - gone) }
+                : state.first;
+        return { first, items };
+    });
+}
+
+/** Drops everything loaded for an event, such as after the host removed a guest. */
+export function forgetGallery(code: string): void {
+    for (const key of [...galleries.keys()]) if (codeOf(key) === code) galleries.delete(key);
     emit();
 }
 

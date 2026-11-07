@@ -1,0 +1,8 @@
+# Opens local storage to the Wi-Fi network, so a phone can upload photos and load them. Postgres,
+# Mailpit and the storage console stay on this Mac. Used by `pnpm device:on`; see
+# .docs/device-testing.md.
+services:
+  storage:
+    ports: !override
+      - "8174:9000"
+      - "127.0.0.1:8175:9001"

@@ -18,6 +18,7 @@ import {
 import { sql as raw } from "drizzle-orm";
 import { PgBoss } from "pg-boss";
 import postgres from "postgres";
+import { errorDetail, log } from "./http.ts";
 
 const time = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
 const now = (name: string) => time(name).notNull().defaultNow();
@@ -160,6 +161,19 @@ export const likes = pgTable(
     (t) => [primaryKey({ columns: [t.shotId, t.who] })],
 );
 
+/** Devices the host removed from an event. They can't join it again from that device. */
+export const removedGuests = pgTable(
+    "removed_guests",
+    {
+        eventId: uuid("event_id")
+            .notNull()
+            .references(() => events.id, { onDelete: "cascade" }),
+        device: text("device").notNull(),
+        removedAt: now("removed_at"),
+    },
+    (t) => [primaryKey({ columns: [t.eventId, t.device] })],
+);
+
 /** Expo push tokens, owned by a host or by a guest device. */
 export const pushTokens = pgTable(
     "push_tokens",
@@ -200,12 +214,25 @@ const schema = {
     shots,
     reports,
     likes,
+    removedGuests,
     pushTokens,
     purchases,
 };
 
-export const databaseUrl =
-    process.env.DATABASE_URL ?? "postgres://linger:linger@localhost:8172/linger";
+/**
+ * Neon's connection strings carry channel_binding=require. postgres.js would send it to the server
+ * as a setting, which Postgres refuses, so it's dropped; sslmode=require still keeps TLS on.
+ */
+export function connectionUrl(url: string): string {
+    const parsed = new URL(url);
+    if (!parsed.searchParams.has("channel_binding")) return url;
+    parsed.searchParams.delete("channel_binding");
+    return parsed.toString();
+}
+
+export const databaseUrl = connectionUrl(
+    process.env.DATABASE_URL ?? "postgres://linger:linger@localhost:8172/linger",
+);
 
 export const sql = postgres(databaseUrl, { max: 10, onnotice: () => {} });
 export const db = drizzle(sql, { schema });
@@ -220,7 +247,26 @@ export const QUEUES = [
     "push-receipts",
 ] as const;
 
-export const boss = new PgBoss({ connectionString: databaseUrl, max: 4 });
+/**
+ * What this process runs. In production the web service is "api" (requests, sends jobs) and the
+ * background worker is "worker" (job handlers, crons, developing); locally one process does both.
+ */
+export const role = (process.env.ROLE ?? "all") as "all" | "api" | "worker";
+export const runsJobs = role !== "api";
+
+// pg-boss keeps a LISTEN connection and takes session locks, so DATABASE_URL must be a direct
+// connection, not a transaction pooler (on Neon, the host without "-pooler").
+export const boss = new PgBoss({
+    connectionString: databaseUrl,
+    max: 4,
+    supervise: runsJobs,
+    schedule: runsJobs,
+});
+// pg-boss emits "error" when a poll or its maintenance can't reach the database. Without a
+// listener Node treats that as unhandled and the whole API stops; pg-boss retries on its own.
+boss.on("error", (error: unknown) =>
+    log("error", "job queue error", { error: errorDetail(error) }),
+);
 
 let bossStarted: Promise<void> | null = null;
 
@@ -237,7 +283,8 @@ export async function stopQueue(): Promise<void> {
     if (!bossStarted) return;
     await bossStarted;
     bossStarted = null;
-    await boss.stop({ graceful: true, timeout: 5000 });
+    // Render waits up to maxShutdownDelaySeconds (60) after SIGTERM; a develop takes about 1 s.
+    await boss.stop({ graceful: true, timeout: 30_000 });
 }
 
 export async function migrate(): Promise<void> {

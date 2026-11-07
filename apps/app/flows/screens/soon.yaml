@@ -1,0 +1,11 @@
+# The last minutes of shooting. Run straight after a seed: Friday office drinks closes 9 minutes
+# after it.
+appId: app.galleo.linger
+---
+- runFlow:
+    file: _start.yaml
+    env: { PERSONA: guest, WAIT: "Events you joined" }
+- openLink: linger://e/FFCE7D/camera
+- extendedWaitUntil: { visible: "Closes in \\d+ min", timeout: 30000 }
+- waitForAnimationToEnd
+- takeScreenshot: guest-camera-soon

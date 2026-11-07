@@ -4,7 +4,7 @@ import { Linking } from "react-native";
 import { Album, Asset, requestPermissionsAsync } from "expo-media-library";
 import * as Sharing from "expo-sharing";
 
-/** Thrown when the person has not let Linger add to their photo library. */
+/** Thrown when the person has not let LingerCam add to their photo library. */
 export class PhotosDenied extends Error {}
 
 async function download(url: string): Promise<File> {
@@ -96,7 +96,7 @@ export async function keepInPhotos(uri: string): Promise<void> {
     await Asset.create(uri);
 }
 
-/** Opens Linger's page in the Settings app, where photo access can be turned on. */
+/** Opens LingerCam's page in the Settings app, where photo access can be turned on. */
 export function openPhotoSettings(): void {
     Linking.openSettings().catch(() => null);
 }

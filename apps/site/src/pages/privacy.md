@@ -1,14 +1,14 @@
 ---
 layout: ../layout.astro
 title: Privacy policy
-description: What Linger stores about hosts and guests, why, who processes it, and how to delete it.
+description: What LingerCam stores about hosts and guests, why, who processes it, and how to delete it.
 updated: 2 November 2026
 ---
 
 > **Draft for lawyer review.** This is a first draft written to describe what the product actually
 > does. It has not been reviewed by a lawyer and is not yet the final policy.
 
-Linger is a shared event camera made by GalleoApp, Inc. ("we"). A host creates an event, guests
+LingerCam is a shared event camera made by GalleoApp, Inc. ("we"). A host creates an event, guests
 join from a QR code or link and take photos, and the photos are revealed to the event at a time the
 host chooses. This policy explains what we store to make that work, why, and how to remove it.
 
@@ -52,7 +52,7 @@ Guests don't create an account.
 
 ## Who sees what
 
-Before the reveal, Linger doesn't show the photos to anyone, the host included. After the reveal, the people at the event see the photos according to the host's setting: either
+Before the reveal, LingerCam doesn't show the photos to anyone, the host included. After the reveal, the people at the event see the photos according to the host's setting: either
 every guest sees every photo, or each guest sees their own and the host sees all of them. Every
 photo shows the name of the guest who took it.
 
@@ -61,7 +61,7 @@ people is hidden and the host is told.
 
 ## How we use it
 
-We use this information only to run Linger: to sign you in, run your events, store and reveal the
+We use this information only to run LingerCam: to sign you in, run your events, store and reveal the
 photos, send the notifications you asked for, apply purchases and answer support requests. We
 don't sell personal information, show ads or use photos to train models.
 
@@ -92,24 +92,24 @@ publishing: retention of backups and any records we must keep for tax purposes.]
 ## Deleting your data
 
 **Hosts** can delete their account in the app under Settings, or by emailing
-[support@lingercam.app](mailto:support@lingercam.app) from the account's email address. See
+[support@galleo.app](mailto:support@galleo.app) from the account's email address. See
 [Delete your account](/delete-account/) for what that removes.
 
 **Guests** can remove their own photos from an event after the reveal, from the photo's menu.
 Before the reveal, or to remove your name or email address, email
-[support@lingercam.app](mailto:support@lingercam.app) with the event name and the name you joined
+[support@galleo.app](mailto:support@galleo.app) with the event name and the name you joined
 under, and we'll remove them from that event. You can also ask the host to hide a photo.
 
 ## Children
 
-Linger isn't directed at children under 13, and hosts must be at least 18 or have a parent's
+LingerCam isn't directed at children under 13, and hosts must be at least 18 or have a parent's
 permission. [To confirm the minimum ages for each region.]
 
 ## Your rights
 
 Depending on where you live, you may have the right to access, correct, export or delete your
 information, or to object to how we use it. Email
-[support@lingercam.app](mailto:support@lingercam.app) and we'll respond. You can also complain to
+[support@galleo.app](mailto:support@galleo.app) and we'll respond. You can also complain to
 your local data protection authority.
 
 ## Changes
@@ -121,4 +121,4 @@ change is significant.
 
 GalleoApp, Inc. [Postal address to add.]
 
-Email: [support@lingercam.app](mailto:support@lingercam.app)
+Email: [support@galleo.app](mailto:support@galleo.app)

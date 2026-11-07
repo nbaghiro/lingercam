@@ -1,7 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { DEMO_EMAIL, deleteExpiredSessions } from "./accounts.ts";
+import { DEMO_EMAIL, deleteExpiredSessions, reviewAccount } from "./accounts.ts";
+import { productionProblems } from "./http.ts";
 import {
     db,
     emailCodes,
@@ -33,6 +34,60 @@ async function codeFor(email: string): Promise<string> {
     }
     throw new Error(`No email for ${email}`);
 }
+
+describe("the App Review login", () => {
+    test("signs in with the fixed code, sends no email, and is off until both are set", async () => {
+        const email = `review-${randomBytes(4).toString("hex")}@example.com`;
+        expect(reviewAccount({ REVIEW_EMAIL: email })).toBe(null);
+        expect(reviewAccount({ REVIEW_EMAIL: email, REVIEW_CODE: "12ab56" })).toBe(null);
+        process.env.REVIEW_EMAIL = email;
+        process.env.REVIEW_CODE = "246810";
+        try {
+            for (let i = 0; i < 5; i++) {
+                const start = await call("POST", "/v1/auth/email/start", { json: { email } });
+                expect(start.status).toBe(200);
+            }
+            const wrong = await call("POST", "/v1/auth/email/verify", {
+                json: { email, code: "111111" },
+            });
+            expect(wrong.status).toBe(400);
+            const ok = await call("POST", "/v1/auth/email/verify", {
+                json: { email, code: "246810" },
+            });
+            expect(ok.status).toBe(200);
+            const mail = await fetch(
+                `${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:"${email}"`)}`,
+            );
+            expect(((await mail.json()) as { messages?: unknown[] }).messages ?? []).toHaveLength(
+                0,
+            );
+        } finally {
+            delete process.env.REVIEW_EMAIL;
+            delete process.env.REVIEW_CODE;
+        }
+    });
+
+    test("production refuses a review email without a six-digit code", () => {
+        const base = {
+            SESSION_SECRET: "x".repeat(32),
+            S3_ENDPOINT: "https://r2",
+            S3_ACCESS_KEY_ID: "id",
+            S3_SECRET_ACCESS_KEY: "secret",
+            SMTP_URL: "smtp://mail",
+        };
+        expect(productionProblems(base)).toEqual([]);
+        expect(productionProblems({ ...base, REVIEW_EMAIL: "review@galleo.app" })).toContain(
+            "REVIEW_CODE",
+        );
+        expect(
+            productionProblems({
+                ...base,
+                REVIEW_EMAIL: "review@galleo.app",
+                REVIEW_CODE: "135790",
+            }),
+        ).toEqual([]);
+    });
+});
 
 describe("email sign-in", () => {
     test("sends a six digit code that signs the host in once", async () => {

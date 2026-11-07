@@ -1,4 +1,4 @@
-import { normalizeJoinCode } from "@linger/core/events";
+import { LATE_JOIN_MS, normalizeJoinCode } from "@linger/core/events";
 import { DEFAULT_LOOK, type LookId } from "@linger/core/film";
 import { shootingPhase, type ShootingPhase } from "@linger/core/shots";
 import { useNetInfo } from "@react-native-community/netinfo";
@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { closeActivity, trackShot } from "@/activity";
 import {
+    devChrome,
     api,
     invalidate,
     onForgetEvents,
@@ -29,7 +30,8 @@ import {
     type ApiError,
     type EventSummary,
 } from "@/api";
-import { formatDuration, formatTime, revealWhen, t } from "@/copy";
+import { brighten } from "@/brightness";
+import { formatDuration, formatWhen, revealWhen, t } from "@/copy";
 import { InviteSheet } from "@/invite";
 import { LookImage } from "@/look";
 import {
@@ -116,7 +118,13 @@ export function useEventClock(marks: readonly number[]): Date {
 export function eventMarks(summary: EventSummary | undefined): number[] {
     if (!summary) return [];
     const endsAt = Date.parse(summary.endsAt);
-    return [Date.parse(summary.startsAt), endsAt - CLOSING_SOON_MS, endsAt, revealsAt(summary)];
+    return [
+        Date.parse(summary.startsAt),
+        endsAt - CLOSING_SOON_MS,
+        endsAt,
+        endsAt + LATE_JOIN_MS,
+        revealsAt(summary),
+    ];
 }
 
 const revealsAt = (summary: EventSummary) => Date.parse(summary.revealsAt);
@@ -297,7 +305,9 @@ export function CameraFrame({ event, lens }: { event: CameraEvent; lens: Lens })
             );
         }
         const lit = lens.flash === "screen" && flash === "on";
+        let dim: (() => void) | null = null;
         if (lit) {
+            dim = await brighten();
             setScreenFlash(true);
             await new Promise((resolve) => setTimeout(resolve, 150));
         }
@@ -330,6 +340,7 @@ export function CameraFrame({ event, lens }: { event: CameraEvent; lens: Lens })
             setFailed(Date.now());
         } finally {
             setScreenFlash(false);
+            dim?.();
             setBusy(false);
         }
     };
@@ -374,8 +385,8 @@ export function CameraFrame({ event, lens }: { event: CameraEvent; lens: Lens })
         cover = (
             <Cover>
                 <Text variant="title" align="center">
-                    {t("camera.opensAt", {
-                        time: formatTime(new Date(summary.startsAt), summary.timeZone),
+                    {t("join.opensWhen", {
+                        when: formatWhen(now, new Date(summary.startsAt)),
                     })}
                 </Text>
                 <Button label={t("camera.seeEvent")} variant="glass" onPress={leave} />
@@ -455,7 +466,7 @@ export function CameraFrame({ event, lens }: { event: CameraEvent; lens: Lens })
                         variant="caption"
                         tone={offline ? "candle" : "ash"}
                         align="center"
-                        numberOfLines={1}
+                        numberOfLines={2}
                         maxScale={CHROME_SCALE}
                     >
                         {topLine}
@@ -479,7 +490,7 @@ export function CameraFrame({ event, lens }: { event: CameraEvent; lens: Lens })
                         blinkStyle,
                     ]}
                 />
-                {lens.demo && open ? (
+                {lens.demo && open && devChrome() ? (
                     <View style={styles.demo} pointerEvents="none">
                         <Text variant="caption" tone="soft" align="center">
                             {t("camera.usingSamples")}
@@ -616,7 +627,7 @@ const TOOL = "#DDDDDD";
 function whenPhrase(summary: EventSummary | undefined, now: Date): string {
     if (!summary) return "";
     const at = new Date(summary.revealsAt);
-    return revealWhen(now, at, summary.timeZone);
+    return revealWhen(now, at);
 }
 
 function Cover({ children }: { children: ReactNode }) {

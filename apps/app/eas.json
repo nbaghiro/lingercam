@@ -14,6 +14,11 @@
                 "EXPO_PUBLIC_JOIN_URL": "http://localhost:8173"
             }
         },
+        "development-device": {
+            "developmentClient": true,
+            "distribution": "internal",
+            "environment": "development"
+        },
         "preview": {
             "distribution": "internal",
             "channel": "preview",
@@ -22,6 +27,16 @@
                 "EXPO_PUBLIC_API_URL": "https://api.lingercam.app",
                 "EXPO_PUBLIC_JOIN_URL": "https://join.lingercam.app",
                 "EXPO_PUBLIC_SITE_URL": "https://lingercam.app"
+            }
+        },
+        "staging": {
+            "distribution": "internal",
+            "channel": "staging",
+            "environment": "preview",
+            "env": {
+                "EXPO_PUBLIC_API_URL": "https://linger-staging-api.onrender.com",
+                "EXPO_PUBLIC_JOIN_URL": "https://linger-staging-join.onrender.com",
+                "EXPO_PUBLIC_SITE_URL": "https://linger-staging-site.onrender.com"
             }
         },
         "production": {

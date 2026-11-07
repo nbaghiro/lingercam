@@ -12,6 +12,8 @@ import {
     canTransition,
     dueState,
     firstName,
+    joinsOpen,
+    LATE_JOIN_MS,
     isTimeZone,
     joinCode,
     lockedSettings,
@@ -213,6 +215,21 @@ describe("editable settings", () => {
 
     test("keys set to undefined are ignored", () => {
         expect(lockedSettings(at("archived"), { title: undefined } as never)).toEqual([]);
+    });
+});
+
+describe("joinsOpen", () => {
+    const ends = Date.parse(valid.endsAt);
+    test("open while live and for an hour after the camera closes, never for a draft", () => {
+        expect(joinsOpen("live", valid, null, new Date(ends - 60_000))).toBe(true);
+        expect(joinsOpen("live", valid, null, new Date(ends + 60_000))).toBe(true);
+        expect(joinsOpen("ended", valid, null, new Date(ends + LATE_JOIN_MS - 1))).toBe(true);
+        expect(joinsOpen("ended", valid, null, new Date(ends + LATE_JOIN_MS))).toBe(false);
+        expect(joinsOpen("draft", valid, null, new Date(ends - 60_000))).toBe(false);
+    });
+    test("closed once the photos are out, even inside the hour", () => {
+        const atEnd = { ...valid, revealMode: "at-end" as const };
+        expect(joinsOpen("live", atEnd, null, new Date(ends + 60_000))).toBe(false);
     });
 });
 

@@ -4,12 +4,12 @@ title: Support
 description: Help with hosting an event, joining one as a guest, payments and your account.
 ---
 
-For anything not covered here, email [support@lingercam.app](mailto:support@lingercam.app). Include
+For anything not covered here, email [support@galleo.app](mailto:support@galleo.app). Include
 the event name, and if you're a host, the email you sign in with.
 
 ## Get the app
 
-Hosts create and manage events in the Linger app for iPhone and Android. The store listings aren't
+Hosts create and manage events in the LingerCam app for iPhone and Android. The store listings aren't
 live yet; this page will link to them once they are. Guests don't need the app: they join from the
 event's QR code or link in their browser.
 

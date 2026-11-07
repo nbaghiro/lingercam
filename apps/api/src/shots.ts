@@ -47,7 +47,7 @@ import {
     type GuestRow,
 } from "./events.ts";
 import { ApiError, body, deviceOf, errorDetail, log, uuidOr } from "./http.ts";
-import { notifyHidden } from "./notify.ts";
+import { emailReport, notifyHidden } from "./notify.ts";
 import {
     downloadUrl,
     get,
@@ -694,18 +694,33 @@ shotRoutes.post("/v1/shots/:id/report", async (c) => {
             .set({ reports: n })
             .where(eq(shots.id, shot.id))
             .returning({ reports: shots.reports, hidden: shots.hidden });
-        if (!counted) return { reports: shot.reports, hidden: shot.hidden };
+        if (!counted) return { reports: shot.reports, hidden: shot.hidden, added: false };
         // Only the report that reaches the threshold hides the photo, so a host's decision to
         // show it again sticks until someone new reports it.
         if (added && counted.reports === REPORTS_TO_HIDE && !counted.hidden) {
             await tx.update(shots).set({ hidden: true }).where(eq(shots.id, shot.id));
-            return { reports: counted.reports, hidden: true };
+            return { reports: counted.reports, hidden: true, added: true };
         }
-        return counted;
+        return { ...counted, added: added !== undefined };
     });
     if (result.hidden && !shot.hidden) {
         log("info", "photo hidden by reports", { shotId: shot.id });
         await notifyHidden(event);
+    }
+    if (result.added) {
+        const [by] = await db
+            .select({ name: guests.name })
+            .from(guests)
+            .where(eq(guests.id, shot.guestId));
+        // Sent without waiting: the guest's report is recorded whether or not the email goes.
+        emailReport({
+            code: event.code,
+            title: event.settings.title,
+            shotId: shot.id,
+            photographer: by?.name ?? "a guest",
+            reports: result.reports,
+            hidden: result.hidden,
+        }).catch(() => null);
     }
     return c.json({ reported: true, hidden: viewer.kind === "host" ? result.hidden : undefined });
 });

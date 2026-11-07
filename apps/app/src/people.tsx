@@ -5,9 +5,22 @@ import { useLocalSearchParams } from "expo-router";
 import { FlatList, Modal, Platform, Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { api, useLoad, type Person } from "@/api";
-import { formatCount, formatTime, t } from "@/copy";
-import { IconButton, Text, color, divider, gutter, icons, photoSource, space } from "@/ui";
+import { api, asApiError, useLoad, type Person } from "@/api";
+import { deviceZone, formatCount, formatTime, problem, t } from "@/copy";
+import { forgetGallery } from "@/gallery";
+import {
+    IconButton,
+    Text,
+    color,
+    confirm,
+    divider,
+    gutter,
+    icons,
+    haptic,
+    photoSource,
+    showToast,
+    space,
+} from "@/ui";
 
 // The people sheet. A list of 250 guests is virtualised, so only the rows on screen are drawn.
 
@@ -19,7 +32,8 @@ export function People({
     people,
     items,
     revealed,
-    timeZone,
+    removeFrom,
+    onRemoved,
     onPick,
 }: {
     visible: boolean;
@@ -27,7 +41,9 @@ export function People({
     people: Person[];
     items: GalleryItem[];
     revealed: boolean;
-    timeZone: string;
+    /** The host's event id: guests can then be removed with a long press. */
+    removeFrom?: string | undefined;
+    onRemoved?: () => void;
     onPick: (person: Person) => void;
 }) {
     const insets = useSafeAreaInsets();
@@ -35,6 +51,27 @@ export function People({
     const code = normalizeJoinCode(params.code ?? "") ?? params.code ?? "";
     const summary = useLoad(code ? `summary:${code}` : null, () => api.guest.summary(code));
     const limit = summary.data?.guestLimit ?? null;
+
+    const remove = removeFrom
+        ? (person: Person) => {
+              confirm(
+                  t("photo.removeGuestTitle", { name: person.name }),
+                  t("photo.removeGuestBody"),
+                  t("photo.removeGuest", { name: person.name }),
+                  () => {
+                      api.events
+                          .removeGuest(removeFrom, person.id)
+                          .then(() => {
+                              // The row going is the confirmation: a toast would sit under the sheet.
+                              haptic("success");
+                              forgetGallery(code);
+                              onRemoved?.();
+                          })
+                          .catch((error: unknown) => showToast(problem(asApiError(error).code)));
+                  },
+              );
+          }
+        : undefined;
 
     const faces = new Map<string, GalleryItem>();
     for (const item of items) {
@@ -54,6 +91,11 @@ export function People({
             <Text variant="small" tone="ash" style={styles.line}>
                 {revealed ? t("people.body") : t("people.bodyBefore")}
             </Text>
+            {removeFrom ? (
+                <Text variant="small" tone="ash" style={styles.line}>
+                    {t("people.removeHint")}
+                </Text>
+            ) : null}
         </View>
     );
 
@@ -92,7 +134,7 @@ export function People({
                             person={person}
                             face={faces.get(person.id)}
                             canOpen={revealed && person.shots > 0}
-                            timeZone={timeZone}
+                            onRemove={person.host ? undefined : remove}
                             onPick={onPick}
                         />
                     )}
@@ -106,25 +148,32 @@ function PersonRow({
     person,
     face,
     canOpen,
-    timeZone,
+    onRemove,
     onPick,
 }: {
     person: Person;
     face: GalleryItem | undefined;
     canOpen: boolean;
-    timeZone: string;
+    onRemove: ((person: Person) => void) | undefined;
     onPick: (person: Person) => void;
 }) {
     const second = person.host
         ? t("people.host")
-        : t("people.joined", { time: formatTime(new Date(person.joinedAt), timeZone) });
+        : t("people.joined", { time: formatTime(new Date(person.joinedAt), deviceZone()) });
     const shots = t("people.shots", { count: person.shots });
     return (
         <Pressable
-            onPress={() => onPick(person)}
-            disabled={!canOpen}
+            onPress={canOpen ? () => onPick(person) : undefined}
+            onLongPress={onRemove ? () => onRemove(person) : undefined}
+            disabled={!canOpen && !onRemove}
             accessibilityRole={canOpen ? "button" : "text"}
             accessibilityLabel={`${person.name}, ${second}, ${shots}`}
+            accessibilityActions={
+                onRemove
+                    ? [{ name: "remove", label: t("photo.removeGuest", { name: person.name }) }]
+                    : undefined
+            }
+            onAccessibilityAction={() => onRemove?.(person)}
             style={({ pressed }) => [styles.person, { opacity: pressed ? 0.7 : 1 }]}
         >
             {face ? (

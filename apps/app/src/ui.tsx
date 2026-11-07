@@ -478,7 +478,7 @@ export function Wordmark({ size = 40 }: { size?: number }) {
             style={{ flexDirection: "row", alignItems: "center", gap: size * 0.24 }}
             accessible
             accessibilityRole="header"
-            accessibilityLabel="Linger"
+            accessibilityLabel="LingerCam"
         >
             <Mark size={size * 0.9} />
             {/* A logo, drawn at its size whatever the text setting. */}
@@ -492,7 +492,7 @@ export function Wordmark({ size = 40 }: { size?: number }) {
                     color: color.paper,
                 }}
             >
-                Linger
+                LingerCam
             </RNText>
         </View>
     );
@@ -1225,19 +1225,28 @@ export function Tile({
                     </Text>
                 </View>
             ) : name ? (
-                <Text
-                    serif
-                    italic
-                    style={styles.tileName}
-                    numberOfLines={1}
-                    maxScale={CHROME_SCALE}
-                >
-                    {name}
-                </Text>
+                <>
+                    <Scrim stops={TILE_SHADE} />
+                    <Text
+                        serif
+                        italic
+                        style={styles.tileName}
+                        numberOfLines={1}
+                        maxScale={CHROME_SCALE}
+                    >
+                        {name}
+                    </Text>
+                </>
             ) : null}
         </Pressable>
     );
 }
+
+/** Under a photographer's name on a tile, so it reads on a bright photo. */
+const TILE_SHADE = [
+    [0.55, 0],
+    [1, 0.6],
+] as const satisfies readonly [number, number][];
 
 // iOS blurs in points at a smaller scale than CSS, so it needs a larger radius to look the same.
 const DEVELOPING_BLUR = Platform.OS === "web" ? 18 : 42;

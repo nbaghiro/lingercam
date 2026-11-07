@@ -6,10 +6,13 @@ beforeAll(startQueue);
 afterAll(stopQueue);
 
 describe("server", () => {
-    test("health checks the database and storage", async () => {
+    test("health checks the database, and the deep check storage too", async () => {
         const res = await call("GET", "/health");
         expect(res.status).toBe(200);
-        expect(res.body).toEqual({ ok: true, database: true, storage: true });
+        expect(res.body).toEqual({ ok: true, database: true });
+        const deep = await call("GET", "/health/deep");
+        expect(deep.status).toBe(200);
+        expect(deep.body).toEqual({ ok: true, database: true, storage: true });
     });
 
     test("unknown routes answer in the error shape", async () => {

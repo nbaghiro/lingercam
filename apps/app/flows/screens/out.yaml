@@ -1,0 +1,118 @@
+# Signed out with nothing joined: welcome, sign-in, the code sheet and every join sheet state.
+appId: app.galleo.linger
+---
+- runFlow:
+    file: _start.yaml
+    env: { PERSONA: out, WAIT: "Every guest gets a camera.*" }
+- takeScreenshot: out-welcome
+- tapOn: "Have a code?"
+- extendedWaitUntil: { visible: "Enter the 6-character code.*", timeout: 10000 }
+- waitForAnimationToEnd
+- takeScreenshot: out-code
+- runFlow:
+    file: _start.yaml
+    env: { PERSONA: out, WAIT: "Every guest gets a camera.*" }
+- tapOn: "Continue with email"
+- extendedWaitUntil: { visible: "Sign in with email", timeout: 10000 }
+- waitForAnimationToEnd
+- takeScreenshot: out-signin
+- runFlow:
+    {
+      file: _open.yaml,
+      env:
+        { LINK: "linger://j/ZZZZZZ", WAIT: "There's no event with that code", SHOT: join-notfound },
+    }
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://j/TFNWKD", WAIT: ".* isn't open yet", SHOT: join-draft },
+    }
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://j/SATWED", WAIT: "The camera opens .*", SHOT: join-before },
+    }
+- runFlow:
+    {
+      file: _open.yaml,
+      env:
+        {
+          LINK: "linger://j/BRNCH5",
+          WAIT: "You're invited to shoot Sunday brunch",
+          SHOT: join-rightaway,
+        },
+    }
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://j/KRK2NT", WAIT: "The camera has closed", SHOT: join-closed },
+    }
+- runFlow:
+    {
+      file: _open.yaml,
+      env:
+        {
+          LINK: "linger://j/JNHSWM",
+          WAIT: "These photos are for the people who were there",
+          SHOT: join-closed-late,
+        },
+    }
+- runFlow:
+    {
+      file: _open.yaml,
+      env:
+        {
+          LINK: "linger://j/EMMADN",
+          WAIT: "These photos are for the people who were there",
+          SHOT: join-notmember,
+        },
+    }
+- tapOn: "I joined on another device"
+- extendedWaitUntil: { visible: "Find your photos", timeout: 10000 }
+- waitForAnimationToEnd
+- takeScreenshot: join-restore
+- runFlow:
+    {
+      file: _open.yaml,
+      env:
+        {
+          LINK: "linger://j/MAYA3X",
+          WAIT: "You're invited to shoot Maya turns thirty",
+          SHOT: join-open,
+        },
+    }
+- tapOn: "Join now|Open camera"
+- extendedWaitUntil: { visible: "What should we call you?", timeout: 10000 }
+- waitForAnimationToEnd
+- takeScreenshot: join-name
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://settings", WAIT: "Help and support", SHOT: out-settings },
+    }
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://no/such/page", WAIT: "This page doesn't exist", SHOT: missing },
+    }
+# Last, because joining stores the name and the join sheets above expect a new guest.
+- openLink: linger://j/KRK2NT
+- extendedWaitUntil: { visible: "The camera has closed", timeout: 30000 }
+- tapOn: "Join now"
+- extendedWaitUntil: { visible: "What should we call you?", timeout: 10000 }
+- tapOn: "Your name"
+- inputText: "Robin"
+- tapOn: "Continue"
+- extendedWaitUntil: { visible: "Your roll: .*", timeout: 20000 }
+- waitForAnimationToEnd
+- takeScreenshot: join-closed-joined
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://j/SPPR6C", WAIT: "Supper club is full", SHOT: join-full },
+    }
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://j/RTRT5W", WAIT: "Unlimited shots.*", SHOT: join-unlimited },
+    }

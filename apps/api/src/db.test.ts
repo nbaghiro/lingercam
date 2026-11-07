@@ -1,12 +1,22 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { db, events, guests, hosts, sql, startQueue, stopQueue } from "./db.ts";
+import { connectionUrl, db, events, guests, hosts, sql, startQueue, stopQueue } from "./db.ts";
 import { join, newEvent, newHost } from "./testing.ts";
 
 beforeAll(startQueue);
 afterAll(stopQueue);
 
 describe("database", () => {
+    test("a Neon connection string keeps TLS and drops channel_binding", () => {
+        const neon =
+            "postgresql://u:p@ep-x-123.us-west-2.aws.neon.tech/linger?sslmode=require&channel_binding=require";
+        expect(connectionUrl(neon)).toBe(
+            "postgresql://u:p@ep-x-123.us-west-2.aws.neon.tech/linger?sslmode=require",
+        );
+        const local = "postgres://linger:linger@localhost:8172/linger";
+        expect(connectionUrl(local)).toBe(local);
+    });
+
     test("migrations created every table", async () => {
         const rows = await sql<{ table_name: string }[]>`
             select table_name from information_schema.tables where table_schema = 'public'`;
@@ -18,6 +28,7 @@ describe("database", () => {
             "likes",
             "purchases",
             "push_tokens",
+            "removed_guests",
             "reports",
             "sessions",
             "shots",

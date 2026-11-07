@@ -1,0 +1,51 @@
+# A new host with no events: the empty list, every step of making a free event, the invite, the
+# list with its first event, and Settings with the name sheet.
+appId: app.galleo.linger
+---
+- runFlow:
+    file: _start.yaml
+    env: { PERSONA: new, WAIT: "No events yet" }
+- takeScreenshot: new-home-empty
+- tapOn: "Create an event"
+- extendedWaitUntil: { visible: "What are we capturing?", timeout: 10000 }
+- waitForAnimationToEnd
+- takeScreenshot: create-1-occasion
+- tapOn: "Birthday"
+- tapOn: "Continue"
+- extendedWaitUntil: { visible: "What's it called?", timeout: 10000 }
+- waitForAnimationToEnd
+- takeScreenshot: create-2-name-empty
+- tapOn: "What's it called\\? Maya turns thirty"
+- inputText: "Leo turns one"
+- tapOn: "What's it called\\?"
+- waitForAnimationToEnd
+- takeScreenshot: create-2-name
+- tapOn: "Continue"
+- extendedWaitUntil: { visible: "How should it work?", timeout: 15000 }
+- waitForAnimationToEnd
+- takeScreenshot: create-3-rules
+- tapOn: "Continue"
+- extendedWaitUntil: { visible: "Pick a look", timeout: 10000 }
+- waitForAnimationToEnd
+- takeScreenshot: create-4-look
+- tapOn: "Continue"
+- extendedWaitUntil: { visible: "How many guests?", timeout: 10000 }
+- waitForAnimationToEnd
+- takeScreenshot: create-5-guests
+- tapOn: "Up to 10 guests.*"
+- tapOn: "Start my film"
+- extendedWaitUntil: { visible: "Your film is ready", timeout: 20000 }
+- waitForAnimationToEnd
+- takeScreenshot: create-6-invite
+- tapOn: "Done"
+- extendedWaitUntil: { visible: "Your events", timeout: 10000 }
+- waitForAnimationToEnd
+- takeScreenshot: new-home-first
+- tapOn: "Settings"
+- extendedWaitUntil: { visible: "Signed in as .*", timeout: 10000 }
+- waitForAnimationToEnd
+- takeScreenshot: new-settings
+- tapOn: "Name.*"
+- extendedWaitUntil: { visible: "What should guests call you?", timeout: 10000 }
+- waitForAnimationToEnd
+- takeScreenshot: name-sheet

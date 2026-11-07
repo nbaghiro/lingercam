@@ -1,7 +1,7 @@
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, describe, expect, test } from "vitest";
 import { db, events, guests, shots, stopQueue } from "./db.ts";
-import { seed } from "./seed.ts";
+import { adoptSeedGuests, leaveSeedGuests, seed } from "./seed.ts";
 import { list } from "./storage.ts";
 
 afterAll(stopQueue);
@@ -32,7 +32,7 @@ describe("seed", () => {
         "loads the demo events and gives the same result when run again",
         { timeout: 120_000 },
         async () => {
-            const first = await seed();
+            const first = await seed(undefined, { crowds: false });
             const before = await snapshot(first.codes);
             expect(before).toEqual({
                 "Emma & Daniel's Wedding day": {
@@ -73,6 +73,44 @@ describe("seed", () => {
                     developed: 12,
                     objects: 25,
                 },
+                "Ines's leaving drinks": {
+                    state: "live",
+                    guests: 4,
+                    hosts: 1,
+                    developed: 12,
+                    objects: 25,
+                },
+                "Friday office drinks": {
+                    state: "live",
+                    guests: 5,
+                    hosts: 1,
+                    developed: 5,
+                    objects: 11,
+                },
+                "Team retreat": { state: "live", guests: 6, hosts: 1, developed: 7, objects: 15 },
+                "Supper club": { state: "live", guests: 10, hosts: 1, developed: 3, objects: 7 },
+                "Market morning": {
+                    state: "revealed",
+                    guests: 3,
+                    hosts: 1,
+                    developed: 5,
+                    objects: 11,
+                },
+                "Summer picnic": {
+                    state: "archived",
+                    guests: 4,
+                    hosts: 1,
+                    developed: 6,
+                    objects: 13,
+                },
+                "Karaoke night": { state: "ended", guests: 3, hosts: 1, developed: 4, objects: 9 },
+                "Priya & Sam's wedding": {
+                    state: "live",
+                    guests: 150,
+                    hosts: 1,
+                    developed: 0,
+                    objects: 1,
+                },
                 "Tofino, the long weekend": {
                     state: "draft",
                     guests: 0,
@@ -96,11 +134,48 @@ describe("seed", () => {
                 settings: wedding.settings,
                 guestLimit: 10,
             });
-            const second = await seed();
+            const second = await seed(undefined, { crowds: false });
             expect(second.hostId).toBe(first.hostId);
             const left = await db.select().from(events).where(eq(events.hostId, first.hostId));
             expect(left.map((e) => e.code).sort()).toEqual([...second.codes].sort());
             expect(await snapshot(second.codes)).toEqual(before);
+        },
+    );
+
+    test(
+        "the demo guest's places move to a device and back, and repeating either is safe",
+        { timeout: 120_000 },
+        async () => {
+            await seed(undefined, { crowds: false });
+            const device = "demo-guest-test-device";
+            const mine = () => db.select().from(guests).where(eq(guests.device, device));
+            const adopted = await adoptSeedGuests(device);
+            expect(adopted.sort()).toEqual(
+                [
+                    "BKCB27",
+                    "BRNCH5",
+                    "DRNKS4",
+                    "EMMADN",
+                    "FFCE7D",
+                    "FSTV28",
+                    "JNHSWM",
+                    "MAYA3X",
+                    "RTRT5W",
+                    "SATWED",
+                    "TRVA7M",
+                ].sort(),
+            );
+            const places = await mine();
+            expect(places).toHaveLength(11);
+            await adoptSeedGuests(device);
+            expect((await mine()).map((g) => g.id).sort()).toEqual(places.map((g) => g.id).sort());
+            const [drinks] = await db.select().from(events).where(eq(events.code, "DRNKS4"));
+            expect(places.find((g) => g.eventId === drinks?.id)?.shotsTaken).toBe(10);
+            await leaveSeedGuests(device);
+            await leaveSeedGuests(device);
+            expect(await mine()).toHaveLength(0);
+            expect(await adoptSeedGuests(device)).toHaveLength(11);
+            await leaveSeedGuests(device);
         },
     );
 });

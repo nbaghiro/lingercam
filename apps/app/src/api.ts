@@ -345,7 +345,7 @@ async function request<T extends z.ZodType>(
         if (
             response.status === 401 &&
             current &&
-            path !== "/v1/auth/demo" &&
+            !path.startsWith("/v1/auth/demo") &&
             code !== "no-device"
         ) {
             // Signing out with a session the server already dropped isn't news to the host.
@@ -385,11 +385,18 @@ export const api = {
             await saveSession(session);
             return session;
         },
-        async demo(): Promise<Session> {
-            const session = await request("POST", "/v1/auth/demo", { schema: SessionResponse });
+        /** Development only: signs in as a demo host, the full one unless `as` names another. */
+        async demo(as?: "new" | "half"): Promise<Session> {
+            const path = as ? `/v1/auth/demo?as=${as}` : "/v1/auth/demo";
+            const session = await request("POST", path, { schema: SessionResponse });
             await saveSession(session);
             return session;
         },
+        /** Development only: gives this device the demo guest's places, or with `leave` drops them. */
+        demoGuest: (leave = false) =>
+            request("POST", leave ? "/v1/auth/demo-guest?leave=1" : "/v1/auth/demo-guest", {
+                schema: z.object({ codes: z.array(z.string()) }),
+            }),
         async signOut(): Promise<void> {
             await request("POST", "/v1/auth/sign-out", { schema: Ok }).catch(() => null);
             // The server detached this device's push token from the host; register it afresh.
@@ -436,6 +443,9 @@ export const api = {
         removeCover: (id: string) =>
             request("DELETE", `/v1/events/${id}/cover`, { schema: EventEnvelope }),
         live: (id: string) => request("POST", `/v1/events/${id}/live`, { schema: EventEnvelope }),
+        /** Removes a guest with their photos; that device can't join the event again. */
+        removeGuest: (id: string, guestId: string) =>
+            request("DELETE", `/v1/events/${id}/guests/${guestId}`, { schema: Ok }),
         /** Ends a live event now. */
         end: (id: string) => request("POST", `/v1/events/${id}/end`, { schema: EventEnvelope }),
         /** Deletes the event, its photos and its stored files, and clears it from this device. */
@@ -682,6 +692,20 @@ export function invalidate(prefix: string): void {
         if ((users.get(key) ?? 0) > 0) fetchKey(key).catch(() => null);
         else setEntry(key, { loadedAt: Math.min(entryOf(key).loadedAt, 1) });
     }
+}
+
+/** Development only: forgets every cached response and note on the device, but not its id. */
+export function resetDevice(): void {
+    for (const key of [...entries.keys()]) forgetCached(key);
+    for (const key of storage.getAllKeys()) {
+        if (key !== "device" && key !== CLOCK_KEY && key !== SCREENSHOTS_KEY) storage.remove(key);
+    }
+}
+
+/** Development only: screenshots hide the controls that only development builds have. */
+export const SCREENSHOTS_KEY = "screenshots";
+export function devChrome(): boolean {
+    return __DEV__ && storage.getString(SCREENSHOTS_KEY) !== "1";
 }
 
 /** Drops a key from memory and from the device. */

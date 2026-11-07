@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 // The marketing site on 8170 and the guest web app's shell on 8173: the copy says what ships, the
-// Try Linger code opens the guest home, unknown paths read as missing pages, and the join domain
+// Try LingerCam code opens the guest home, unknown paths read as missing pages, and the join domain
 // serves its link files and preview tags.
 
 const SITE = process.env.E2E_SITE_URL ?? "http://127.0.0.1:8170";
@@ -27,7 +27,7 @@ test.describe("site", () => {
         await expect(page.locator("#pricing")).not.toContainText("$0.00");
     });
 
-    test("Try Linger opens the guest home on the join domain", async ({ page }) => {
+    test("Try LingerCam opens the guest home on the join domain", async ({ page }) => {
         await page.goto(`${SITE}/`);
         const link = page.locator(".try a.qr");
         await expect(link).toHaveAttribute("href", "https://join.lingercam.app/");
@@ -104,7 +104,7 @@ test.describe("join domain", () => {
             await expect(page.getByText("This page doesn't exist")).toBeVisible();
             await expect(page.getByText("There's no event with that code")).toHaveCount(0);
         }
-        await page.getByRole("button", { name: "Go to Linger" }).click();
+        await page.getByRole("button", { name: "Go to LingerCam" }).click();
         await expect(page).toHaveURL(`${JOIN}/`);
     });
 

@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api, asApiError, useLoad, type ApiError } from "@/api";
 import { momentsFromPeople, problem, t } from "@/copy";
 import { useCode } from "@/event";
-import { sizeNoteOnce } from "@/gallery";
+import { isHiddenPerson, sizeNoteOnce } from "@/gallery";
 import { openPhotoSettings, PhotosDenied, savePhoto, sharePhoto } from "@/save";
 import {
     Button,
@@ -81,7 +81,12 @@ export function RecapScreen() {
         api.guest
             .highlights(code, "recap")
             .then((result) => {
-                if (live) setSlides({ state: "ready", items: result.items });
+                if (live) {
+                    const items = result.items.filter(
+                        (item) => !isHiddenPerson(code, item.photographer.id),
+                    );
+                    setSlides({ state: "ready", items });
+                }
             })
             .catch((error: unknown) => {
                 if (live) setSlides({ state: "error", error: asApiError(error) });

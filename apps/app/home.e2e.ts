@@ -21,12 +21,12 @@ async function recordOpens(page: Page): Promise<() => Promise<string[]>> {
 test("the web root is the guest home", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByText("Have a code?").first()).toBeVisible();
-    await expect(page.getByText(/Linger gives every guest at an event a camera/)).toBeVisible();
+    await expect(page.getByText(/LingerCam gives every guest at an event a camera/)).toBeVisible();
     await expect(page.getByText("Hosting happens in the app")).toHaveCount(0);
 
     const opened = await recordOpens(page);
     await page.reload();
-    await page.getByText("About Linger").click();
+    await page.getByText("About LingerCam").click();
     // The browser opens the site's root with its trailing slash.
     await expect.poll(opened).toContain(`${SITE}/`);
 });

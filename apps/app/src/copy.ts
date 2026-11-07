@@ -37,6 +37,7 @@ const en = {
     "welcome.haveCode": "Have a code?",
     "welcome.legalTerms": "Terms",
     "welcome.legalPrivacy": "Privacy Policy",
+    "join.legal": "By joining you agree to the Terms and the Privacy Policy.",
 
     "signIn.title": "Sign in with email",
     "signIn.body": "We'll email you a 6-digit code. There's no password to remember.",
@@ -160,7 +161,7 @@ const en = {
     "create.invite.scan": "Scan to join. No download needed.",
     "create.invite.print": "Print table cards",
     "create.invite.share": "Share link",
-    "create.invite.shareMessage": "Join {title} on Linger and take photos with everyone: {url}",
+    "create.invite.shareMessage": "Join {title} on LingerCam and take photos with everyone: {url}",
     "create.invite.done": "Done",
     "create.close": "Close",
     "create.discardTitle": "Discard this event?",
@@ -177,7 +178,7 @@ const en = {
     "create.guests.included": "Included",
     "create.testPurchase": "Test purchase",
     "create.paymentFailedDraft": "The payment didn't go through. Your event is saved as a draft.",
-    "create.offlineDraft": "Linger couldn't reach the server. Your event is saved as a draft.",
+    "create.offlineDraft": "LingerCam couldn't reach the server. Your event is saved as a draft.",
     "create.partlyPaid": "{tier} is paid. Unlimited shots wasn't added.",
     "create.deleteDraftTitle": "Delete this draft?",
     "create.deleteDraft": "Delete draft",
@@ -207,14 +208,14 @@ const en = {
 
     "web.hostTitle": "Hosting happens in the app",
     "web.hostBody":
-        "Create and manage events in Linger for iPhone or Android. Guests can join and take photos right here in the browser.",
+        "Create and manage events in LingerCam for iPhone or Android. Guests can join and take photos right here in the browser.",
     "web.appStore": "Download on the App Store",
     "web.playStore": "Get it on Google Play",
     "web.notFoundTitle": "This page doesn't exist",
-    "web.notFoundLink": "Go to Linger",
+    "web.notFoundLink": "Go to LingerCam",
     "web.homeBody":
-        "Linger gives every guest at an event a camera. The photos stay hidden until the reveal, then everyone gets them at the same time.",
-    "web.siteLink": "About Linger",
+        "LingerCam gives every guest at an event a camera. The photos stay hidden until the reveal, then everyone gets them at the same time.",
+    "web.siteLink": "About LingerCam",
 
     "join.invited": "You're invited to shoot {title}",
     "join.rules": "{shots, plural, one {# shot} other {# shots}} each. Photos appear {when}.",
@@ -222,13 +223,13 @@ const en = {
     "join.rulesRightAway":
         "{shots, plural, one {# shot} other {# shots}} each. Photos appear as they're developed.",
     "join.openCamera": "Open camera",
-    "join.by": "Linger",
+    "join.by": "LingerCam",
     "join.nameTitle": "What should we call you?",
     "join.nameBody": "Your name goes on every photo you take, so everyone knows who took it.",
     "join.namePlaceholder": "Your name",
     "join.cameraTitle": "Allow the camera",
     "join.cameraBody":
-        "Linger needs the camera to take photos for this event. You can change this in Settings at any time.",
+        "LingerCam needs the camera to take photos for this event. You can change this in Settings at any time.",
     "join.cameraAllow": "Allow camera",
     "join.openSettings": "Open Settings",
     "join.seePhotos": "See the photos",
@@ -253,13 +254,13 @@ const en = {
     "join.notFoundBody": "Check the code on the card and try again.",
     "join.offlineTitle": "This event couldn't be loaded",
     "join.offlineBody": "Check your connection and try again.",
-    "join.cameraDenied": "Linger needs the camera to take photos. Turn it on in Settings.",
+    "join.cameraDenied": "LingerCam needs the camera to take photos. Turn it on in Settings.",
     "join.opensWhen": "The camera opens {when}.",
     "join.countsLine": "{counts}.",
     "join.loading": "Loading the event",
     "join.restoreTitle": "Find your photos",
     "join.restoreBody":
-        "Enter the email you left at this event. Linger will send a link that opens your photos on this device.",
+        "Enter the email you left at this event. LingerCam will send a link that opens your photos on this device.",
     "join.restoreEmail": "Email",
     "join.restoreSend": "Send link",
     "join.restoreSent":
@@ -282,9 +283,8 @@ const en = {
     "camera.webDenied":
         "The browser blocked the camera. Allow it from the address bar, then try again.",
     "camera.failed": "The photo didn't take. Please try again.",
-    "camera.none": "Linger couldn't find a camera on this device.",
+    "camera.none": "LingerCam couldn't find a camera on this device.",
     "camera.seeEvent": "See the event",
-    "camera.opensAt": "The camera opens at {time}.",
     "camera.closesIn": "Closes in {minutes, number} min",
     "camera.closed": "The camera has closed. Photos appear {when}.",
     "camera.readyTitle": "The photos are ready",
@@ -320,13 +320,14 @@ const en = {
     "event.empty": "No photos yet. Open the camera to take the first one.",
     "event.emptyRevealed": "No photos were taken at this event.",
     "event.emptyClosed": "No photos were taken before the camera closed.",
+    "event.emptyBefore": "Photos land here once the camera opens.",
     "event.loadFailed": "This event couldn't be loaded.",
     "event.photoBy": "Photo by {name}",
     "event.more": "{count, number} more developing",
     "event.gone": "This event isn't available any more.",
     "event.backToEvents": "Back to your events",
     "event.yourRoll": "Your roll: {taken, number} taken, {left, number} left",
-    "event.yourRollUnlimited": "Your roll: {taken, number} taken",
+    "event.yourRollTaken": "Your roll: {taken, number} taken",
     "event.live": "Live",
     "event.nightOver": "That's the night. {counts}.",
     "event.developingAll": "{count, plural, one {# photo developing} other {# photos developing}}",
@@ -358,6 +359,16 @@ const en = {
     "photo.reportFailed": "The report didn't go through. Please try again.",
     "photo.more": "More",
     "photo.hiddenNote": "Hidden from guests.",
+    "photo.hidePerson": "Hide photos from {name}",
+    "photo.hidePersonTitle": "Hide {name}'s photos?",
+    "photo.hidePersonBody":
+        "You won't see their photos at this event on this phone. Everyone else still will.",
+    "photo.hiddenPerson": "{name}'s photos are hidden on this phone.",
+    "photo.removeGuest": "Remove {name} from the event",
+    "photo.removeGuestTitle": "Remove {name}?",
+    "photo.removeGuestBody":
+        "Their photos are removed from the event for everyone, and they can't join again from that phone.",
+    "photo.removedGuest": "{name} was removed from the event.",
     "photo.remove": "Remove my photo",
     "photo.removeTitle": "Remove this photo?",
     "photo.removeBody": "It's removed from the event for everyone. This can't be undone.",
@@ -365,8 +376,8 @@ const en = {
     "recap.subtitle": "The whole night in {seconds, number} seconds",
     "recap.save": "Save photo",
     "recap.share": "Share",
-    "recap.shareMessage": "The photos from {title} are on Linger: {url}",
-    "recap.shareText": "The photos from {title} are on Linger.",
+    "recap.shareMessage": "The photos from {title} are on LingerCam: {url}",
+    "recap.shareText": "The photos from {title} are on LingerCam.",
     "recap.empty": "The recap is ready once the photos are revealed.",
     "recap.pause": "Pause",
     "recap.play": "Play",
@@ -377,6 +388,7 @@ const en = {
 
     "people.title": "{count, plural, one {# person} other {# people}}",
     "people.body": "Tap anyone to see their roll.",
+    "people.removeHint": "To remove someone from the event, press and hold their name.",
     "people.joined": "Joined {time}",
     "people.shots": "{count, plural, one {# shot} other {# shots}}",
     "people.bodyBefore": "Shot counts so far. Everyone's photos appear at the reveal.",
@@ -433,8 +445,6 @@ const en = {
     "time.am": "am",
     "time.pm": "pm",
 
-    "zone.named": "{when} {zone} time",
-
     "price.free": "Free",
 
     "counts.momentsFromPeople":
@@ -442,10 +452,11 @@ const en = {
 
     "guests.ofLimit": "{count, number} of {limit, number} guests",
 
-    "problem.network": "Linger couldn't reach the server. Check your connection and try again.",
+    "problem.network": "LingerCam couldn't reach the server. Check your connection and try again.",
     "problem.timeout":
-        "Linger couldn't reach the server in time. Check your connection and try again.",
+        "LingerCam couldn't reach the server in time. Check your connection and try again.",
     "problem.generic": "Something went wrong. Try again.",
+    "problem.removed": "The host removed you from this event.",
     "problem.not-found": "There's no event with that code. Check the code and try again.",
     "problem.gone": "This event isn't available any more.",
     "problem.not-joined": "Join the event to see this.",
@@ -453,7 +464,7 @@ const en = {
     "problem.not-open": "This event isn't open to guests right now.",
     "problem.no-shots-left": "You've used every shot.",
     "problem.not-shooting": "The camera has closed.",
-    "problem.upload": "The photo didn't upload. Linger will try again.",
+    "problem.upload": "The photo didn't upload. LingerCam will try again.",
     "problem.too-large": "That photo is too large to send.",
     "problem.too-many": "Please wait a few minutes and try again.",
     "problem.wrong-code": "That code doesn't match. Check the email and try again.",
@@ -480,7 +491,7 @@ const en = {
     "invite.copyLink": "Copy link",
     "invite.opens": "The camera opens {when}.",
     "invite.code": "Code {code}",
-    "invite.shareText": "Join {title} on Linger and take photos with everyone.",
+    "invite.shareText": "Join {title} on LingerCam and take photos with everyone.",
 
     "host.makeRoom": "Make room",
     "host.manage": "Manage",
@@ -516,7 +527,7 @@ const en = {
     "notify.hostCard": "We'll tell you when the photos are ready.",
     "notify.guestCard": "Get a nudge at {time} when the photos are ready.",
     "notify.off":
-        "Notifications are off for Linger. Turn them on in Settings to hear when the photos are ready.",
+        "Notifications are off for LingerCam. Turn them on in Settings to hear when the photos are ready.",
     "notify.webTitle": "Want to know when the photos are ready?",
     "notify.emailMe": "Email me",
     "notify.emailPlaceholder": "you@example.com",
@@ -527,7 +538,7 @@ const en = {
 
     "save.partial":
         "{saved, number} of {total, number} saved. {failed, plural, one {# couldn't be saved.} other {# couldn't be saved.}}",
-    "save.denied": "Linger needs access to Photos to save them.",
+    "save.denied": "LingerCam needs access to Photos to save them.",
     "save.size": "Photos are saved at 2048 px on the longest side.",
     "save.webPhone": "Save photos one at a time from the viewer.",
 
@@ -707,46 +718,17 @@ function formatDate(at: Date, timeZone: string): string {
 
 export const deviceZone = (): string => Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-/** Minutes ahead of UTC in a zone at an instant. */
-function offsetMinutes(at: Date, timeZone: string): number {
-    const parts = format(timeZone, {
-        year: "numeric",
-        month: "numeric",
-        day: "numeric",
-        hour: "numeric",
-        minute: "numeric",
-        second: "numeric",
-        hourCycle: "h23",
-    }).formatToParts(at);
-    const get = (type: Intl.DateTimeFormatPartTypes) =>
-        Number(parts.find((p) => p.type === type)?.value ?? 0);
-    const wall = Date.UTC(
-        get("year"),
-        get("month") - 1,
-        get("day"),
-        get("hour") % 24,
-        get("minute"),
-        get("second"),
-    );
-    return Math.round((wall - Math.floor(at.getTime() / 1000) * 1000) / 60_000);
-}
-
 /** "Vancouver" for America/Vancouver: the place a zone is named after. */
 export function zoneName(timeZone: string): string {
     return (timeZone.split("/").pop() ?? timeZone).replace(/_/g, " ");
 }
 
-/** True when the event's clock reads differently from this device's at that instant. */
-export function zoneDiffers(at: Date, timeZone: string): boolean {
-    const device = deviceZone();
-    return device !== timeZone && offsetMinutes(at, device) !== offsetMinutes(at, timeZone);
-}
-
 /**
- * "tomorrow at 10:00", "Saturday at 15:00", "in 3h 12m" or "now", phrased in the event's zone. A
- * clock time names the zone when the device's differs: "tomorrow at 10:00 Vancouver time".
+ * "tomorrow at 10:00", "Saturday at 15:00", "in 3h 12m" or "now", always in this device's time,
+ * so a guest abroad reads their own clock.
  */
-export function formatWhen(now: Date, at: Date, timeZone = deviceZone()): string {
+export function formatWhen(now: Date, at: Date): string {
+    const timeZone = deviceZone();
     const when = revealCountdown(now, at, timeZone);
     let phrase: string;
     switch (when.kind) {
@@ -779,23 +761,23 @@ export function formatWhen(now: Date, at: Date, timeZone = deviceZone()): string
             break;
         }
     }
-    if (!zoneDiffers(at, timeZone)) return phrase;
-    return t("zone.named", { when: phrase, zone: zoneName(timeZone) });
+    return phrase;
 }
 
 /** "tomorrow at 10:00", "in 3h 12m" or "now", for "Photos appear tomorrow at 10:00." */
-export function revealWhen(now: Date, at: Date, timeZone = deviceZone()): string {
-    return formatWhen(now, at, timeZone);
+export function revealWhen(now: Date, at: Date): string {
+    return formatWhen(now, at);
 }
 
 /** "Reveals tomorrow at 10:00", or "Revealed" once it has happened. */
-export function revealLabel(now: Date, at: Date, timeZone = deviceZone()): string {
+export function revealLabel(now: Date, at: Date): string {
     if (at.getTime() <= now.getTime()) return t("revealLabel.past");
-    return t("revealLabel.future", { when: revealWhen(now, at, timeZone) });
+    return t("revealLabel.future", { when: revealWhen(now, at) });
 }
 
 /** "Today", "Yesterday" or "14 June", for the day an event was revealed. */
-export function dayLabel(at: Date, now: Date, timeZone: string): string {
+export function dayLabel(at: Date, now: Date): string {
+    const timeZone = deviceZone();
     const day = format(timeZone, { year: "numeric", month: "numeric", day: "numeric" });
     if (day.format(at) === day.format(now)) return t("event.today");
     if (day.format(at) === day.format(new Date(now.getTime() - 86_400_000))) {

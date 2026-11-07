@@ -136,14 +136,3 @@ export function revealCountdown(now: Date, at: Date, timeZone?: string): RevealC
     if (days < 7) return { kind: "weekday", time };
     return { kind: "date", time, sameYear: then.year === today.year };
 }
-
-/**
- * Whether two zones show a different clock at an instant, so a time in the event's zone needs the
- * zone named for this viewer ("10:00 Vancouver time"). Zones with the same offset count as one.
- */
-export function zonesDiffer(at: Date, eventZone: string, viewerZone: string): boolean {
-    if (eventZone === viewerZone) return false;
-    const a = wallTime(at, eventZone);
-    const b = wallTime(at, viewerZone);
-    return a.day !== b.day || a.hour !== b.hour || a.minute !== b.minute;
-}

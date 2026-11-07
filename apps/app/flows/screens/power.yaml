@@ -1,0 +1,134 @@
+# The demo host with every kind of event: the full list, the card menu, a live event and its
+# Manage sheet, a nearly full free event, waiting, coming up, right away, the first reveal,
+# moderation, a large crowd and Settings.
+appId: app.galleo.linger
+---
+- runFlow:
+    file: _start.yaml
+    env: { PERSONA: power, WAIT: "Live now" }
+- takeScreenshot: power-home
+- scrollUntilVisible: { element: "Waiting for the reveal" }
+- takeScreenshot: power-home-2
+- scrollUntilVisible: { element: "Revealed" }
+- scroll
+- takeScreenshot: power-home-3
+- runFlow:
+    file: _start.yaml
+    env: { PERSONA: power, WAIT: "Live now" }
+- longPressOn: "Ines.s leaving drinks, Live.*"
+- extendedWaitUntil: { visible: "Share link", timeout: 10000 }
+- takeScreenshot: power-home-menu
+- tapOn: "Cancel"
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://e/MAYA3X", WAIT: "\\d+ of 80 guests", SHOT: power-event-live },
+    }
+- tapOn: "Manage"
+- extendedWaitUntil: { visible: "End now", timeout: 10000 }
+- waitForAnimationToEnd
+- takeScreenshot: power-manage
+- tapOn: "Reveal.*"
+- extendedWaitUntil: { visible: "Next morning", timeout: 10000 }
+- waitForAnimationToEnd
+- takeScreenshot: power-manage-reveal
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://e/GAMENT", WAIT: "Make room", SHOT: power-event-nearfull },
+    }
+- tapOn: "Make room"
+- extendedWaitUntil: { visible: "One payment for this event.*", timeout: 10000 }
+- waitForAnimationToEnd
+- takeScreenshot: power-makeroom
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://e/JNHSWM", WAIT: "Reveals .*", SHOT: power-event-waiting },
+    }
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://e/SATWED", WAIT: "The camera opens .*", SHOT: power-event-before },
+    }
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://e/BRNCH5", WAIT: "Photo by .*", SHOT: power-event-rightaway },
+    }
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://e/EMMADN", WAIT: "It's all here.", SHOT: power-moment },
+    }
+- tapOn: "See every moment"
+- extendedWaitUntil: { visible: "Watch the recap", timeout: 15000 }
+- waitForAnimationToEnd
+- takeScreenshot: power-event-revealed
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://e/BKCB27", WAIT: "It's all here.", SHOT: power-moment-book },
+    }
+- tapOn: "See every moment"
+- extendedWaitUntil: { visible: "Watch the recap", timeout: 15000 }
+- waitForAnimationToEnd
+- takeScreenshot: power-event-moderation
+- scrollUntilVisible: { element: "Photo by .*, Hidden.*" }
+- tapOn: "Photo by .*, Hidden.*"
+- extendedWaitUntil: { visible: "Hidden from guests.", timeout: 15000 }
+- waitForAnimationToEnd
+- takeScreenshot: power-photo-hidden
+- tapOn: "More"
+- extendedWaitUntil: { visible: "Show photo", timeout: 10000 }
+- takeScreenshot: power-photo-more
+- tapOn: "Cancel"
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://e/FSTV28", WAIT: "It's all here.", SHOT: power-moment-festival },
+    }
+- tapOn: "See every moment"
+- extendedWaitUntil: { visible: "Watch the recap", timeout: 15000 }
+- tapOn: "\\d+ People"
+- extendedWaitUntil: { visible: "\\d+ people", timeout: 10000 }
+- waitForAnimationToEnd
+- takeScreenshot: power-people
+- tapOn: "Close"
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://settings", WAIT: "Signed in as .*", SHOT: power-settings },
+    }
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://e/SPPR6C", WAIT: "10 of 10 guests", SHOT: power-event-full },
+    }
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://e/RTRT5W", WAIT: "\\d+ of 30 guests", SHOT: power-event-hostonly },
+    }
+- tapOn: "Manage"
+- extendedWaitUntil: { visible: "End now", timeout: 10000 }
+- tapOn: "Who sees the photos.*"
+- extendedWaitUntil: { visible: "Every guest, Photos can.t go back.*", timeout: 10000 }
+- waitForAnimationToEnd
+- takeScreenshot: power-manage-who
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://e/TRVA7M", WAIT: "That's the night.*", SHOT: power-event-nightover },
+    }
+- runFlow:
+    file: _start.yaml
+    env: { PERSONA: power, WAIT: "Live now" }
+- scrollUntilVisible:
+    { element: "Summer picnic.*", timeout: 60000, speed: 80, visibilityPercentage: 50 }
+- scroll
+- takeScreenshot: power-home-past
+- tapOn: "Summer picnic.*"
+- extendedWaitUntil: { visible: "Watch the recap|It's all here.", timeout: 15000 }
+- waitForAnimationToEnd
+- takeScreenshot: power-event-archived

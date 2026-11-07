@@ -1,4 +1,10 @@
-import { EMAIL_MAX, NAME_MAX, firstName, normalizeJoinCode } from "@linger/core/events";
+import {
+    EMAIL_MAX,
+    LATE_JOIN_MS,
+    NAME_MAX,
+    firstName,
+    normalizeJoinCode,
+} from "@linger/core/events";
 import { shootingPhase } from "@linger/core/shots";
 import { Image } from "expo-image";
 import { Redirect, useLocalSearchParams, useRouter, type Href } from "expo-router";
@@ -23,6 +29,7 @@ import {
 import { useCameraAccess } from "@/camera";
 import { formatWhen, momentsFromPeople, problem, revealWhen, t } from "@/copy";
 import { useCode } from "@/event";
+import { LegalLine } from "@/home";
 import { CodeEntry } from "@/joined";
 import { MissingScreen } from "@/missing";
 import { eventMarks, isGone, isRevealed, useEventClock } from "@/shutter";
@@ -52,7 +59,7 @@ const WAITING_POLL_MS = 15_000;
 type Step = "invite" | "name" | "camera" | "restore";
 
 function rules(event: EventSummary, now: Date): string {
-    const when = revealWhen(now, new Date(event.revealsAt), event.timeZone);
+    const when = revealWhen(now, new Date(event.revealsAt));
     if (event.shotsPerGuest === null) return t("join.rulesUnlimited", { when });
     if (event.revealMode === "right-away") {
         return t("join.rulesRightAway", { shots: event.shotsPerGuest });
@@ -419,12 +426,15 @@ function Invite({
     onNotMe,
     onOtherDevice,
 }: InviteProps) {
-    const reveal = revealWhen(now, new Date(event.revealsAt), event.timeZone);
+    const reveal = revealWhen(now, new Date(event.revealsAt));
     let title: string;
     let line: string | null;
     let rulesLine: string | null = null;
+    const lateJoinOver = now.getTime() >= Date.parse(event.endsAt) + LATE_JOIN_MS;
     let action: ReactNode;
     let below: ReactNode = null;
+    // Set where the sheet's button joins someone new, so they see the terms they agree to.
+    let joining = false;
 
     const joinLabel = !member && storedName ? t("join.as", { name: storedName }) : null;
     const notMe =
@@ -442,14 +452,22 @@ function Invite({
             counts: momentsFromPeople(event.photoCount, event.photographerCount),
         });
         action = <Button label={t("join.seePhotos")} onPress={onSeeEvent} />;
-    } else if (revealed) {
+    } else if (revealed || (phase === "closed" && !member && lateJoinOver)) {
+        // An hour after the camera closes, someone new is treated as after the reveal.
         title = t("join.notMemberTitle");
         line = t("join.notMemberBody");
         action = <Button label={t("join.otherDevice")} variant="dark" onPress={onOtherDevice} />;
     } else if (phase === "closed") {
+        // Someone who came late can still join for an hour, and see the photos with everyone.
         title = t("join.endedTitle");
         line = t("join.endedBody", { when: reveal });
-        action = <Button label={t("join.seeEvent")} onPress={onSeeEvent} />;
+        action = member ? (
+            <Button label={t("join.seeEvent")} onPress={onSeeEvent} />
+        ) : (
+            <Button label={joinLabel ?? t("join.joinNow")} loading={busy} onPress={onPrimary} />
+        );
+        below = member ? null : notMe;
+        joining = !member;
     } else if (full) {
         title = t("join.fullTitle", { title: event.title });
         line = t("join.fullBody");
@@ -457,7 +475,7 @@ function Invite({
     } else if (phase === "before") {
         title = t("join.invited", { title: event.title });
         line = t("join.opensWhen", {
-            when: formatWhen(now, new Date(event.startsAt), event.timeZone),
+            when: formatWhen(now, new Date(event.startsAt)),
         });
         rulesLine = `${rules(event, now)} ${t("join.cameraOnly")}`;
         action = (
@@ -468,6 +486,7 @@ function Invite({
             />
         );
         below = notMe;
+        joining = !member;
     } else {
         title = t("join.invited", { title: event.title });
         line = rules(event, now);
@@ -481,6 +500,7 @@ function Invite({
             />
         );
         below = notMe;
+        joining = !member;
     }
 
     return (
@@ -514,6 +534,7 @@ function Invite({
             {problemLine ? <Notice>{problemLine}</Notice> : null}
             {action}
             {below}
+            {joining ? <LegalLine sentence={t("join.legal")} /> : null}
         </>
     );
 }

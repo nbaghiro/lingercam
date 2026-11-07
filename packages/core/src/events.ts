@@ -69,6 +69,25 @@ export function dueState(
     }
 }
 
+/** How long after the camera closes someone new can still join, for a guest who came late. */
+export const LATE_JOIN_MS = 60 * 60_000;
+
+/**
+ * Whether someone new can join: while the event is live, and for an hour after the camera
+ * closes. After that only people who already joined get in, so a code passed on overnight
+ * doesn't open the photos.
+ */
+export function joinsOpen(
+    state: EventState,
+    settings: Parameters<typeof revealTime>[0],
+    revealedAt: Date | null,
+    now: Date,
+): boolean {
+    const due = dueState(state, settings, revealedAt, now);
+    if (due === "live") return true;
+    return due === "ended" && now.getTime() < Date.parse(settings.endsAt) + LATE_JOIN_MS;
+}
+
 export function isTimeZone(value: string): boolean {
     try {
         new Intl.DateTimeFormat("en-US", { timeZone: value });

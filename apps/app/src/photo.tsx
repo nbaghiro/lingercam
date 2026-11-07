@@ -25,8 +25,8 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { scheduleOnRN } from "react-native-worklets";
 
-import { api, asApiError, useLoad } from "@/api";
-import { formatCount, formatTime, problem, t } from "@/copy";
+import { api, asApiError, invalidate, useLoad } from "@/api";
+import { deviceZone, formatCount, formatTime, problem, t } from "@/copy";
 import { useCode, useHostEvent } from "@/event";
 import {
     loadMoreGallery,
@@ -37,6 +37,8 @@ import {
     sizeNoteOnce,
     useFreshGallery,
     useGallery,
+    forgetGallery,
+    hidePerson,
 } from "@/gallery";
 import { openPhotoSettings, PhotosDenied, savePhoto, sharePhoto } from "@/save";
 import {
@@ -155,9 +157,8 @@ export function PhotoScreen() {
     }
 
     const total = gallery.first?.kind === "photos" ? gallery.first.total : items.length;
-    const timeZone = summary.data?.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
     const look = summary.data ? LOOKS[summary.data.look].name : null;
-    const time = formatTime(new Date(item.takenAt), timeZone);
+    const time = formatTime(new Date(item.takenAt), deviceZone());
     const mine = summary.data?.viewer.guestId === item.photographer.id;
 
     const like = async () => {
@@ -242,6 +243,48 @@ export function PhotoScreen() {
                 })
                 .catch((error: unknown) => showToast(problem(asApiError(error).code)));
         });
+    };
+
+    const hideTheirPhotos = () => {
+        setMore(false);
+        const who = item.photographer;
+        confirm(
+            t("photo.hidePersonTitle", { name: who.name }),
+            t("photo.hidePersonBody"),
+            t("photo.hidePerson", { name: who.name }),
+            () => {
+                const next = items.find(
+                    (other, i) => i > index && other.photographer.id !== who.id,
+                );
+                hidePerson(code, who.id);
+                showToast(t("photo.hiddenPerson", { name: who.name }));
+                if (next) setCurrent(next.id);
+                else leave();
+            },
+        );
+    };
+
+    const removeGuest = () => {
+        setMore(false);
+        const who = item.photographer;
+        if (!host) return;
+        confirm(
+            t("photo.removeGuestTitle", { name: who.name }),
+            t("photo.removeGuestBody"),
+            t("photo.removeGuest", { name: who.name }),
+            () => {
+                api.events
+                    .removeGuest(host.id, who.id)
+                    .then(() => {
+                        forgetGallery(code);
+                        invalidate(`summary:${code}`);
+                        invalidate(`people:${code}`);
+                        showToast(t("photo.removedGuest", { name: who.name }));
+                        leave();
+                    })
+                    .catch((error: unknown) => showToast(problem(asApiError(error).code)));
+            },
+        );
     };
 
     const openRoll = () => {
@@ -410,6 +453,22 @@ export function PhotoScreen() {
                             icon={icons.report}
                             label={t("photo.report")}
                             onPress={report}
+                        />
+                    ) : null}
+                    {!host && !mine ? (
+                        <Button
+                            variant="dark"
+                            icon={icons.hide}
+                            label={t("photo.hidePerson", { name: item.photographer.name })}
+                            onPress={hideTheirPhotos}
+                        />
+                    ) : null}
+                    {host && !mine ? (
+                        <Button
+                            variant="dark"
+                            icon={icons.trash}
+                            label={t("photo.removeGuest", { name: item.photographer.name })}
+                            onPress={removeGuest}
                         />
                     ) : null}
                     <Button

@@ -81,7 +81,7 @@ const ACTS: { id: string; title: string; text: string; shots: Shot[] }[] = [
 const FAQ: { q: string; a: string }[] = [
     {
         q: "Do guests need to download an app?",
-        a: "No. Guests scan the event's QR code and the camera opens in their browser, with nothing to install. Guests who already have the Linger app join in the app instead. Only the host needs it.",
+        a: "No. Guests scan the event's QR code and the camera opens in their browser, with nothing to install. Guests who already have the LingerCam app join in the app instead. Only the host needs it.",
     },
     {
         q: "When do the photos appear?",
@@ -138,7 +138,7 @@ const FAQ: { q: string; a: string }[] = [
             <Phone screen="gallery" eager />
             <Phone screen="camera" eager />
         </div>
-        <aside class="try" aria-label="Try Linger">
+        <aside class="try" aria-label="Try LingerCam">
             <div class="t">
                 <svg width="12" height="12" viewBox="0 0 32 32" aria-hidden="true">
                     <circle
@@ -151,9 +151,14 @@ const FAQ: { q: string; a: string }[] = [
                     ></circle>
                     <circle cx="20" cy="16" r="9" fill="#D8D5CE"></circle>
                 </svg>
-                Try Linger
+                Try LingerCam
             </div>
-            <a class="qr" href={tryUrl} aria-label="Open Linger in the browser" set:html={tryQr} />
+            <a
+                class="qr"
+                href={tryUrl}
+                aria-label="Open LingerCam in the browser"
+                set:html={tryQr}
+            />
             Have a code? Join in your browser. No download needed.
         </aside>
     </section>
@@ -193,20 +198,26 @@ const FAQ: { q: string; a: string }[] = [
         <div class="act-head">
             <h2>Questions</h2>
             <p>
-                For anything else, email{" "}
-                <a href="mailto:support@lingercam.app">support@lingercam.app</a>.
+                For anything else, email <a href="mailto:support@galleo.app">support@galleo.app</a>.
             </p>
         </div>
+        {/* Two stacks, so an open answer only moves the questions below it in its own column. */}
         <div class="faq">
-            {FAQ.map((item) => (
-                <details>
-                    <summary>
-                        {item.q}
-                        <Icon name="plus" />
-                    </summary>
-                    <p>{item.a}</p>
-                </details>
-            ))}
+            {[FAQ.slice(0, Math.ceil(FAQ.length / 2)), FAQ.slice(Math.ceil(FAQ.length / 2))].map(
+                (column) => (
+                    <div class="faq-column">
+                        {column.map((item) => (
+                            <details>
+                                <summary>
+                                    {item.q}
+                                    <Icon name="plus" />
+                                </summary>
+                                <p>{item.a}</p>
+                            </details>
+                        ))}
+                    </div>
+                ),
+            )}
         </div>
     </section>
 </Layout>

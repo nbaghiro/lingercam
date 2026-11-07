@@ -1,4 +1,5 @@
 import {
+    CopyObjectCommand,
     DeleteObjectCommand,
     DeleteObjectsCommand,
     GetObjectCommand,
@@ -88,6 +89,13 @@ export function downloadUrl(
 export async function put(key: string, data: Buffer): Promise<void> {
     await s3.send(
         new PutObjectCommand({ Bucket: bucket, Key: key, Body: data, ContentType: "image/jpeg" }),
+    );
+}
+
+/** Copies an object inside the bucket without downloading it. */
+export async function copy(from: string, to: string): Promise<void> {
+    await s3.send(
+        new CopyObjectCommand({ Bucket: bucket, CopySource: `${bucket}/${from}`, Key: to }),
     );
 }
 

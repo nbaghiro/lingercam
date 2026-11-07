@@ -20,16 +20,17 @@ export interface JoinedEventsProps {
 
 function statusLine(event: EventSummary, now: Date): string {
     if (event.state === "draft") return t("joined.draft");
-    if (isRevealed(event, now)) return t("joined.ready");
+    // A right-away event counts as revealed from its start; while it's open, the camera matters more.
     const phase = shootingPhase(event, now);
     if (phase === "open") return t("joined.open");
+    if (isRevealed(event, now)) return t("joined.ready");
     if (phase === "before") {
         return t("joined.before", {
-            when: formatWhen(now, new Date(event.startsAt), event.timeZone),
+            when: formatWhen(now, new Date(event.startsAt)),
         });
     }
     return t("joined.waiting", {
-        when: revealWhen(now, new Date(event.revealsAt), event.timeZone),
+        when: revealWhen(now, new Date(event.revealsAt)),
     });
 }
 
@@ -81,10 +82,10 @@ export function JoinedEvents({ onOpen }: JoinedEventsProps) {
                             )}
                         </View>
                         <View style={styles.rowText}>
-                            <Text variant="name" numberOfLines={1}>
+                            <Text variant="name" numberOfLines={2}>
                                 {event.title}
                             </Text>
-                            <Text variant="small" tone={live ? "candle" : "ash"} numberOfLines={1}>
+                            <Text variant="small" tone={live ? "candle" : "ash"} numberOfLines={2}>
                                 {line}
                             </Text>
                         </View>

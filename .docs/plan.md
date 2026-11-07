@@ -207,7 +207,7 @@ Screens follow the scratchpad one to one: layout, copy, type sizes in points and
 The scratchpad page, ported to Astro: hero with three phones and the occasion pills, how it works,
 guests, the reveal, pricing from `core/pricing.ts`, FAQ, footer with legal links. Plus pricing,
 privacy, terms, support and delete-account pages. Operator: GalleoApp, Inc. Contact:
-support@lingercam.app. Legal text is a first draft for a lawyer to review and says so at the top.
+support@galleo.app. Legal text is a first draft for a lawyer to review and says so at the top.
 
 ## Phases and their checks
 
@@ -604,3 +604,32 @@ Checked at hand-off on 2026-11-01. "Passed" means the command was run in that ph
   now skips the cache). The e2e files share one signed-in host each, since the API starts at most
   20 sign-ins per IP address in 15 minutes. Migration 0003 is applied to the dev database and the
   seed was re-run. What's left is in `.docs/polish-plan.md` under Results.
+- 2026-11-04, screens pass: every time the app shows reads in the viewer's local time with no zone
+  name (Naib's call), replacing "10:00 Vancouver time". The event's zone still decides the reveal
+  and the host's date and time pickers, and the printed table cards keep it because guests read
+  them at the venue. A new guest can join an ended event until the reveal; events before their
+  start say "Photos land here once the camera opens."; the roll line drops "left" once the camera
+  closes; the first-sign-in name sheet waits for the sign-in sheet to close, which iOS needs; text
+  on photos sits on a scrim and sentence lines wrap instead of cutting off. Demo accounts
+  (`linger://dev/<persona>`) and the screen capture live in `.scratchpad/screens/`.
+- 2026-11-04, joining after the camera closes: someone new can join while the event is live and
+  for an hour after the camera closes (`LATE_JOIN_MS`, `joinsOpen` in core), for a guest who came
+  late. After that the join sheet shows the after-the-reveal sheet and the API answers
+  `not-member`, so a code passed on overnight doesn't open the photos. People who already joined
+  always get back in. The front camera's screen flash now turns the screen to full brightness for
+  the shot and back after (`expo-brightness`, a native rebuild).
+- 2026-11-04, App Store blockers (`launch-review.md` B1 to B3): an App Review login set by
+  `REVIEW_EMAIL` and `REVIEW_CODE`, with `review-seed` for its events; a microphone purpose string
+  for the camera library's linked microphone API; hosts can remove a guest (their photos and likes
+  go, and the device is kept in `removed_guests` so it can't rejoin); anyone can hide a person's
+  photos on their own device; the join sheet links the Terms and Privacy Policy; reports email
+  `MODERATION_EMAIL`. Migration 0004 adds `removed_guests`.
+- 2026-11-07: production Postgres moves from Render to Neon (Launch, AWS us-east-2 with Render in Ohio, direct
+  connection because pg-boss needs session features). The API runs as `ROLE=api` on a Render web
+  service and the jobs as `ROLE=worker` on a background worker; locally one process runs both.
+  Migrations run in Render's pre-deploy step. Sign-in stays our own: Neon Auth was considered and
+  not needed. Steps in `.docs/deployment.md`.
+- 2026-11-07: the brand is LingerCam, matching lingercam.app. Every name people see uses it: the
+  app's home-screen name and wordmark, the permission prompts, the Live Activity, share messages,
+  emails, the join page and the marketing site. Code names, package names and the bundle id
+  (`app.galleo.linger`) stay as they are. The native project is now `ios/LingerCam`.

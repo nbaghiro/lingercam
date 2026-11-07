@@ -222,11 +222,26 @@ test.describe("the join sheet", () => {
         });
     });
 
-    test("ended: the camera has closed, with when the photos appear", async ({ page }) => {
-        await page.goto("/j/JNHSWM");
+    test("ended: someone new can join for an hour after the camera closes", async ({ page }) => {
+        await page.goto("/j/KRK2NT");
         await expect(sheetTitle(page, "The camera has closed")).toBeVisible();
         await expect(page.getByText(/^Photos appear .+\.$/)).toBeVisible();
+        await page.getByRole("button", { name: "Join now" }).click();
+        await page.getByLabel("Your name").fill("Robin");
+        await page.getByRole("button", { name: "Continue" }).click();
+        await expect(page).toHaveURL(/\/e\/KRK2NT$/);
+        await page.goto("/j/KRK2NT");
         await expect(page.getByRole("button", { name: "See the event" })).toBeVisible();
+    });
+
+    test("ended over an hour ago: someone new is treated as after the reveal", async ({ page }) => {
+        await page.goto("/j/JNHSWM");
+        await expect(
+            sheetTitle(page, "These photos are for the people who were there"),
+        ).toBeVisible();
+        await expect(
+            page.getByRole("button", { name: "I joined on another device" }),
+        ).toBeVisible();
     });
 
     test("revealed, not a member: no name step, and a way back by email", async ({ page }) => {
@@ -358,7 +373,7 @@ test.describe("the camera", () => {
         await page.getByLabel("Your name").fill("Pat");
         await page.getByRole("button", { name: "Continue" }).click();
         await page.goto(`/e/${event.code}/camera`);
-        await expect(page.getByText(/^The camera opens at .+\.$/)).toBeVisible();
+        await expect(page.getByText(/^The camera opens .+\.$/)).toBeVisible();
         await expect(page.getByText(/^Opens in \dm$/)).toBeVisible();
         await expect(page.getByRole("button", { name: "Take photo" })).toBeDisabled();
     });

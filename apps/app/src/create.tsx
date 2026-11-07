@@ -36,6 +36,7 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { z } from "zod";
 
 import {
+    devChrome,
     ApiError,
     api,
     asApiError,
@@ -294,7 +295,7 @@ function changesFrom(event: Event, draft: Draft): EventSettingsPatch {
 
 /** When the draft's photos would appear. Once the event exists, the server's revealsAt is used. */
 function whenPhrase(draft: Draft): string {
-    return revealWhen(new Date(), revealTime(settingsOf(draft)), draft.timeZone);
+    return revealWhen(new Date(), revealTime(settingsOf(draft)));
 }
 
 function problemsAt(draft: Draft, path: "endsAt" | "revealAt"): boolean {
@@ -1573,7 +1574,7 @@ function Footer({
                             start().catch(() => setBusy(false));
                         }}
                     />
-                    {__DEV__ && testPurchases() && owed.cents > 0 ? (
+                    {devChrome() && testPurchases() && owed.cents > 0 ? (
                         <Text variant="caption" tone="ash" align="center">
                             {t("create.testPurchase")}
                         </Text>

@@ -1,0 +1,23 @@
+# A host partway in: an event waiting for its first guest and a draft to finish.
+appId: app.galleo.linger
+---
+- runFlow:
+    file: _start.yaml
+    env: { PERSONA: half, WAIT: "Drafts", NOTIFICATIONS: unset }
+- takeScreenshot: half-home
+- runFlow:
+    {
+      file: _open.yaml,
+      env: { LINK: "linger://e/DNNR7T", WAIT: "The camera opens .*", SHOT: half-event-empty },
+    }
+- tapOn: "Show code"
+- extendedWaitUntil: { visible: "Print table cards", timeout: 10000 }
+- waitForAnimationToEnd
+- takeScreenshot: half-invite
+- runFlow:
+    file: _start.yaml
+    env: { PERSONA: half, WAIT: "Drafts", NOTIFICATIONS: unset }
+- tapOn: "Leo turns one, Draft.*"
+- extendedWaitUntil: { visible: "How many guests?", timeout: 15000 }
+- waitForAnimationToEnd
+- takeScreenshot: half-draft-resume

@@ -1,0 +1,21 @@
+# Signing in with email for the first time: the code step, and the name sheet a new host gets.
+# EMAIL must be new each run, e.g. `-e EMAIL=robin+$(date +%s)@example.com`.
+appId: app.galleo.linger
+---
+- runFlow:
+    file: _start.yaml
+    env: { PERSONA: out, WAIT: "Every guest gets a camera.*" }
+- tapOn: "Continue with email"
+- tapOn: "you@example.com"
+- inputText: ${EMAIL}
+- tapOn: "Send code"
+- extendedWaitUntil: { visible: "Check your email", timeout: 20000 }
+- waitForAnimationToEnd
+- takeScreenshot: out-signin-code
+- runScript:
+    file: signin.js
+    env: { EMAIL: "${EMAIL}" }
+- inputText: ${output.code}
+- extendedWaitUntil: { visible: "What should guests call you?", timeout: 20000 }
+- waitForAnimationToEnd
+- takeScreenshot: new-name-first

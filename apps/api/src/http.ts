@@ -57,7 +57,12 @@ export function log(level: Level, message: string, extra: Record<string, unknown
 }
 
 export function errorDetail(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
+    if (!(error instanceof Error)) return String(error);
+    // Storage and network errors often have an empty message; their name, code and cause say
+    // what happened ("TimeoutError: ECONNREFUSED: connect ECONNREFUSED 127.0.0.1:8174").
+    const code = "code" in error && typeof error.code === "string" ? error.code : null;
+    const cause = error.cause instanceof Error ? error.cause.message : null;
+    return [error.name, code, error.message, cause].filter((part) => part).join(": ");
 }
 
 /** "a***@example.com", for logs. */
@@ -84,6 +89,10 @@ export function productionProblems(env = process.env): string[] {
     }
     if (env.S3_SECRET_ACCESS_KEY === "linger-local") problems.push("S3_SECRET_ACCESS_KEY");
     if (env.DEV_ROUTES === "1") problems.push("DEV_ROUTES");
+    // A review email without a valid code would send real codes to Apple's reviewers instead.
+    if (env.REVIEW_EMAIL && !/^\d{6}$/.test(env.REVIEW_CODE?.trim() ?? "")) {
+        problems.push("REVIEW_CODE");
+    }
     return problems;
 }
 

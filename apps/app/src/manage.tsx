@@ -344,7 +344,7 @@ function ManageSheet(props: HostToolsProps & { visible: boolean; onClose: () => 
         if (!event) return;
         const now = new Date();
         const at = revealTime({ ...event.settings, endsAt: now.toISOString() });
-        const when = revealWhen(now, at.getTime() > now.getTime() ? at : now, zone);
+        const when = revealWhen(now, at.getTime() > now.getTime() ? at : now);
         confirm(t("manage.endTitle"), t("manage.endBody", { when }), t("manage.endNow"), () => {
             run(
                 () => api.events.end(event.id),
@@ -585,7 +585,7 @@ function ManageSheet(props: HostToolsProps & { visible: boolean; onClose: () => 
                             />
                         </View>
                         <Text variant="small" tone="ash" align="center">
-                            {revealWhen(new Date(), custom, zone)}
+                            {revealWhen(new Date(), custom)}
                         </Text>
                         <Button
                             label={t("manage.save")}
