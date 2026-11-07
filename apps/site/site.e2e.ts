@@ -27,6 +27,45 @@ test.describe("site", () => {
         await expect(page.locator("#pricing")).not.toContainText("$0.00");
     });
 
+    test("each nav tab has its own page, and the home sections link to them", async ({ page }) => {
+        const pages: [string, RegExp][] = [
+            ["/how-it-works/", /How LingerCam works/],
+            ["/guests/", /Guests join with a name/],
+            ["/reveal/", /The reveal/],
+            ["/pricing/", /Pay once, by guest count/],
+            ["/questions/", /Questions/],
+        ];
+        for (const [path, heading] of pages) {
+            await page.goto(`${SITE}${path}`);
+            await expect(page.locator("main h1")).toHaveText(heading);
+            await expect(page.locator(`.nav a[href="${path}"]`)).toHaveAttribute(
+                "aria-current",
+                "page",
+            );
+            const overflow = await page.evaluate(
+                () => document.documentElement.scrollWidth - window.innerWidth,
+            );
+            expect(overflow).toBeLessThanOrEqual(0);
+        }
+
+        await page.goto(`${SITE}/`);
+        for (const [section, path] of [
+            ["#setup", "/how-it-works/"],
+            ["#shoot", "/guests/"],
+            ["#reveal", "/reveal/"],
+            ["#pricing", "/pricing/"],
+            ["#faq", "/questions/"],
+        ]) {
+            await expect(page.locator(`${section} a.more`)).toHaveAttribute("href", path);
+        }
+        // The home page keeps its seven questions; the Questions page has them all, by topic.
+        await expect(page.locator("#faq details")).toHaveCount(7);
+        await page.goto(`${SITE}/questions/`);
+        expect(await page.locator("main details").count()).toBeGreaterThan(20);
+        await page.getByText("I arrived after the camera closed").click();
+        await expect(page.locator("main")).toContainText("someone new can still join the event");
+    });
+
     test("Try LingerCam opens the guest home on the join domain", async ({ page }) => {
         await page.goto(`${SITE}/`);
         const link = page.locator(".try a.qr");

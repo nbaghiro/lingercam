@@ -1,19 +1,15 @@
 ---
-import { MAX_SHOTS, MIN_SHOTS } from "@linger/core/events";
-import { LOOK_IDS, LOOKS } from "@linger/core/film";
-import { TIERS, formatPrice } from "@linger/core/pricing";
+import { TIERS } from "@linger/core/pricing";
 import QRCode from "qrcode";
 import Icon from "../icon.astro";
 import Layout from "../layout.astro";
 import { FIRST_OCCASION, OCCASIONS, OCCASION_KEYS } from "../occasions.ts";
 import Phone, { type Screen } from "../phone.astro";
+import { HOME_QUESTIONS as FAQ } from "../questions.ts";
 import Tiers from "../tiers.astro";
 
 const free = TIERS[0];
-const smallest = TIERS[1];
-const largest = TIERS[TIERS.length - 1];
 const freeLine = `Events with up to ${free?.guests} guests are free.`;
-const [natural, warm, mono] = LOOK_IDS.map((id) => LOOKS[id]);
 
 // The guest web app's home, where a visitor with a code can join in the browser.
 const tryUrl = import.meta.env.PUBLIC_TRY_URL ?? "https://join.lingercam.app/";
@@ -30,11 +26,18 @@ interface Shot {
     caption: string;
 }
 
-const ACTS: { id: string; title: string; text: string; shots: Shot[] }[] = [
+const ACTS: {
+    id: string;
+    title: string;
+    text: string;
+    more: { href: string; label: string };
+    shots: Shot[];
+}[] = [
     {
         id: "setup",
         title: "The host sets it up",
         text: "Five short steps from opening the app to a printed table card. Payment happens once, by guest count, with no subscription.",
+        more: { href: "/how-it-works/", label: "More on how it works" },
         shots: [
             { screen: "occasion", title: "What are we capturing?", caption: "Pick the occasion" },
             { screen: "name", title: "Name it", caption: "Title, date and cover" },
@@ -48,6 +51,7 @@ const ACTS: { id: string; title: string; text: string; shots: Shot[] }[] = [
         id: "shoot",
         title: "Guests shoot",
         text: "Guests join from the QR code in their browser, or in the app if they have it. Each gets a set number of shots, counted down beside the shutter.",
+        more: { href: "/guests/", label: "More for guests" },
         shots: [
             { screen: "join", title: "Join", caption: "In the browser, no download" },
             { screen: "camera", title: "The camera", caption: "Shots counted by the shutter" },
@@ -67,6 +71,7 @@ const ACTS: { id: string; title: string; text: string; shots: Shot[] }[] = [
         id: "reveal",
         title: "The reveal",
         text: "At the reveal time everyone gets a notification, and the gallery opens with every photo signed by the guest who took it.",
+        more: { href: "/reveal/", label: "More on the reveal" },
         shots: [
             { screen: "notification", title: "The notification", caption: "Everyone at once" },
             { screen: "moment", title: "The moment", caption: "Tap the button to fan them out" },
@@ -75,37 +80,6 @@ const ACTS: { id: string; title: string; text: string; shots: Shot[] }[] = [
             { screen: "recap", title: "The recap", caption: "A short film of the night" },
             { screen: "people", title: "The people", caption: "Who shot what" },
         ],
-    },
-];
-
-const FAQ: { q: string; a: string }[] = [
-    {
-        q: "Do guests need to download an app?",
-        a: "No. Guests scan the event's QR code and the camera opens in their browser, with nothing to install. Guests who already have the LingerCam app join in the app instead. Only the host needs it.",
-    },
-    {
-        q: "When do the photos appear?",
-        a: "The host picks the reveal when creating the event: right away, when the event ends, the next morning at 10:00, or a time of their choosing. Until then nobody sees the photos, the host included.",
-    },
-    {
-        q: "How many photos can each guest take?",
-        a: `The host sets a number between ${MIN_SHOTS} and ${MAX_SHOTS} shots per guest, and the camera counts them down beside the shutter. Unlimited shots are an add-on for any event.`,
-    },
-    {
-        q: "Who can see the photos after the reveal?",
-        a: "By default every guest sees the whole event. The host can choose Only me instead, so guests see just their own photos and the host sees everything.",
-    },
-    {
-        q: "What does it cost?",
-        a: `${freeLine} Larger events are a single payment by guest count, from ${formatPrice(smallest?.priceCents ?? 0)} for ${smallest?.guests} guests to ${formatPrice(largest?.priceCents ?? 0)} for ${largest?.guests}. There is no subscription.`,
-    },
-    {
-        q: "Can a photo be taken down?",
-        a: "Yes. The host can hide any photo, and anyone at the event can report one. A photo that three people report is hidden automatically, and the host is notified. Guests can also remove their own photos once they can see them in the event.",
-    },
-    {
-        q: "What are the looks?",
-        a: `Each event has one film look that every photo shares: ${natural?.name}, ${warm?.name} with soft grain and a warm flash, or ${mono?.name} in high-contrast silver.`,
     },
 ];
 ---
@@ -167,7 +141,12 @@ const FAQ: { q: string; a: string }[] = [
         <section class="act" id={act.id}>
             <div class="act-head">
                 <h2>{act.title}</h2>
-                <p>{act.text}</p>
+                <p>
+                    {act.text}
+                    <a class="more" href={act.more.href}>
+                        {act.more.label}
+                    </a>
+                </p>
             </div>
             <div class="row">
                 {act.shots.map((s) => (
@@ -189,6 +168,9 @@ const FAQ: { q: string; a: string }[] = [
             <p>
                 {freeLine} For a larger event the host pays once, in the app or on the web, and
                 every size gets the same camera, looks and reveal.
+                <a class="more" href="/pricing/">
+                    More on pricing
+                </a>
             </p>
         </div>
         <Tiers />
@@ -200,6 +182,9 @@ const FAQ: { q: string; a: string }[] = [
             <p>
                 For anything else, email{" "}
                 <a href="mailto:support@lingercam.app">support@lingercam.app</a>.
+                <a class="more" href="/questions/">
+                    All questions
+                </a>
             </p>
         </div>
         {/* Two stacks, so an open answer only moves the questions below it in its own column. */}
@@ -408,6 +393,20 @@ const FAQ: { q: string; a: string }[] = [
     .act-head a {
         color: var(--text);
         text-underline-offset: 3px;
+    }
+    /* A quiet way into the section's own page, on its own line under the summary. */
+    .act-head a.more {
+        display: table;
+        margin-top: 10px;
+        color: #d8d5ce;
+        font-size: 15px;
+        text-decoration-color: rgba(233, 201, 154, 0.55);
+        text-decoration-thickness: 1px;
+        text-underline-offset: 5px;
+    }
+    .act-head a.more:hover {
+        color: var(--text);
+        text-decoration-color: var(--candle);
     }
     /* Bleeds to the section edge; the inset padding keeps the first phone's ring and shadow clear. */
     .row {

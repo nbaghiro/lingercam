@@ -17,6 +17,14 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
 const ogImage = new URL("/og.png", Astro.site);
 const appStoreUrl = import.meta.env.PUBLIC_APP_STORE_URL ?? "/support/#get-the-app";
 const year = new Date().getFullYear();
+const path = Astro.url.pathname;
+const SECTIONS = [
+    { href: "/how-it-works/", label: "How it works" },
+    { href: "/guests/", label: "Guests" },
+    { href: "/reveal/", label: "The reveal" },
+    { href: "/pricing/", label: "Pricing" },
+    { href: "/questions/", label: "Questions" },
+];
 ---
 
 <!doctype html>
@@ -71,11 +79,11 @@ const year = new Date().getFullYear();
                 LingerCam
             </a>
             <nav class="links" aria-label="Sections">
-                <a href="/#setup">How it works</a>
-                <a href="/#shoot">Guests</a>
-                <a href="/#reveal">The reveal</a>
-                <a href="/pricing/">Pricing</a>
-                <a href="/#faq">Questions</a>
+                {SECTIONS.map((s) => (
+                    <a href={s.href} aria-current={path === s.href ? "page" : undefined}>
+                        {s.label}
+                    </a>
+                ))}
             </nav>
             <a class="store" href={appStoreUrl}>
                 <svg
@@ -123,6 +131,10 @@ const year = new Date().getFullYear();
                     <p>LingerCam is made by GalleoApp, Inc.</p>
                 </div>
                 <nav class="foot-links" aria-label="Legal and help">
+                    <a href="/how-it-works/">How it works</a>
+                    <a href="/guests/">Guests</a>
+                    <a href="/reveal/">The reveal</a>
+                    <a href="/questions/">Questions</a>
                     <a href="/pricing/">Pricing</a>
                     <a href="/support/">Support</a>
                     <a href="/privacy/">Privacy</a>
@@ -263,8 +275,13 @@ const year = new Date().getFullYear();
         color: inherit;
         text-decoration: none;
     }
-    .links a:hover {
+    .links a:hover,
+    .links a[aria-current="page"] {
         color: var(--text);
+    }
+    .links a[aria-current="page"] {
+        text-decoration: underline 1px var(--candle);
+        text-underline-offset: 8px;
     }
     .store {
         color: inherit;

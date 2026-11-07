@@ -636,3 +636,7 @@ Checked at hand-off on 2026-11-01. "Passed" means the command was run in that ph
 - 2026-11-07: the support address is support@lingercam.app (was support@galleo.app): the site's
   links and legal pages, and where photo reports are emailed. Mail for lingercam.app goes to Google
   Workspace through its MX record.
+- 2026-11-07: the site has a page per nav tab: /how-it-works/, /guests/, /reveal/ and /questions/
+  beside /pricing/. The nav goes to them, the home page keeps every section with a quiet link to
+  its page, and the questions live in `apps/site/src/questions.ts`, shared by the home page (its
+  seven) and /questions/ (all of them, by topic). The pages share `apps/site/src/subpage.astro`.

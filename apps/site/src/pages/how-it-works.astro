@@ -1,0 +1,161 @@
+---
+import { MAX_SHOTS, MIN_SHOTS, TITLE_MAX } from "@linger/core/events";
+import { LOOK_IDS, LOOKS } from "@linger/core/film";
+import { TIERS, UNLIMITED_SHOTS, formatPrice } from "@linger/core/pricing";
+import Phone from "../phone.astro";
+import Subpage from "../subpage.astro";
+import { photo } from "../occasions.ts";
+
+const free = TIERS[0];
+const smallest = TIERS[1];
+const largest = TIERS[TIERS.length - 1];
+const [natural, warm, mono] = LOOK_IDS.map((id) => LOOKS[id]);
+---
+
+<Subpage
+    title="How it works"
+    description="A host sets up an event in five short steps and puts one code on the tables. Guests shoot, and everyone sees the photos together at the reveal."
+    heading="How LingerCam works"
+    lead="A host sets up an event in five short steps and puts one code on the tables. Guests shoot through the night with a set number of shots each, and nobody sees a photo until the reveal, when the whole event arrives for everyone at once."
+    next={{
+        href: "/guests/",
+        title: "Guests shoot",
+        text: "What it's like to join from the QR code, with nothing to install.",
+        photo: "p-group",
+    }}
+>
+    <Fragment slot="media">
+        <Phone screen="rules" />
+        <Phone screen="invite" />
+    </Fragment>
+
+    <section class="ledger">
+        <h2>
+            Setting up
+            <small>
+                The host does this once, in the app. It takes a couple of minutes, and the event
+                stays a draft until the host starts it.
+            </small>
+        </h2>
+        <div class="ledger-body">
+            <ol class="steps">
+                <li>
+                    <b>The occasion</b>
+                    <span>
+                        Wedding, birthday, trip, party or just everyday. The choice fills in
+                        suggested rules, a look and a guest count, and the host can change any of
+                        them.
+                    </span>
+                </li>
+                <li>
+                    <b>Name and time</b>
+                    <span>
+                        A title of up to {TITLE_MAX} characters, the date, when the camera opens and
+                        when it closes, and a cover photo if you'd like one. A trip can set its own
+                        time zone.
+                    </span>
+                </li>
+                <li>
+                    <b>The rules</b>
+                    <span>
+                        When the photos appear: right away, when the event ends, the next morning at
+                        10:00, or at a time the host picks. How many shots each guest gets, from{" "}
+                        {MIN_SHOTS} to {MAX_SHOTS}. And who sees the photos afterwards, every guest
+                        or only the host.
+                    </span>
+                </li>
+                <li>
+                    <b>The look</b>
+                    <span>
+                        One film for every photo: {natural?.name}, {warm?.name} with soft grain and
+                        a warm flash, or {mono?.name} in high-contrast silver. Guests see it in the
+                        viewfinder as they shoot.
+                    </span>
+                </li>
+                <li>
+                    <b>Guests and price</b>
+                    <span>
+                        Up to {free?.guests} guests is free. Larger events are one payment by guest
+                        count, from {formatPrice(smallest?.priceCents ?? 0)} for {smallest?.guests}{" "}
+                        guests to {formatPrice(largest?.priceCents ?? 0)} for {largest?.guests}, and
+                        unlimited shots can be added for {formatPrice(UNLIMITED_SHOTS.priceCents)}.
+                    </span>
+                </li>
+                <li>
+                    <b>The invite</b>
+                    <span>
+                        The event gets a QR code and a six-character code, to share as a link or
+                        print as table cards. Each card carries the code and one line of rules, and
+                        four fit on a page.
+                    </span>
+                </li>
+            </ol>
+        </div>
+    </section>
+
+    <figure class="band">
+        <img src={photo("w-lights")} alt="" loading="lazy" decoding="async" />
+        <figcaption>Guests scan the code on the table and start shooting.</figcaption>
+    </figure>
+
+    <section class="ledger">
+        <h2>
+            While it's live
+            <small>The host runs the event from the same app, from the Manage sheet.</small>
+        </h2>
+        <div class="ledger-body">
+            <ul class="facts">
+                <li>
+                    <b>Change plans</b>
+                    <span>
+                        Change the name, the cover and the end time, move the reveal later, or keep
+                        the photos to yourself. The reveal can't move earlier once guests are
+                        shooting, and the look and shots per guest stay fixed, so every photo
+                        matches and every guest has the same roll.
+                    </span>
+                </li>
+                <li>
+                    <b>End early</b>
+                    <span>
+                        End now closes the camera for every guest. Before you confirm, the app shows
+                        when the photos will appear.
+                    </span>
+                </li>
+                <li>
+                    <b>Make room</b>
+                    <span>
+                        When the event is full, new guests can't join. Make room moves it to a
+                        larger size, so the next person can.
+                    </span>
+                </li>
+                <li>
+                    <b>Shoot too</b>
+                    <span>
+                        The host takes photos at their own event without using a guest place.
+                    </span>
+                </li>
+                <li>
+                    <b>Who's there</b>
+                    <span>
+                        People lists everyone who joined. The host can remove a guest, with their
+                        photos, and that phone can't join again.
+                    </span>
+                </li>
+            </ul>
+        </div>
+    </section>
+
+    <section class="ledger">
+        <h2>Afterwards</h2>
+        <div class="ledger-body">
+            <p>
+                At the reveal time everyone gets a notification and the gallery opens, with every
+                photo signed by the guest who took it. The host can watch the recap, see who shot
+                what, and save every photo into an album named after the event.
+            </p>
+            <p>
+                <a href="/reveal/">More on the reveal</a>
+            </p>
+        </div>
+    </section>
+</Subpage>

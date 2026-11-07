@@ -341,3 +341,5 @@ unconfirmed.
   caching, bigger gallery pages). Local demo data can live on R2 (`pnpm storage:r2`, bucket
   `lingercam-dev`). The Welcome screen's demo button is gone: demo hosts sign in through email
   with the code 000000 in development.
+- 2026-11-07: site pages for How it works, Guests, The reveal and Questions, linked from the nav and
+  from each home section. Facts read from core where they can be; nothing planned is described.

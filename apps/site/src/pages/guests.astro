@@ -1,0 +1,176 @@
+---
+import { LATE_JOIN_MS, MAX_SHOTS, MIN_SHOTS } from "@linger/core/events";
+import Phone from "../phone.astro";
+import Subpage from "../subpage.astro";
+import { photo } from "../occasions.ts";
+
+const lateHours = LATE_JOIN_MS / 3_600_000;
+const lateWindow = lateHours === 1 ? "an hour" : `${lateHours} hours`;
+---
+
+<Subpage
+    title="Guests"
+    description="Guests scan the event's QR code and the camera opens in their browser. No app, no account, just a name and a set number of shots."
+    heading="Guests join with a name"
+    lead="Guests scan the event's QR code and the camera opens in their browser, with nothing to install. Guests who already have the LingerCam app join there instead. Either way there's no account and no password, only a name and a set number of shots."
+    next={{
+        href: "/reveal/",
+        title: "The reveal",
+        text: "Nobody sees a photo until the reveal. Then the whole event arrives at once.",
+        photo: "w-crowd",
+    }}
+>
+    <Fragment slot="media">
+        <Phone screen="join" />
+        <Phone screen="camera" />
+    </Fragment>
+
+    <section class="ledger">
+        <h2>Joining</h2>
+        <div class="ledger-body">
+            <ul class="facts">
+                <li>
+                    <b>Scan or tap</b>
+                    <span>
+                        The code on the table, or the link the host shared, opens the event. Anyone
+                        with the six-character code can type it in instead.
+                    </span>
+                </li>
+                <li>
+                    <b>A name</b>
+                    <span>
+                        Your name goes on every photo you take, so everyone knows who took it. A
+                        phone that has joined before remembers it.
+                    </span>
+                </li>
+                <li>
+                    <b>One prompt</b>
+                    <span>
+                        The browser asks to use the camera once, and then you're shooting. The app
+                        asks the same way, the first time.
+                    </span>
+                </li>
+                <li>
+                    <b>Arrived late</b>
+                    <span>
+                        For {lateWindow} after the camera closes, someone new can still join the
+                        event, so they're there for the reveal.
+                    </span>
+                </li>
+            </ul>
+        </div>
+    </section>
+
+    <section class="ledger">
+        <h2>
+            The camera
+            <small>One camera for the whole event, with the event's film already on it.</small>
+        </h2>
+        <div class="ledger-body">
+            <ul class="facts">
+                <li>
+                    <b>A set roll</b>
+                    <span>
+                        The host chooses between {MIN_SHOTS} and {MAX_SHOTS} shots each, or
+                        unlimited. The counter beside the shutter rolls down with every photo, and
+                        the last three change colour.
+                    </span>
+                </li>
+                <li>
+                    <b>The look, live</b>
+                    <span>
+                        Every photo gets the event's film, and you see it in the viewfinder before
+                        you shoot.
+                    </span>
+                </li>
+                <li>
+                    <b>The tools</b>
+                    <span>
+                        Flash on Auto, On or Off, 0.5x on phones with an ultra-wide lens, and the
+                        front camera. In the app, the screen lights up as a flash for the front
+                        camera.
+                    </span>
+                </li>
+                <li>
+                    <b>This camera only</b>
+                    <span>
+                        Photos come from the event's camera, not from your camera roll, so every
+                        photo in the event was taken there.
+                    </span>
+                </li>
+            </ul>
+        </div>
+    </section>
+
+    <figure class="band">
+        <img src={photo("p-group")} alt="" loading="lazy" decoding="async" />
+        <figcaption>Your name goes on every photo you take.</figcaption>
+    </figure>
+
+    <section class="ledger">
+        <h2>Nothing is lost</h2>
+        <div class="ledger-body">
+            <p>
+                Each photo stays on your phone until LingerCam has it. On busy venue Wi-Fi, photos
+                wait and send when the signal comes back, and the phone never deletes a photo the
+                event hasn't received.
+            </p>
+            <p>
+                If the event can't take a photo at all, it tells you, and the photo stays yours. The
+                app saves it to your Photos, and in the browser it waits for you to save it.
+            </p>
+        </div>
+    </section>
+
+    <section class="ledger">
+        <h2>
+            Until the reveal
+            <small>You can see that the photos are there, but not what's in them.</small>
+        </h2>
+        <div class="ledger-body">
+            <ul class="facts">
+                <li>
+                    <b>Developing</b>
+                    <span>
+                        The event shows a tile for each photo taken, with the first name of who took
+                        it, and a countdown to the reveal.
+                    </span>
+                </li>
+                <li>
+                    <b>In the app</b>
+                    <span>
+                        A notification at the reveal time. On iPhone, a Live Activity on the Lock
+                        Screen shows your shots left while the camera is open.
+                    </span>
+                </li>
+                <li>
+                    <b>In the browser</b>
+                    <span>
+                        Leave an email for one note when the photos are ready, or add the reveal to
+                        your calendar.
+                    </span>
+                </li>
+                <li>
+                    <b>Another phone</b>
+                    <span>
+                        If you left an email, the link in the reveal email opens the event as you in
+                        any browser, with your name and your photos.
+                    </span>
+                </li>
+            </ul>
+        </div>
+    </section>
+
+    <section class="ledger">
+        <h2>Your photos</h2>
+        <div class="ledger-body">
+            <p>
+                Once you can see your photos in the event, you can remove any of them. Anyone at the
+                event can report a photo, and you can hide one person's photos on your own phone.
+                Your email, if you left one, is used for the reveal email and for getting back in,
+                and it's deleted with the event. The <a href="/privacy/">Privacy Policy</a> has the
+                details.
+            </p>
+        </div>
+    </section>
+</Subpage>

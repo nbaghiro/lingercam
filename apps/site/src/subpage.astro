@@ -1,0 +1,308 @@
+---
+// The frame for a page that goes deeper into one part of the home page: a hero with an optional
+// phone beside it, the page's own sections, and a closing link to the next part of the story.
+// Sections use the classes styled here (ledger, facts, steps, band) so every page reads the same.
+import Layout from "./layout.astro";
+import { photo } from "./occasions.ts";
+
+interface Props {
+    title: string;
+    description: string;
+    heading: string;
+    lead: string;
+    next?: { href: string; title: string; text: string; photo: string };
+}
+
+const { title, description, heading, lead, next } = Astro.props;
+const hasMedia = Astro.slots.has("media");
+---
+
+<Layout title={title} description={description}>
+    <div class="sub">
+        <header class:list={["sub-hero", { "with-media": hasMedia }]}>
+            <div class="sub-intro">
+                <h1>{heading}</h1>
+                <p class="lead" set:html={lead} />
+            </div>
+            {hasMedia && (
+                <div class="sub-media">
+                    <slot name="media" />
+                </div>
+            )}
+        </header>
+
+        <slot />
+
+        {next && (
+            <a class="next" href={next.href}>
+                <img src={photo(next.photo)} alt="" loading="lazy" decoding="async" />
+                <span class="next-text">
+                    <span class="next-title">{next.title}</span>
+                    <span class="next-line">{next.text}</span>
+                </span>
+            </a>
+        )}
+    </div>
+</Layout>
+
+<style is:global>
+    .sub {
+        max-width: 1560px;
+        margin: 0 auto;
+        padding: 0 clamp(16px, 4vw, 48px);
+    }
+    .sub-hero {
+        display: grid;
+        gap: 40px;
+        padding: 72px 0 24px;
+        align-items: center;
+    }
+    .sub-hero.with-media {
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 48px 72px;
+    }
+    .sub-hero h1 {
+        font: 350 clamp(44px, 6vw, 84px)/1.02 var(--serif);
+        letter-spacing: -0.028em;
+        max-width: 14ch;
+    }
+    .sub-hero .lead {
+        color: var(--muted);
+        max-width: 54ch;
+        font-size: 18px;
+        line-height: 1.6;
+        margin-top: 26px;
+    }
+    .sub-media {
+        display: flex;
+        gap: 28px;
+        align-items: flex-start;
+        --s: 0.74;
+        padding-right: clamp(0px, 3vw, 56px);
+    }
+    .sub-media > .device:nth-child(2) {
+        margin-top: 64px;
+    }
+
+    /* A titled part of the page: the title on the left, what it covers on the right. */
+    .ledger {
+        display: grid;
+        grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+        gap: 24px 64px;
+        padding: 64px 0 8px;
+        border-top: 1px solid var(--line);
+        margin-top: 64px;
+    }
+    .ledger > h2 {
+        font: 350 clamp(32px, 3.6vw, 48px)/1.05 var(--serif);
+        letter-spacing: -0.02em;
+        align-self: start;
+        position: sticky;
+        top: 104px;
+    }
+    .ledger > h2 small {
+        display: block;
+        margin-top: 14px;
+        font: 16px/1.55 var(--sans);
+        letter-spacing: 0;
+        color: var(--muted);
+        max-width: 40ch;
+    }
+    .ledger-body > p {
+        color: #d8d5ce;
+        font-size: 17px;
+        line-height: 1.65;
+        max-width: 62ch;
+    }
+    .ledger-body > p + p {
+        margin-top: 14px;
+    }
+    .ledger a,
+    .faq-list a {
+        color: var(--text);
+        text-underline-offset: 3px;
+    }
+
+    /* A list of named facts, divided like the price list's rows. */
+    .facts {
+        list-style: none;
+        display: grid;
+    }
+    .facts li {
+        display: grid;
+        grid-template-columns: minmax(0, 13ch) minmax(0, 1fr);
+        gap: 6px 32px;
+        padding: 20px 0;
+        border-bottom: 1px solid var(--line);
+    }
+    .facts li:first-child {
+        padding-top: 4px;
+    }
+    .facts b {
+        font: italic 400 21px/1.3 var(--serif);
+        color: #e2dfd8;
+    }
+    .facts span {
+        color: var(--muted);
+        line-height: 1.6;
+    }
+    .ledger-body > p + .facts,
+    .facts + p {
+        margin-top: 24px;
+    }
+
+    /* A real sequence, so the steps carry numbers. */
+    .steps {
+        list-style: none;
+        counter-reset: step;
+        display: grid;
+    }
+    .steps li {
+        counter-increment: step;
+        display: grid;
+        grid-template-columns: 44px minmax(0, 1fr);
+        gap: 4px 18px;
+        padding: 22px 0;
+        border-bottom: 1px solid var(--line);
+    }
+    .steps li:first-child {
+        padding-top: 4px;
+    }
+    .steps li::before {
+        content: counter(step);
+        grid-row: span 2;
+        font: italic 400 30px/1 var(--serif);
+        color: var(--candle);
+        padding-top: 2px;
+    }
+    .steps b {
+        font: 400 24px/1.25 var(--serif);
+        letter-spacing: -0.01em;
+        color: var(--text);
+    }
+    .steps span {
+        color: var(--muted);
+        line-height: 1.6;
+        max-width: 60ch;
+    }
+
+    /* One photo per page, wide, with its line on a scrim. */
+    .band {
+        position: relative;
+        margin-top: 72px;
+        border-radius: 28px;
+        overflow: hidden;
+        aspect-ratio: 21 / 8;
+        background: var(--surface);
+    }
+    .band img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .band::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(13, 13, 13, 0) 40%, rgba(13, 13, 13, 0.82) 100%);
+    }
+    .band figcaption {
+        position: absolute;
+        z-index: 1;
+        left: clamp(20px, 3vw, 40px);
+        right: clamp(20px, 3vw, 40px);
+        bottom: clamp(18px, 3vw, 36px);
+        font: italic 350 clamp(24px, 3vw, 40px)/1.15 var(--serif);
+        letter-spacing: -0.01em;
+        max-width: 26ch;
+    }
+
+    /* The way on to the next part, with a glimpse of it. */
+    .next {
+        display: grid;
+        grid-template-columns: 220px minmax(0, 1fr);
+        align-items: center;
+        gap: 32px;
+        margin-top: 96px;
+        padding: 14px;
+        border-radius: 26px;
+        background: #141412;
+        border: 1px solid var(--line);
+        color: inherit;
+        text-decoration: none;
+        transition:
+            border-color 0.2s,
+            background 0.2s;
+    }
+    .next:hover {
+        background: #191917;
+        border-color: rgba(255, 255, 255, 0.16);
+    }
+    .next img {
+        width: 100%;
+        aspect-ratio: 4 / 3;
+        object-fit: cover;
+        border-radius: 16px;
+    }
+    .next-text {
+        display: grid;
+        gap: 8px;
+    }
+    .next-title {
+        font: 350 clamp(30px, 3.4vw, 44px)/1.05 var(--serif);
+        letter-spacing: -0.02em;
+    }
+    .next-line {
+        color: var(--muted);
+        max-width: 52ch;
+    }
+
+    @media (max-width: 1100px) {
+        .sub-media > .device:nth-child(2) {
+            display: none;
+        }
+    }
+    @media (max-width: 900px) {
+        .sub-hero.with-media {
+            grid-template-columns: 1fr;
+        }
+        .sub-media {
+            justify-content: center;
+            padding-right: 0;
+        }
+        .ledger {
+            grid-template-columns: 1fr;
+            padding-top: 48px;
+            margin-top: 48px;
+        }
+        .ledger > h2 {
+            position: static;
+        }
+    }
+    @media (max-width: 560px) {
+        .sub-hero {
+            padding-top: 48px;
+        }
+        .sub-hero .lead {
+            font-size: 17px;
+        }
+        .sub-media {
+            --s: 0.7;
+        }
+        .facts li {
+            grid-template-columns: 1fr;
+        }
+        .band {
+            aspect-ratio: 4 / 5;
+            margin-top: 56px;
+        }
+        .next {
+            grid-template-columns: 1fr;
+            gap: 18px;
+            margin-top: 72px;
+        }
+        .next-text {
+            padding: 0 8px 10px;
+        }
+    }
+</style>

@@ -1,0 +1,164 @@
+---
+import { ARCHIVE_AFTER_DAYS } from "@linger/core/events";
+import Phone from "../phone.astro";
+import Subpage from "../subpage.astro";
+import { photo } from "../occasions.ts";
+---
+
+<Subpage
+    title="The reveal"
+    description="Nobody sees a photo before the reveal, the host included. At the time the host chose, everyone gets a notification and the whole event opens at once."
+    heading="The reveal"
+    lead="Nobody sees a photo before the reveal, the host included. At the time the host chose, everyone gets a notification and the whole event opens at once, every photo signed by the guest who took it."
+    next={{
+        href: "/pricing/",
+        title: "Pricing",
+        text: "Free for small events. Larger ones are one payment by guest count.",
+        photo: "b-table",
+    }}
+>
+    <Fragment slot="media">
+        <Phone screen="moment" />
+        <Phone screen="gallery" />
+    </Fragment>
+
+    <section class="ledger">
+        <h2>
+            When it happens
+            <small>
+                The host picks one when setting up. While the event is live the reveal can move
+                later, but not earlier once guests are shooting.
+            </small>
+        </h2>
+        <div class="ledger-body">
+            <ul class="facts">
+                <li>
+                    <b>Right away</b>
+                    <span>
+                        Photos appear as they develop, so the gallery fills during the event. When
+                        the camera closes, the event says so and offers the recap.
+                    </span>
+                </li>
+                <li>
+                    <b>When it ends</b>
+                    <span>The photos open the moment the camera closes.</span>
+                </li>
+                <li>
+                    <b>Next morning</b>
+                    <span>At 10:00 the morning after the event.</span>
+                </li>
+                <li>
+                    <b>A set time</b>
+                    <span>Any date and time the host picks.</span>
+                </li>
+            </ul>
+        </div>
+    </section>
+
+    <section class="ledger">
+        <h2>The moment</h2>
+        <div class="ledger-body">
+            <p>
+                The event opens on one screen with how many photos were taken and by how many
+                people. Three cards fan out, chosen from different photographers and different parts
+                of the night, and one of them is yours if you took any. It plays once on each phone,
+                then the cards settle into the gallery.
+            </p>
+        </div>
+    </section>
+
+    <figure class="band">
+        <img src={photo("w-crowd")} alt="" loading="lazy" decoding="async" />
+        <figcaption>The whole event arrives at once, from every angle.</figcaption>
+    </figure>
+
+    <section class="ledger">
+        <h2>The gallery</h2>
+        <div class="ledger-body">
+            <ul class="facts">
+                <li>
+                    <b>Signed</b>
+                    <span>Every photo carries the name of the guest who took it.</span>
+                </li>
+                <li>
+                    <b>One at a time</b>
+                    <span>
+                        Full screen with its photographer, the time and the look. Like it, save it,
+                        or share the photo itself.
+                    </span>
+                </li>
+                <li>
+                    <b>People</b>
+                    <span>
+                        Everyone who shot, sorted by how many photos they took. Tap anyone to see
+                        their roll.
+                    </span>
+                </li>
+                <li>
+                    <b>The recap</b>
+                    <span>
+                        Up to 12 photos, five seconds each, picked from across the night. Once
+                        people have liked photos, it favours the most liked.
+                    </span>
+                </li>
+                <li>
+                    <b>Keep them all</b>
+                    <span>
+                        Save all puts every photo into an album named after the event, at 2048
+                        pixels on the long edge.
+                    </span>
+                </li>
+            </ul>
+        </div>
+    </section>
+
+    <section class="ledger">
+        <h2>
+            Who sees what
+            <small>The host decides when setting up, and can make it more private later.</small>
+        </h2>
+        <div class="ledger-body">
+            <ul class="facts">
+                <li>
+                    <b>Every guest</b>
+                    <span>By default, everyone at the event sees the whole event.</span>
+                </li>
+                <li>
+                    <b>Only me</b>
+                    <span>Guests see their own photos, and the host sees everything.</span>
+                </li>
+                <li>
+                    <b>Taking one down</b>
+                    <span>
+                        The host can hide any photo for everyone, and undo it. Anyone at the event
+                        can report a photo, and three reports hide it automatically and tell the
+                        host. Guests can remove their own.
+                    </span>
+                </li>
+                <li>
+                    <b>Keeping them</b>
+                    <span>
+                        Photos stay until the host deletes the event or their account. After{" "}
+                        {ARCHIVE_AFTER_DAYS} days the event moves to Past, and everything keeps
+                        working.
+                    </span>
+                </li>
+            </ul>
+        </div>
+    </section>
+</Subpage>
+
+<script>
+    document.querySelectorAll<HTMLButtonElement>("[data-fan-btn]").forEach((btn) =>
+        btn.addEventListener("click", () => {
+            const cards = btn.closest(".scr")?.querySelectorAll<HTMLElement>("[data-fan] .c") ?? [];
+            const open = btn.dataset.open !== "1";
+            cards.forEach((c, i) => {
+                c.style.transform = open
+                    ? `translateX(calc(-50% + ${(i - 1) * 92}px)) rotate(${(i - 1) * 11}deg) translateY(${Math.abs(i - 1) * 18}px)`
+                    : `translateX(calc(-50% + ${(i - 1) * 26}px)) rotate(${(i - 1) * 5}deg)`;
+            });
+            btn.dataset.open = open ? "1" : "0";
+        }),
+    );
+</script>

@@ -1,0 +1,76 @@
+---
+import Icon from "../icon.astro";
+import Subpage from "../subpage.astro";
+import { QUESTION_GROUPS } from "../questions.ts";
+---
+
+<Subpage
+    title="Questions"
+    description="Answers for hosts and guests: joining, the camera, the reveal, paying and your account."
+    heading="Questions"
+    lead={`Answers for hosts and guests, from joining to keeping the photos. For anything else, email <a href="mailto:support@lingercam.app">support@lingercam.app</a> with the event name.`}
+    next={{
+        href: "/support/",
+        title: "Support",
+        text: "Step-by-step help with hosting, joining, payments and your account.",
+        photo: "b-laugh",
+    }}
+>
+    {QUESTION_GROUPS.map((group) => (
+        <section class="ledger" id={group.title.toLowerCase().replaceAll(" ", "-")}>
+            <h2>{group.title}</h2>
+            <div class="ledger-body faq-list">
+                {group.questions.map((item) => (
+                    <details>
+                        <summary>
+                            {item.q}
+                            <Icon name="plus" />
+                        </summary>
+                        <p set:html={item.a} />
+                    </details>
+                ))}
+            </div>
+        </section>
+    ))}
+</Subpage>
+
+<style>
+    .ledger:first-of-type {
+        margin-top: 32px;
+    }
+    .faq-list details {
+        border-bottom: 1px solid var(--line);
+    }
+    .faq-list details:first-child summary {
+        padding-top: 0;
+    }
+    .faq-list summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 20px 0;
+        cursor: pointer;
+        list-style: none;
+        font: 400 22px/1.25 var(--serif);
+        letter-spacing: -0.005em;
+    }
+    .faq-list summary::-webkit-details-marker {
+        display: none;
+    }
+    .faq-list summary :global(svg) {
+        flex: 0 0 auto;
+        width: 18px;
+        height: 18px;
+        color: var(--muted);
+        transition: transform 0.2s;
+    }
+    .faq-list details[open] summary :global(svg) {
+        transform: rotate(45deg);
+    }
+    .faq-list details p {
+        color: var(--muted);
+        padding: 0 32px 22px 0;
+        max-width: 62ch;
+    }
+</style>
