@@ -12,7 +12,7 @@ services:
     runtime: node
     region: ohio
     plan: starter
-    buildCommand: corepack enable && pnpm install --frozen-lockfile
+    buildCommand: pnpm install --frozen-lockfile --prod=false
     startCommand: pnpm --filter api start
     healthCheckPath: /health
     envVars:
@@ -40,7 +40,7 @@ services:
       - key: S3_REGION
         value: auto
       - key: S3_BUCKET
-        value: linger-staging
+        value: lingercam-staging
       - key: S3_ACCESS_KEY_ID
         sync: false
       - key: S3_SECRET_ACCESS_KEY
@@ -72,7 +72,7 @@ services:
   - type: web
     name: linger-staging-site
     runtime: static
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter site build
+    buildCommand: pnpm install --frozen-lockfile --prod=false && pnpm --filter site build
     staticPublishPath: apps/site/dist
     envVars:
       - key: NODE_VERSION
@@ -85,7 +85,7 @@ services:
     name: linger-staging-join
     runtime: static
     buildCommand: >-
-      corepack enable && pnpm install --frozen-lockfile &&
+      pnpm install --frozen-lockfile --prod=false &&
       pnpm --filter app exec expo export --platform web
     staticPublishPath: apps/app/dist
     # Files in the build are served as they are; these rules cover every other path, in order.

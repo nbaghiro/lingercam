@@ -1,8 +1,10 @@
 # Render blueprint. Secrets marked sync: false are entered in the dashboard.
 # Postgres is on Neon (AWS us-east-2, next to Render's Ohio region); photos are on Cloudflare R2.
 # The steps to set it all up are in .docs/deployment.md.
+# Production was created with the Render CLI and API from this file, not as a Blueprint, so Render
+# doesn't sync it: a change here is applied with `render services update` or the API too.
 envVarGroups:
-  - name: linger-backend
+  - name: lingercam-backend
     envVars:
       - key: NODE_VERSION
         value: "26"
@@ -24,7 +26,7 @@ envVarGroups:
       - key: S3_REGION
         value: auto
       - key: S3_BUCKET
-        value: linger
+        value: lingercam
       - key: S3_FORCE_PATH_STYLE
         value: "true"
       - key: S3_ACCESS_KEY_ID
@@ -57,11 +59,11 @@ services:
   # Requests only: it sends jobs but runs none. One instance until the rate limiter moves to
   # Postgres (F11), then autoscaling can go on.
   - type: web
-    name: linger-api
+    name: lingercam-api
     runtime: node
     region: ohio
     plan: standard
-    buildCommand: corepack enable && pnpm install --frozen-lockfile
+    buildCommand: pnpm install --frozen-lockfile --prod=false
     preDeployCommand: pnpm --filter api db:migrate
     startCommand: pnpm --filter api start
     healthCheckPath: /health
@@ -69,7 +71,7 @@ services:
     domains:
       - api.lingercam.app
     envVars:
-      - fromGroup: linger-backend
+      - fromGroup: lingercam-backend
       - key: ROLE
         value: api
       - key: TRUST_PROXY
@@ -79,22 +81,22 @@ services:
 
   # The job handlers, the crons and developing photos with sharp.
   - type: worker
-    name: linger-worker
+    name: lingercam-worker
     runtime: node
     region: ohio
     plan: standard
-    buildCommand: corepack enable && pnpm install --frozen-lockfile
+    buildCommand: pnpm install --frozen-lockfile --prod=false
     startCommand: pnpm --filter api start
     maxShutdownDelaySeconds: 60
     envVars:
-      - fromGroup: linger-backend
+      - fromGroup: lingercam-backend
       - key: ROLE
         value: worker
 
   - type: web
-    name: linger-site
+    name: lingercam-site
     runtime: static
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter site build
+    buildCommand: pnpm install --frozen-lockfile --prod=false && pnpm --filter site build
     staticPublishPath: apps/site/dist
     domains:
       - lingercam.app
@@ -106,10 +108,10 @@ services:
         sync: false
 
   - type: web
-    name: linger-join
+    name: lingercam-join
     runtime: static
     buildCommand: >-
-      corepack enable && pnpm install --frozen-lockfile &&
+      pnpm install --frozen-lockfile --prod=false &&
       pnpm --filter app exec expo export --platform web
     staticPublishPath: apps/app/dist
     domains:

@@ -8,6 +8,34 @@ Steps marked **Naib** need your accounts. Steps marked **Claude** run from the t
 Prices were checked on 2026-11-07 and should be read again on each provider's pricing page before
 you commit to a plan.
 
+## Where it stands
+
+Updated 2026-11-07.
+
+| Resource | Id | State |
+| --- | --- | --- |
+| GitHub `nbaghiro/lingercam` (public) | | `main` pushed; CI runs on push |
+| Neon project `lingercam` | `rough-rain-26031873`, compute `ep-still-leaf-be8wvgtt` | Ready, us-east-2, 0.5 to 2 CU, always on, 7-day restore |
+| R2 bucket `lingercam` | Cloudflare account `ebd017dd7cd53f94f99fb89d90102c07` | Created with its CORS rule; access keys still needed |
+| Render env group `lingercam-backend` | `evg-dbnn71brjlhs739apc0g` | Everything except the R2 keys, `SMTP_URL` and `EXPO_ACCESS_TOKEN` |
+| `lingercam-api` | `srv-dbnn74uc6qcc73ebmqtg` | Waiting for those secrets |
+| `lingercam-worker` | `srv-dbnn78bl550s73fm3thg` | Waiting for those secrets |
+| `lingercam-site` | `srv-dbnn78tg1s2s73d5nsfg` | Static, on lingercam-site.onrender.com |
+| `lingercam-join` | `srv-dbnn79bl550s73fm415g` | Static, rewrites and AASA header set |
+
+Render's CLI can't apply a Blueprint, so the services were created with `render services create`
+and Render's API (signed in through the CLI), from the values in `render.yaml`. The R2 bucket was
+created with `wrangler`. Neither tool can make R2 access keys or a Resend key.
+
+`lingercam.app`'s DNS is at Squarespace. The records Render needs there:
+
+| Type | Host | Value |
+| --- | --- | --- |
+| A | `@` | `216.24.57.1` |
+| CNAME | `www` | `lingercam-site.onrender.com` |
+| CNAME | `api` | `lingercam-api.onrender.com` |
+| CNAME | `join` | `lingercam-join.onrender.com` |
+
 ## The shape
 
 | Piece | Where | Size at launch | About |
@@ -87,10 +115,12 @@ company's sign-in, so email codes alone are fine for review.
 
 ## 3. Cloudflare R2 (Naib)
 
-- [ ] R2 → Create bucket `linger` (location automatic). For staging, `linger-staging`.
+- [x] 2026-11-07: bucket `lingercam` created with `wrangler`, CORS rule set. For staging,
+      `lingercam-staging`.
 - [ ] Manage API tokens → **Object Read & Write**, limited to those buckets. Keep the Access Key
       ID, the Secret Access Key and the endpoint `https://<account id>.r2.cloudflarestorage.com`.
-- [ ] Bucket → Settings → CORS (B9), so browser guests can upload and save:
+- [x] Bucket → Settings → CORS (B9), so browser guests can upload and save (set 2026-11-07, with
+      lingercam.app as a second origin):
       ```json
       [{ "AllowedOrigins": ["https://join.lingercam.app"],
          "AllowedMethods": ["GET", "PUT", "HEAD"], "AllowedHeaders": ["*"],

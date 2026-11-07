@@ -142,8 +142,11 @@ These stop submission or break a promise the product makes.
       gone. Both leave full JPEGs, with location, that the privacy policy says are deleted. The
       uploads bucket's expiry rule fixes most of it; developing should also check the photo still
       exists before writing.
-- [ ] **B9.** **No production CORS on storage.** Only the local rules exist, so browser uploads and web Save
+- [x] **B9.** **No production CORS on storage.** Only the local rules exist, so browser uploads and web Save
       and Share would fail on R2.
+      Done 2026-11-07: the `lingercam` R2 bucket allows GET, PUT and HEAD from join.lingercam.app
+      and lingercam.app (`wrangler r2 bucket cors list lingercam`). Checked from a browser when the
+      API is live.
 - [ ] **B10.** **The database plan.** The current plan has a tenth of a CPU and no point-in-time recovery.
       2026-11-07: decided Neon Launch in AWS us-east-2 (Ohio), with Render in Ohio beside it, 0.5 to 2 CU, scale to zero off, the
       longest restore window. `render.yaml` takes Neon's direct connection string, and the API
@@ -311,3 +314,7 @@ unconfirmed.
   in AWS us-east-2 (0.5 to 2 CU, always on, 7-day restore), so Render moves to Ohio beside it.
   Render project `lingercam` exists with no services yet; the Blueprint needs the repository on
   GitHub first, and the first migration against Neon waits for Naib's go-ahead.
+- 2026-11-07: production created from the CLI: R2 bucket `lingercam` with CORS (B9), the Render env
+  group and the four `lingercam-*` services in Ohio, with domains added. Builds use
+  `pnpm install --frozen-lockfile --prod=false`, because `corepack enable` fails on Render's
+  read-only `/usr/bin`. Waiting on the R2 keys, Resend and the Expo token, and DNS at Squarespace.
