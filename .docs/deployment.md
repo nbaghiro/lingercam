@@ -143,8 +143,11 @@ company's sign-in, so email codes alone are fine for review.
 - [ ] Resend: add the domain `lingercam.app`, and add the SPF, DKIM and DMARC records it lists
       in Cloudflare DNS. Wait for it to verify.
 - [ ] Create an API key. `SMTP_URL` is `smtp://resend:<api key>@smtp.resend.com:587`.
-- [ ] Make sure `support@lingercam.app` receives mail (a user, alias or group in Google Workspace,
-      which the domain's MX points at), since support links and reports go there.
+- [ ] Make sure `support@lingercam.app` receives mail, since support links and reports go there.
+      There's no Workspace for lingercam.app: add it to the galleo.app Workspace as a **user alias
+      domain** (Admin → Account → Domains → Add a domain), verify it with the TXT record Google
+      gives, and mail for support@lingercam.app reaches support@galleo.app. The MX record
+      (`smtp.google.com`, priority 10) is already in Squarespace DNS.
 
 ## 5. Push and Expo (Naib)
 
