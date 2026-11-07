@@ -1162,6 +1162,8 @@ export function Stats({ items }: { items: readonly Stat[] }) {
 
 export interface TileProps {
     source?: ImageSource | number | string | null;
+    /** The photo's thumbhash, drawn until the photo arrives. */
+    placeholder?: string | null;
     /** The photographer, written in the corner after the reveal. */
     name?: string;
     /** Before the reveal: blurred or blank, with "Developing" over it. */
@@ -1181,6 +1183,7 @@ export function useTileWidth(): number {
 
 export function Tile({
     source = null,
+    placeholder = null,
     name,
     developing = false,
     developingLabel,
@@ -1215,6 +1218,7 @@ export function Tile({
                     ]}
                     contentFit="cover"
                     transition={150}
+                    placeholder={hashSource(placeholder)}
                     {...(developing ? { blurRadius: DEVELOPING_BLUR } : {})}
                 />
             ) : null}
@@ -1487,6 +1491,11 @@ export function RowGroup({ children }: { children: ReactNode }) {
  */
 export function photoSource(url: string, id: string, size: "thumb" | "full"): ImageSource {
     return { uri: url, cacheKey: `${id}:${size}` };
+}
+
+/** A photo's thumbhash as a placeholder: its colours, blurred, while the photo downloads. */
+export function hashSource(hash: string | null | undefined): ImageSource | null {
+    return hash ? { thumbhash: hash } : null;
 }
 
 const styles = StyleSheet.create({

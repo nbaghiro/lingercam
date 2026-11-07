@@ -2,6 +2,8 @@ import { describe, expect, test } from "vitest";
 import {
     bucket,
     downloadUrl,
+    IMMUTABLE,
+    photoUrl,
     exists,
     get,
     keys,
@@ -43,6 +45,18 @@ describe("storage", () => {
         ]);
         const forged = await fetch(signed.replace(/X-Amz-Signature=\w+/, "X-Amz-Signature=00"));
         expect(forged.ok).toBe(false);
+    });
+
+    test("a photo URL is the same all hour, is valid, and is served to be cached", async () => {
+        const key = `test/photo-${Date.now()}.jpg`;
+        await put(key, Buffer.from([4, 5, 6]), IMMUTABLE);
+        const hour = Math.floor(Date.now() / 3_600_000) * 3_600_000;
+        const early = await photoUrl(key, hour + 60_000);
+        expect(await photoUrl(key, hour + 3_500_000)).toBe(early);
+        expect(await photoUrl(key, hour + 3_700_000)).not.toBe(early);
+        const res = await fetch(await photoUrl(key));
+        expect(res.status).toBe(200);
+        expect(res.headers.get("cache-control")).toBe(IMMUTABLE);
     });
 
     test("a signed upload only takes a JPEG content type", async () => {

@@ -30,6 +30,7 @@ import {
     color,
     haptic,
     icons,
+    hashSource,
     photoSource,
     showToast,
     space,
@@ -435,6 +436,7 @@ function Slide({
                 <>
                     <Image
                         source={photoSource(photo.thumbUrl, photo.id, "thumb")}
+                        placeholder={hashSource(photo.placeholder)}
                         style={StyleSheet.absoluteFill}
                         contentFit="cover"
                         blurRadius={60}

@@ -1,0 +1,13 @@
+# Signs in as the seeded demo host through the email form. In development the demo hosts take the
+# fixed code 000000 and no email goes out (DEMO_CODE in apps/api/src/accounts.ts).
+appId: app.galleo.linger
+---
+- tapOn: "Continue with email"
+- tapOn: "you@example.com"
+- inputText: demo@lingercam.app
+- tapOn: "Send code"
+- extendedWaitUntil: { visible: "Check your email", timeout: 20000 }
+- inputText: "000000"
+- extendedWaitUntil:
+    visible: "Your events"
+    timeout: 20000

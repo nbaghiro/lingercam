@@ -731,7 +731,7 @@ export function EventScreen() {
                     onEndReached={() => {
                         loadMoreGallery(code, roll?.id).catch(() => null);
                     }}
-                    onEndReachedThreshold={0.6}
+                    onEndReachedThreshold={2}
                     refreshControl={
                         <RefreshControl
                             refreshing={refreshing}
@@ -860,6 +860,7 @@ function PhotoTile({
         <Animated.View {...(fade ? { entering: FadeIn.duration(400) } : {})} style={{ width }}>
             <Tile
                 source={photoSource(item.thumbUrl, item.id, "thumb")}
+                placeholder={item.placeholder}
                 name={item.photographer.name}
                 accessibilityLabel={label}
                 onPress={onPress}

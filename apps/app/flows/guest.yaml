@@ -14,7 +14,7 @@ appId: app.galleo.linger
           element: "Sign out"
       - tapOn: "Sign out"
 - extendedWaitUntil:
-    visible: "Continue as demo host"
+    visible: "Continue with email"
     timeout: 20000
 
 # Have a code? on the welcome or home screen takes a typed code.

@@ -170,6 +170,9 @@ importers:
       stripe:
         specifier: ^23.1.0
         version: 23.1.0(@types/node@26.6.6)
+      thumbhash:
+        specifier: ^0.1.1
+        version: 0.1.1
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -5572,6 +5575,9 @@ packages:
 
   throat@5.0.0:
     resolution: {integrity: sha512-fcwX4mndzpLQKBS1DVYhGAcYaYt7vsHNIvQV+WXMvnow5cgjPphq5CaayLaGsjRdSCKZFNGt7/GYAuXaNOiYCA==}
+
+  thumbhash@0.1.1:
+    resolution: {integrity: sha512-kH5pKeIIBPQXAOni2AiY/Cu/NKdkFREdpH+TLdM0g6WA7RriCv0kPLgP731ady67MhTAqrVG/4mnEeibVuCJcg==}
 
   tiny-inflate@1.0.3:
     resolution: {integrity: sha512-pkY1fj1cKHb2seWDy0B16HeWyczlJA9/WW3u3c4z/NiWDsO3DOU5D7nhTLE9CF0yXv/QZFY7sEJmj24dK+Rrqw==}
@@ -11873,6 +11879,8 @@ snapshots:
   text-encoding@0.7.0: {}
 
   throat@5.0.0: {}
+
+  thumbhash@0.1.1: {}
 
   tiny-inflate@1.0.3: {}
 

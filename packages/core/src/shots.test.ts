@@ -249,6 +249,7 @@ describe("GalleryPage", () => {
                     thumbUrl: "https://example.com/s1-thumb.jpg",
                     width: 1200,
                     height: 1600,
+                    placeholder: "1QcSHQRnh493V4dIh4eXh1h4kJUI",
                     takenAt: "2026-06-20T23:42:00-07:00",
                     photographer: { id: "g1", name: "Priya" },
                     likes: 38,

@@ -183,7 +183,7 @@ signed URL to anyone, the host included. The client's "Developing" tiles are dra
 Services without keys locally use stand-ins, all switched by environment variables:
 
 - Photos go to RustFS (an S3-compatible stand-in) instead of R2 through the same S3 client.
-- Sign-in emails go to Mailpit. A "Continue as demo host" button appears only in development.
+- Sign-in emails go to Mailpit. In development the seeded demo hosts take the fixed code 000000 instead.
 - Purchases complete through a development claim endpoint when no RevenueCat or Stripe keys are set.
 - Push notifications go through Expo's push service when `EXPO_ACCESS_TOKEN` is set. The app also
   schedules a local notification for the reveal time, which works without any keys.

@@ -86,9 +86,32 @@ export function downloadUrl(
     });
 }
 
-export async function put(key: string, data: Buffer): Promise<void> {
+/** For files that never change once written, such as a developed photo and its thumbnail. */
+export const IMMUTABLE = "public, max-age=31536000, immutable";
+
+/**
+ * A signed URL for a photo that never changes. It's signed from the start of the hour, so every
+ * request in that hour gets the same URL and browsers and caches can reuse the download. It stays
+ * valid for at least PHOTO_SECONDS.
+ */
+export function photoUrl(key: string, now = Date.now()): Promise<string> {
+    const windowMs = PHOTO_SECONDS * 1000;
+    const signingDate = new Date(Math.floor(now / windowMs) * windowMs);
+    return getSignedUrl(signer, new GetObjectCommand({ Bucket: bucket, Key: key }), {
+        expiresIn: PHOTO_SECONDS * 2,
+        signingDate,
+    });
+}
+
+export async function put(key: string, data: Buffer, cacheControl?: string): Promise<void> {
     await s3.send(
-        new PutObjectCommand({ Bucket: bucket, Key: key, Body: data, ContentType: "image/jpeg" }),
+        new PutObjectCommand({
+            Bucket: bucket,
+            Key: key,
+            Body: data,
+            ContentType: "image/jpeg",
+            CacheControl: cacheControl,
+        }),
     );
 }
 

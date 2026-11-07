@@ -30,6 +30,8 @@ export const GalleryItem = z.object({
     thumbUrl: z.string(),
     width: z.number().int(),
     height: z.number().int(),
+    /** A thumbhash, base64, to draw while the photo loads; null for photos developed before it. */
+    placeholder: z.string().nullable(),
     takenAt: z.iso.datetime({ offset: true }),
     photographer: z.object({ id: z.string(), name: z.string() }),
     likes: z.number().int(),

@@ -6,9 +6,9 @@ appId: app.galleo.linger
 - runFlow: open.yaml
 - runFlow:
     when:
-      visible: "Continue as demo host"
+      visible: "Continue with email"
     commands:
-      - tapOn: "Continue as demo host"
+      - runFlow: signin.yaml
 - extendedWaitUntil:
     visible: "Your events"
     timeout: 20000

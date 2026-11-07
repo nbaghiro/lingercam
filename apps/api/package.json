@@ -4,9 +4,9 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "dev": "DEV_ROUTES=1 node --env-file-if-exists=../../.env --env-file-if-exists=../../.env.device --watch src/server.ts",
+        "dev": "DEV_ROUTES=1 node --env-file-if-exists=../../.env --env-file-if-exists=../../.env.device --env-file-if-exists=../../.env.r2 --watch src/server.ts",
         "start": "node --env-file-if-exists=../../.env src/server.ts",
-        "seed": "node --env-file-if-exists=../../.env src/seed.ts",
+        "seed": "node --env-file-if-exists=../../.env --env-file-if-exists=../../.env.device --env-file-if-exists=../../.env.r2 src/seed.ts",
         "review-seed": "node --env-file-if-exists=../../.env src/review.ts",
         "db:generate": "drizzle-kit generate",
         "db:migrate": "node --env-file-if-exists=../../.env src/db.ts",
@@ -27,6 +27,7 @@
         "postgres": "^3.4.9",
         "sharp": "^0.35.5",
         "stripe": "^23.1.0",
+        "thumbhash": "^0.1.1",
         "zod": "catalog:"
     },
     "devDependencies": {

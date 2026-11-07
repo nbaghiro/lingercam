@@ -1,4 +1,5 @@
-# `maestro test flows` runs these in order. open.yaml is a shared step, not a flow of its own.
+# `maestro test flows` runs these in order. open.yaml and signin.yaml are shared steps,
+# not flows of their own.
 # manage.yaml changes and deletes GAMENT, so it runs last and needs a fresh seed before a rerun.
 flows:
   - host.yaml

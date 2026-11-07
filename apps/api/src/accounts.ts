@@ -24,6 +24,24 @@ export const DEMO_PERSONAS = {
     new: { email: "new@lingercam.app", name: "Sam Rivera" },
     half: { email: "half@lingercam.app", name: "Jordan Lee" },
 } as const;
+/**
+ * In development the seeded demo hosts sign in through the email form with this code, and no email
+ * goes out. Production never has DEV_ROUTES, so the code works nowhere else.
+ */
+export const DEMO_CODE = "000000";
+const DEMO_EMAILS: readonly string[] = [
+    DEMO_EMAIL,
+    DEMO_PERSONAS.new.email,
+    DEMO_PERSONAS.half.email,
+];
+
+/** The fixed code an email signs in with, if it has one: the review login or a local demo host. */
+export function fixedCode(email: string): string | null {
+    const review = reviewAccount();
+    if (review !== null && email === review.email) return review.code;
+    if (devRoutes && DEMO_EMAILS.includes(email)) return DEMO_CODE;
+    return null;
+}
 export const CODE_MINUTES = 10;
 export const CODE_ATTEMPTS = 5;
 export const SESSION_DAYS = 90;
@@ -149,15 +167,14 @@ export const accounts = new Hono();
 accounts.post("/v1/auth/email/start", async (c) => {
     const { email } = await body(c, z.object({ email: Email }));
     startsPerIp.take(clientIp(c));
-    // App Review signs in with a fixed code and no email, set by REVIEW_EMAIL and REVIEW_CODE.
-    // Reviewers may sign in many times, and no email goes out, so the per-email limits don't apply.
-    const review = reviewAccount();
-    const forReview = review !== null && email === review.email;
-    if (!forReview) {
+    // App Review (REVIEW_EMAIL and REVIEW_CODE) and the local demo hosts sign in with a fixed code
+    // and no email. They may sign in many times, so the per-email limits don't apply.
+    const fixed = fixedCode(email);
+    if (fixed === null) {
         startsPerEmail.take(email);
         startsPerEmailDay.take(email);
     }
-    const code = forReview ? review.code : String(randomInt(0, 1_000_000)).padStart(6, "0");
+    const code = fixed ?? String(randomInt(0, 1_000_000)).padStart(6, "0");
     const expiresAt = new Date(Date.now() + CODE_MINUTES * 60_000);
     const codeHash = hashCode(email, code);
     await db
@@ -167,7 +184,7 @@ accounts.post("/v1/auth/email/start", async (c) => {
             target: emailCodes.email,
             set: { codeHash, expiresAt, attempts: 0 },
         });
-    if (forReview) return c.json({ sent: true, expiresInMinutes: CODE_MINUTES });
+    if (fixed !== null) return c.json({ sent: true, expiresInMinutes: CODE_MINUTES });
     try {
         await mail.send({
             to: email,

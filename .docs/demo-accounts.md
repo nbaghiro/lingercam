@@ -16,9 +16,16 @@ Both links do nothing in a release build.
 xcrun simctl openurl C810B885-A2A2-43E9-A7CB-55C06C339262 "linger://dev/power?shots=0"
 ```
 
-Reset everything with `pnpm --filter api seed` (about 80 seconds, most of it the two large
-events). The seed needs the local services running: `docker compose up -d`, the API on 8171 and
-Metro on 8173.
+Reset everything with `pnpm --filter api seed` (about 80 seconds against local storage, most of it
+the two large events). The seed needs the local services running: `docker compose up -d`, the API
+on 8171 and Metro on 8173.
+
+### Photos on R2
+
+`pnpm storage:r2` points the local API and the seed at the `lingercam-dev` bucket on Cloudflare R2
+(keys from `R2_*` in `.env`), so the demo events load the way production does, over the internet
+from R2. `pnpm storage:local` goes back to the RustFS container. Restart the API and reseed after
+switching. Seeding into R2 takes several minutes, because every copy is a request to Cloudflare.
 
 ## The accounts
 
@@ -30,7 +37,10 @@ Metro on 8173.
 | `linger://dev/half` | Jordan Lee | `half@lingercam.app` | One event with no guests yet, one draft. |
 | `linger://dev/power` | Alex Morgan | `demo@lingercam.app` | 17 events in every state, including two large ones. |
 
-"Continue as demo host" on Welcome signs in as the power host, as the Maestro flows expect.
+Or sign in the way anyone would: "Continue with email" on Welcome, one of the emails above, and
+the code `000000`. No email is sent. The fixed code works only while the API runs with
+`DEV_ROUTES=1` (the local `pnpm --filter api dev`), never in production. The Maestro flows sign in
+as the power host this way (`apps/app/flows/signin.yaml`).
 
 ### Power host's events
 

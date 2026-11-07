@@ -33,6 +33,7 @@ import {
 import type { Context } from "hono";
 import { Hono } from "hono";
 import sharp from "sharp";
+import { rgbaToThumbHash } from "thumbhash";
 import { z } from "zod";
 import { requireHost } from "./accounts.ts";
 import { boss, db, events, guests, likes, reports, shots } from "./db.ts";
@@ -49,11 +50,12 @@ import {
 import { ApiError, body, deviceOf, errorDetail, log, uuidOr } from "./http.ts";
 import { emailReport, notifyHidden } from "./notify.ts";
 import {
-    downloadUrl,
     get,
+    IMMUTABLE,
     keys,
     MAX_UPLOAD_BYTES,
     objectSize,
+    photoUrl,
     put,
     remove,
     removePrefix,
@@ -67,7 +69,7 @@ export const DEVELOPED_EDGE = 2048;
 export const THUMB_EDGE = 512;
 /** Larger inputs are refused instead of decoded: 50 MP is past any phone camera. */
 export const MAX_INPUT_PIXELS = 50_000_000;
-const PAGE_SIZE = 30;
+const PAGE_SIZE = 60;
 
 export function shotJson(shot: ShotRow): Shot {
     return {
@@ -87,9 +89,14 @@ export function shotJson(shot: ShotRow): Shot {
 export interface Developed {
     developed: Buffer;
     thumb: Buffer;
+    /** A thumbhash, base64: about 25 bytes the app draws as a blurred preview while the photo loads. */
+    placeholder: string;
     width: number;
     height: number;
 }
+
+/** Thumbhash works on images up to 100 px on each side. */
+const PLACEHOLDER_EDGE = 100;
 
 /** Turns an original into the developed photo (2048 px, JPEG q85) and its 512 px thumbnail. */
 export async function developImage(
@@ -111,7 +118,14 @@ export async function developImage(
         .resize(THUMB_EDGE, THUMB_EDGE, { fit: "inside" })
         .jpeg({ quality: 80, mozjpeg: true })
         .toBuffer();
-    return { developed, thumb, width: info.width, height: info.height };
+    const small = await sharp(pixels, raw)
+        .resize(PLACEHOLDER_EDGE, PLACEHOLDER_EDGE, { fit: "inside" })
+        .ensureAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+    const hash = rgbaToThumbHash(small.info.width, small.info.height, small.data);
+    const placeholder = Buffer.from(hash).toString("base64");
+    return { developed, thumb, placeholder, width: info.width, height: info.height };
 }
 
 function seedFor(shotId: string): number {
@@ -160,11 +174,16 @@ export async function developShot(shotId: string): Promise<ShotRow | null> {
         }
         return failed ?? shot;
     }
-    await put(keys.shot(shot.eventId, shot.id, "developed"), out.developed);
-    await put(keys.shot(shot.eventId, shot.id, "thumb"), out.thumb);
+    await put(keys.shot(shot.eventId, shot.id, "developed"), out.developed, IMMUTABLE);
+    await put(keys.shot(shot.eventId, shot.id, "thumb"), out.thumb, IMMUTABLE);
     const [updated] = await db
         .update(shots)
-        .set({ state: "developed", width: out.width, height: out.height })
+        .set({
+            state: "developed",
+            width: out.width,
+            height: out.height,
+            placeholder: out.placeholder,
+        })
         .where(eq(shots.id, shot.id))
         .returning();
     await remove(keys.shot(shot.eventId, shot.id, "original"));
@@ -331,10 +350,11 @@ export async function galleryItem(row: Row, viewer: Seen): Promise<GalleryItem> 
     const { shot, name, likedByMe } = row;
     return {
         id: shot.id,
-        url: await downloadUrl(keys.shot(shot.eventId, shot.id, "developed")),
-        thumbUrl: await downloadUrl(keys.shot(shot.eventId, shot.id, "thumb")),
+        url: await photoUrl(keys.shot(shot.eventId, shot.id, "developed")),
+        thumbUrl: await photoUrl(keys.shot(shot.eventId, shot.id, "thumb")),
         width: shot.width ?? 0,
         height: shot.height ?? 0,
+        placeholder: shot.placeholder,
         takenAt: shot.takenAt.toISOString(),
         photographer: { id: shot.guestId, name },
         likes: shot.likes,

@@ -765,6 +765,7 @@ async function seedCrowd(
                 takenAt: at(masters.length + i),
                 width: master?.width ?? null,
                 height: master?.height ?? null,
+                placeholder: master?.placeholder ?? null,
             },
         };
     });

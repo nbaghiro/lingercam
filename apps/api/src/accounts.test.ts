@@ -1,7 +1,14 @@
 import { randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { DEMO_EMAIL, deleteExpiredSessions, reviewAccount } from "./accounts.ts";
+import {
+    DEMO_CODE,
+    DEMO_EMAIL,
+    DEMO_PERSONAS,
+    deleteExpiredSessions,
+    fixedCode,
+    reviewAccount,
+} from "./accounts.ts";
 import { productionProblems } from "./http.ts";
 import {
     db,
@@ -65,6 +72,18 @@ describe("the App Review login", () => {
             delete process.env.REVIEW_EMAIL;
             delete process.env.REVIEW_CODE;
         }
+    });
+
+    test("the local demo hosts sign in through the email form with the demo code", async () => {
+        expect(fixedCode(DEMO_PERSONAS.half.email)).toBe(DEMO_CODE);
+        expect(fixedCode("someone@example.com")).toBe(null);
+        const start = await call("POST", "/v1/auth/email/start", { json: { email: DEMO_EMAIL } });
+        expect(start.status).toBe(200);
+        const ok = await call("POST", "/v1/auth/email/verify", {
+            json: { email: DEMO_EMAIL, code: DEMO_CODE },
+        });
+        expect(ok.status).toBe(200);
+        expect(ok.body.host).toMatchObject({ email: DEMO_EMAIL });
     });
 
     test("production refuses a review email without a six-digit code", () => {

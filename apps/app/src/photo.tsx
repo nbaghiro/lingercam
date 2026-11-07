@@ -53,6 +53,7 @@ import {
     confirm,
     haptic,
     icons,
+    hashSource,
     photoSource,
     showToast,
     space,
@@ -313,6 +314,7 @@ export function PhotoScreen() {
                 onEndReached={() => {
                     loadMoreGallery(code, guest).catch(() => null);
                 }}
+                onEndReachedThreshold={3}
                 renderItem={({ item: photo }) => (
                     <Page
                         photo={photo}
@@ -674,6 +676,7 @@ function Page({
                 <Animated.View style={[StyleSheet.absoluteFill, backStyle]}>
                     <Image
                         source={photoSource(photo.thumbUrl, photo.id, "thumb")}
+                        placeholder={hashSource(photo.placeholder)}
                         style={StyleSheet.absoluteFill}
                         contentFit="cover"
                         blurRadius={Platform.OS === "web" ? 30 : 60}
@@ -683,7 +686,10 @@ function Page({
                 <Animated.View style={[StyleSheet.absoluteFill, photoStyle]}>
                     <Image
                         source={photoSource(photo.url, photo.id, "full")}
-                        placeholder={photoSource(photo.thumbUrl, photo.id, "thumb")}
+                        placeholder={[
+                            photoSource(photo.thumbUrl, photo.id, "thumb"),
+                            ...(photo.placeholder ? [{ thumbhash: photo.placeholder }] : []),
+                        ]}
                         style={StyleSheet.absoluteFill}
                         contentFit="contain"
                         transition={150}

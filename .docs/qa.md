@@ -29,7 +29,7 @@ xcrun simctl privacy <udid> reset all app.galleo.linger   # ask for permissions 
       "Linger".
 - [ ] A cold launch shows the mark centred on Night, then the welcome screen without a white flash.
 - [ ] The welcome screen reads "Every guest gets a camera. Everyone gets the night." with "Continue
-      with email" and, in development, "Continue as demo host".
+      with email" as the only sign-in.
 - [ ] Titles use Newsreader and controls use Pretendard. Candle (#E9C99A) is the only accent.
 
 ## Host on iOS
@@ -39,7 +39,8 @@ Sign-in and account
 - [ ] "Continue with email": enter an address, a 6-digit code arrives in Mailpit, entering it signs
       you in.
 - [ ] A wrong code shows an error; after 5 wrong tries the code stops working.
-- [ ] Sign out from Settings, then "Continue as demo host" signs in as Alex Morgan.
+- [ ] Sign out from Settings, then sign in with email as demo@lingercam.app and the code 000000
+      (development only): it's Alex Morgan, and no email arrives in Mailpit.
 - [ ] Settings shows "Signed in as demo@lingercam.app", the support, privacy and terms links (they
       open the site on 8170) and the version.
 

@@ -14,7 +14,16 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { t } from "@/copy";
-import { Button, Text, color, gutter, haptic, photoSource, useReduceMotion } from "@/ui";
+import {
+    Button,
+    Text,
+    color,
+    gutter,
+    haptic,
+    hashSource,
+    photoSource,
+    useReduceMotion,
+} from "@/ui";
 
 // The reveal moment: three photos fanned out, shown once on each device. It sits over the
 // revealed grid; on "See every moment" the fan opens, then the cards settle into the first tiles
@@ -85,7 +94,14 @@ function FanCard({
         : photoSource(item.thumbUrl, item.id, "thumb");
     return (
         <Animated.View style={[styles.fanCard, style]}>
-            <Image source={source} style={StyleSheet.absoluteFill} contentFit="cover" />
+            <Image
+                source={source}
+                placeholder={hashSource(item.placeholder)}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+                transition={200}
+                priority="high"
+            />
         </Animated.View>
     );
 }

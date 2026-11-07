@@ -23,7 +23,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 
 import {
-    devChrome,
     SITE_URL,
     api,
     asApiError,
@@ -120,7 +119,6 @@ function Welcome() {
     const insets = useSafeAreaInsets();
     const [signingIn, setSigningIn] = useState(false);
     const [enteringCode, setEnteringCode] = useState(false);
-    const demo = useAction(api.auth.demo);
     // Read once: the notice shows on this visit to Welcome and not again.
     const signedOut = useSignedOutNotice();
     const [showSignedOut] = useState(signedOut);
@@ -164,26 +162,11 @@ function Welcome() {
                     </Text>
                     {showSignedOut ? <Notice>{problem("signed-out")}</Notice> : null}
                     <JoinedEvents onOpen={(code) => router.push(`/e/${code}` as Href)} />
-                    <View style={{ gap: 10 }}>
-                        <Button
-                            label={t("welcome.email")}
-                            icon={icons.email}
-                            onPress={() => setSigningIn(true)}
-                        />
-                        {devChrome() ? (
-                            <Button
-                                label={t("welcome.demo")}
-                                variant="dark"
-                                loading={demo.busy}
-                                onPress={() => {
-                                    demo.run().then((session) => {
-                                        if (session) haptic("success");
-                                    });
-                                }}
-                            />
-                        ) : null}
-                    </View>
-                    {demo.error ? <Notice>{problem(demo.error.code)}</Notice> : null}
+                    <Button
+                        label={t("welcome.email")}
+                        icon={icons.email}
+                        onPress={() => setSigningIn(true)}
+                    />
                     <Pressable
                         onPress={() => setEnteringCode(true)}
                         accessibilityRole="button"

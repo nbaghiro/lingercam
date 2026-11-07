@@ -13,10 +13,7 @@ appId: app.galleo.linger
       - scrollUntilVisible:
           element: "Sign out"
       - tapOn: "Sign out"
-- tapOn: "Continue as demo host"
-- extendedWaitUntil:
-    visible: "Your events"
-    timeout: 20000
+- runFlow: signin.yaml
 
 # Grouped by what needs the host, each card with its own line.
 - assertVisible: "Live now"

@@ -657,6 +657,8 @@ describe("developing", () => {
         const thumb = await sharp(out.thumb).metadata();
         expect(Math.max(thumb.width ?? 0, thumb.height ?? 0)).toBe(512);
         expect((await sharp(out.developed).metadata()).format).toBe("jpeg");
+        // A thumbhash is about 25 bytes, so the gallery can carry one for every photo.
+        expect(Buffer.from(out.placeholder, "base64").length).toBeLessThan(40);
         expect(ms).toBeLessThan(1500);
     });
 });

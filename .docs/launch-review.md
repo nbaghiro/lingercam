@@ -236,6 +236,17 @@ Grouped by area. Each one has a failure that a real event can hit.
       device setup; guests on weak venue Wi-Fi would see the same. Retry failed tiles when the
       screen regains focus, on pull to refresh and when the network comes back.
 
+- [ ] **F25.** Large events loaded slowly and showed grey cards. Found 2026-11-07 on the festival:
+      the reveal's cards and the grid were grey until each photo downloaded. Part of it was the
+      interrupted seed (F23), which left files missing; the rest is loading.
+      2026-11-07: every developed photo now carries a thumbhash (about 25 bytes) that the grid,
+      the reveal's cards, the viewer, the recap and People draw at once, in the photo's colours;
+      photo URLs are signed from the start of the hour, so they repeat for an hour and can be
+      cached; developed photos and thumbnails are stored with a one-year immutable Cache-Control;
+      the gallery returns 60 photos a page and loads the next page two screens ahead (three photos
+      ahead in the viewer). Still to do with stage 3: the CDN in front of R2 (needs
+      `lingercam.app`'s DNS on Cloudflare, D4), and the 1024 px grid image.
+
 ## Later
 
 Highlights read every shot per call; a partial index for gallery pages; serial checks when keeping
@@ -325,3 +336,8 @@ unconfirmed.
   GitHub app access for deploys on push.
 - 2026-11-07: support and report emails moved from support@galleo.app to support@lingercam.app, on
   the site, in the API's default and in Render's `MODERATION_EMAIL`.
+\n
+- 2026-11-07: F25 added and mostly done (thumbhash placeholders, hour-stable photo URLs, immutable
+  caching, bigger gallery pages). Local demo data can live on R2 (`pnpm storage:r2`, bucket
+  `lingercam-dev`). The Welcome screen's demo button is gone: demo hosts sign in through email
+  with the code 000000 in development.

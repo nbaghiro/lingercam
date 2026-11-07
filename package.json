@@ -18,7 +18,9 @@
         "test:e2e": "playwright test",
         "device:on": "node scripts/device.mjs on",
         "device:staging": "node scripts/device.mjs staging",
-        "device:off": "node scripts/device.mjs off"
+        "device:off": "node scripts/device.mjs off",
+        "storage:r2": "node scripts/storage.mjs r2",
+        "storage:local": "node scripts/storage.mjs local"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",

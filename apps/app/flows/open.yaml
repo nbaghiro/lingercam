@@ -26,5 +26,5 @@ env:
       - tapOn:
           id: "xmark"
 - extendedWaitUntil:
-    visible: "Your events|Continue as demo host"
+    visible: "Your events|Continue with email"
     timeout: 60000

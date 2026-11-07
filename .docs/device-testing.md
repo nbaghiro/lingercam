@@ -79,7 +79,8 @@ codes are in `demo-accounts.md`.
 **On the phone:** open Linger. The development launcher lists the Metro server at
 `http://10.0.0.109:8173`; tap it. Then:
 
-- "Continue as demo host" opens the power host's 17 events.
+- Sign in with email as `demo@lingercam.app` and the code `000000` for the power host's 17 events
+  (`new@` and `half@lingercam.app` take the same code).
 - Other demo accounts: open `linger://dev/guest` (or `new`, `half`, `out`) in Safari on the phone.
 - A real sign-in: any new email, with the code from Mailpit at http://localhost:8176 on this Mac.
 - Joining as a guest: scan an event's QR from Show code with a second phone, or open

@@ -36,6 +36,13 @@
       "when": 1793824865763,
       "tag": "0004_removed_guests",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794085311636,
+      "tag": "0005_shot_placeholder",
+      "breakpoints": true
     }
   ]
 }

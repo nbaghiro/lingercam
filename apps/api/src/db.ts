@@ -124,6 +124,8 @@ export const shots = pgTable(
         reservedAt: now("reserved_at"),
         width: integer("width"),
         height: integer("height"),
+        /** A thumbhash of the developed photo, base64, drawn while the photo loads. */
+        placeholder: text("placeholder"),
         hidden: boolean("hidden").notNull().default(false),
         reports: integer("reports").notNull().default(0),
         likes: integer("likes").notNull().default(0),

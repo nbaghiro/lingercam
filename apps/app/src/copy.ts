@@ -32,7 +32,6 @@ const en = {
     "welcome.body":
         "Guests scan a code and start shooting. Nothing shows until the reveal, then the whole event arrives at once.",
     "welcome.email": "Continue with email",
-    "welcome.demo": "Continue as demo host",
     "welcome.legal": "By continuing you agree to the Terms and the Privacy Policy.",
     "welcome.haveCode": "Have a code?",
     "welcome.legalTerms": "Terms",

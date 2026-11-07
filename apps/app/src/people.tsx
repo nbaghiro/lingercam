@@ -17,6 +17,7 @@ import {
     gutter,
     icons,
     haptic,
+    hashSource,
     photoSource,
     showToast,
     space,
@@ -179,6 +180,7 @@ function PersonRow({
             {face ? (
                 <Image
                     source={photoSource(face.thumbUrl, face.id, "thumb")}
+                    placeholder={hashSource(face.placeholder)}
                     style={styles.face}
                     contentFit="cover"
                 />
