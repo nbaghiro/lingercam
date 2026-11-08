@@ -334,8 +334,12 @@ upgrades charging the full tier price; and a few RevenueCat webhook edge cases.
 - [ ] **S5.** Steps in `.docs/device-testing.md`. Device pass on a real iPhone: remote push, the film look, uploads with the phone
       locked, haptics, the front flash, the Live Activity, and Safari as a guest.
 - [ ] **S6.** TestFlight build and a real event with a handful of people.
-- [ ] **S7.** Store listing: screenshots, description, keywords, support and privacy URLs, and
+- [x] **S7.** Store listing: screenshots, description, keywords, support and privacy URLs, and
       review notes with the review account and its event code.
+      Done 2026-11-08: the name, subtitle, promotional text, description, keywords, URLs, category,
+      review notes and a ten-screen shot list are in `.docs/store/listing.md`. The review notes name
+      RVW4PP, RVW8TF and RVW2DR and point to Render for the login itself. Screenshots are still to
+      capture.
 - [ ] **S8.** Legal pages reviewed by a lawyer, with the postal address and governing law.
 - [ ] **S9.** Submit, answer review, release.
 - [ ] **S10.** Live: error rates, reveal-lag alerts and storage costs watched for the first weeks;
@@ -400,3 +404,5 @@ unconfirmed.
   an error for any event that misses its reveal.
 - 2026-11-08: S4 done: privacy labels, Data safety answers and the age-rating answers in
   .docs/store/privacy-labels.md.
+- 2026-11-08: S7 drafted: the listing and review notes in .docs/store/listing.md; screenshots still
+  to capture.
