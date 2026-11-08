@@ -11,17 +11,17 @@ Render or Cloudflare is an estimate until it runs there.
 
 ## Status
 
-Last updated 2026-11-07. Stage: 2 of 7, reveal correctness, with the deploy setup (stage 4)
-started alongside. The steps to deploy are in `.docs/deployment.md`.
+Last updated 2026-11-08. Stage: 3 of 7, storage, with the deploy setup (stage 4) and the store
+preparation (stage 6) alongside. The steps to deploy are in `.docs/deployment.md`.
 
 | Stage | State |
 | --- | --- |
 | 1. App Store blockers (B1 to B3) | Done 2026-11-04 |
-| 2. Reveal correctness (B4 to B7) | In progress: B7 done |
-| 3. Storage on R2 (B8, B9, F1 to F7) | Not started |
-| 4. Deploy on Render and Neon (B10, B11, F18 to F21) | In progress: config, F18, F19 done |
+| 2. Reveal correctness (B4 to B7) | Done 2026-11-08 |
+| 3. Storage on R2 (B8, B9, F1 to F7) | In progress: B8, B9, F1 to F5 done; F6, F7 left |
+| 4. Deploy on Render and Neon (B10, B11, F18 to F21) | In progress: B10, B11, F18, F19 done |
 | 5. Remaining fixes (F8 to F17) | Not started |
-| 6. Device pass, TestFlight, App Store Connect | Not started |
+| 6. Device pass, TestFlight, App Store Connect | In progress: S4 done, S7 and S8 drafted |
 | 7. Submission, launch and live users | Not started |
 
 ## How this document is kept
@@ -334,13 +334,18 @@ upgrades charging the full tier price; and a few RevenueCat webhook edge cases.
 - [ ] **S5.** Steps in `.docs/device-testing.md`. Device pass on a real iPhone: remote push, the film look, uploads with the phone
       locked, haptics, the front flash, the Live Activity, and Safari as a guest.
 - [ ] **S6.** TestFlight build and a real event with a handful of people.
-- [x] **S7.** Store listing: screenshots, description, keywords, support and privacy URLs, and
+- [ ] **S7.** Store listing: screenshots, description, keywords, support and privacy URLs, and
       review notes with the review account and its event code.
-      Done 2026-11-08: the name, subtitle, promotional text, description, keywords, URLs, category,
+      Drafted 2026-11-08: the name, subtitle, promotional text, description, keywords, URLs, category,
       review notes and a ten-screen shot list are in `.docs/store/listing.md`. The review notes name
       RVW4PP, RVW8TF and RVW2DR and point to Render for the login itself. Screenshots are still to
       capture.
 - [ ] **S8.** Legal pages reviewed by a lawyer, with the postal address and governing law.
+      Prepared 2026-11-08: both pages now carry the postal address and the
+      Delaware entity, the named processors (Render, Neon, Resend, Sentry when on) and where data is
+      processed, how covers keep their metadata, how deletion works in time, a governing-law clause
+      with the choice marked, and Apple's licensed application terms. The twelve open questions are
+      in `.docs/store/legal-review.md`. Stays open until a lawyer has reviewed them.
 - [ ] **S9.** Submit, answer review, release.
 - [ ] **S10.** Live: error rates, reveal-lag alerts and storage costs watched for the first weeks;
       problems from live users go in as new items here.
@@ -406,3 +411,5 @@ unconfirmed.
   .docs/store/privacy-labels.md.
 - 2026-11-08: S7 drafted: the listing and review notes in .docs/store/listing.md; screenshots still
   to capture.
+- 2026-11-08: S8 prepared: legal pages filled in where the facts are known, open questions in
+  .docs/store/legal-review.md.
