@@ -69,7 +69,10 @@ export const events = pgTable(
         /** The guest limit the host was last told about, so "is full" is sent once per limit. */
         fullNoticeLimit: integer("full_notice_limit"),
     },
-    (t) => [index("events_host_idx").on(t.hostId, t.createdAt)],
+    (t) => [
+        index("events_host_idx").on(t.hostId, t.createdAt),
+        index("events_state_idx").on(t.state),
+    ],
 );
 
 export const guests = pgTable(
@@ -244,6 +247,7 @@ export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 export const QUEUES = [
     "develop",
     "reveal",
+    "reveal-sweep",
     "release-reservations",
     "expire-sessions",
     "push-receipts",

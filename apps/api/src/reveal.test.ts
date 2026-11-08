@@ -1,7 +1,7 @@
 import type { ExpoPushMessage } from "expo-server-sdk";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { db, events, guests, pushTokens, startQueue, stopQueue } from "./db.ts";
+import { boss, db, events, guests, pushTokens, startQueue, stopQueue } from "./db.ts";
 import { checkReceipts, push, sendPush } from "./notify.ts";
 import { advance, revealOverdue, startRevealWorker } from "./reveal.ts";
 import { developShot, startShotWorkers } from "./shots.ts";
@@ -183,6 +183,22 @@ describe("advancing events", () => {
         expect(await advance(waiting.id, new Date(Date.now() + 2 * 86_400_000))).toMatchObject({
             state: "revealed",
         });
+    });
+
+    test("a sweep every minute catches a reveal whose job was lost", async () => {
+        const schedules = await boss.getSchedules("reveal-sweep");
+        expect(schedules.map((s) => s.cron)).toEqual(["* * * * *"]);
+        const { token } = await newHost();
+        const event = await newEvent(token, { live: true });
+        const row = await stateOf(event.id);
+        if (!row) throw new Error("missing");
+        const past = new Date(Date.now() - 60_000).toISOString();
+        await db
+            .update(events)
+            .set({ settings: { ...row.settings, endsAt: past } })
+            .where(eq(events.id, event.id));
+        await boss.send("reveal-sweep", {});
+        await waitFor(async () => (await stateOf(event.id))?.state === "revealed");
     });
 
     test("revealed events are archived after 90 days and keep their photos visible", async () => {

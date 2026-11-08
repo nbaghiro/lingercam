@@ -109,10 +109,16 @@ export async function revealOverdue(now = new Date()): Promise<number> {
     return changed;
 }
 
+/** Every minute, in case a reveal job fired early or was lost. */
 export async function startRevealWorker(): Promise<void> {
     await boss.work<{ eventId: string }>("reveal", async (jobs) => {
         for (const job of jobs) await advance(job.data.eventId);
     });
+    await boss.work("reveal-sweep", async () => {
+        const changed = await revealOverdue();
+        if (changed > 0) log("info", "overdue events advanced", { changed });
+    });
+    await boss.schedule("reveal-sweep", "* * * * *");
 }
 
 /** Drops the queued end, reveal and archive checks of an event that is being deleted. */

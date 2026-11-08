@@ -121,9 +121,12 @@ These stop submission or break a promise the product makes.
       host to remove a guest, a way for anyone to hide a person, a terms and privacy line on the join
       sheet, and reports reaching Linger as well as the host, as the terms promise.
       Done 2026-11-04: the host removes a guest (with their photos and likes, and that phone can't rejoin) from the photo menu or by holding their name in People; anyone can hide a person's photos on their phone; the join sheet links the Terms and Privacy Policy; every report emails `MODERATION_EMAIL` (support@galleo.app). Checked by API tests and on the simulator.
-- [ ] **B4.** **Late reveals are only caught at startup.** `revealOverdue` runs once when the server boots. A
+- [x] **B4.** **Late reveals are only caught at startup.** `revealOverdue` runs once when the server boots. A
       reveal job that fires early, or is lost, leaves the event developing until the next restart.
       Add a sweep every minute, and an index on `events.state`.
+      Done 2026-11-08: the worker runs `revealOverdue` every minute (`reveal-sweep`), and
+      `events.state` has an index (migration 0006). API test: an event whose reveal job never ran is
+      revealed by the sweep.
 - [ ] **B5.** **Reveal notifications don't scale and can be lost.** The reveal job sends the push and then
       each email in turn, over SMTP without pooling, one event at a time. With 20 events revealing
       together, the last could wait 20 to 30 minutes. Emails are marked sent before they go out, so a
@@ -343,3 +346,4 @@ unconfirmed.
   with the code 000000 in development.
 - 2026-11-07: site pages for How it works, Guests, The reveal and Questions, linked from the nav and
   from each home section. Facts read from core where they can be; nothing planned is described.
+- 2026-11-08: B4 done: a reveal sweep every minute and an index on events.state.

@@ -1,0 +1,1 @@
+CREATE INDEX "events_state_idx" ON "events" USING btree ("state");
