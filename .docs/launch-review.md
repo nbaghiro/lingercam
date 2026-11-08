@@ -287,6 +287,11 @@ Grouped by area. Each one has a failure that a real event can hit.
       the gallery returns 60 photos a page and loads the next page two screens ahead (three photos
       ahead in the viewer). Still to do with stage 3: the CDN in front of R2 (needs
       `lingercam.app`'s DNS on Cloudflare, D4), and the 1024 px grid image.
+- [x] **F26.** A release build without a store key offered paid plans, then failed with "There's no
+      event with that code": it fell back to the development claim, which production answers with
+      `not-found`. Found 2026-11-08 on the first phone build against production.
+      Done 2026-11-08: such a build now says paid plans aren't available yet; development builds
+      keep the claim.
 
 ## Later
 
@@ -413,3 +418,8 @@ unconfirmed.
   to capture.
 - 2026-11-08: S8 prepared: legal pages filled in where the facts are known, open questions in
   .docs/store/legal-review.md.
+- 2026-11-08: the bundle id and Android package are now `app.lingercam`. Until GalleoApp, Inc.'s
+  Apple team exists, phone builds use the free Personal Team as `app.lingercam.dev`, without push
+  or join links (`.docs/device-testing.md`). The first Release build against production is on
+  Naib's iPhone Air. F26 found and fixed there. D-U-N-S requested for GalleoApp, Inc. (S1 waits on
+  it).
