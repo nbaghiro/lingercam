@@ -54,6 +54,9 @@ envVarGroups:
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
         sync: false
+      # Optional: error tracking is off until the API project's DSN is set.
+      - key: SENTRY_DSN
+        sync: false
 
 services:
   # Requests only: it sends jobs but runs none. One instance until the rate limiter moves to
@@ -145,3 +148,6 @@ services:
         value: https://join.lingercam.app
       - key: EXPO_PUBLIC_SITE_URL
         value: https://lingercam.app
+      # Optional: the app project's DSN, for errors in the guest web app.
+      - key: EXPO_PUBLIC_SENTRY_DSN
+        sync: false

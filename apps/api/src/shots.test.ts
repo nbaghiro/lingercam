@@ -3,16 +3,20 @@ import { eq } from "drizzle-orm";
 import sharp from "sharp";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import type { ExpoPushMessage } from "expo-server-sdk";
-import { db, events, guests, pushTokens, shots, startQueue, stopQueue } from "./db.ts";
+import { boss, db, events, guests, pushTokens, shots, startQueue, stopQueue } from "./db.ts";
 import { push } from "./notify.ts";
+import { startDeletionWorkers } from "./deletion.ts";
 import {
     developImage,
     developShot,
+    GIVE_UP_HOURS,
     pickHighlights,
     releaseExpired,
+    STUCK_MINUTES,
+    sweepUploaded,
     type Candidate,
 } from "./shots.ts";
-import { exists, keys } from "./storage.ts";
+import { exists, keys, list, MAX_UPLOAD_BYTES, put } from "./storage.ts";
 import {
     call,
     join,
@@ -23,9 +27,13 @@ import {
     samplePhoto,
     shoot,
     upload,
+    waitFor,
 } from "./testing.ts";
 
-beforeAll(startQueue);
+beforeAll(async () => {
+    await startQueue();
+    await startDeletionWorkers();
+});
 afterAll(stopQueue);
 
 describe("reserving shots", () => {
@@ -211,7 +219,7 @@ describe("developing failures", () => {
         expect(me.body.shotsLeft).toBe(5);
         const gallery = await call("GET", `/v1/e/${event.code}/gallery`, { token });
         expect(gallery.body.total).toBe(0);
-        expect(await exists(keys.shot(event.id, id, "original"))).toBe(false);
+        await waitFor(async () => !(await exists(keys.shot(event.id, id, "original"))));
     });
 
     test("developing deletes the original, so camera metadata isn't kept", async () => {
@@ -223,6 +231,64 @@ describe("developing failures", () => {
         await developShot(id);
         expect(await exists(keys.shot(event.id, id, "original"))).toBe(false);
         expect(await exists(keys.shot(event.id, id, "developed"))).toBe(true);
+    });
+
+    test("a file swapped for a larger one after the confirm is refused, not read", async () => {
+        const { token } = await newHost();
+        const event = await newEvent(token, { live: true, settings: { shotsPerGuest: 5 } });
+        const guest = await join(event.code);
+        const id = await shoot(event.code, guest.device);
+        await put(keys.shot(event.id, id, "original"), Buffer.alloc(MAX_UPLOAD_BYTES + 1));
+        expect((await developShot(id))?.state).toBe("failed");
+        const me = await call("GET", `/v1/e/${event.code}/me`, { device: guest.device });
+        expect(me.body.shotsLeft).toBe(5);
+    });
+
+    test("a photo developed while its event is deleted leaves nothing in storage", async () => {
+        const { token } = await newHost();
+        const event = await newEvent(token, { live: true });
+        const guest = await join(event.code);
+        const id = await shoot(event.code, guest.device);
+        const developing = developShot(id);
+        await db.delete(events).where(eq(events.id, event.id));
+        await developing;
+        await developShot(id);
+        expect(await list(keys.event(event.id))).toEqual([]);
+    });
+
+    test("stuck uploads are queued again, and given back after six hours", async () => {
+        const { token } = await newHost();
+        const event = await newEvent(token, { live: true, settings: { shotsPerGuest: 5 } });
+        const guest = await join(event.code);
+        const lost = await shoot(event.code, guest.device);
+        const stale = await shoot(event.code, guest.device);
+        const jobs = (shotId: string) =>
+            boss.findJobs("develop", { data: { shotId }, queued: true });
+        await boss.deleteJob(
+            "develop",
+            [...(await jobs(lost)), ...(await jobs(stale))].map((j) => j.id),
+        );
+        const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000);
+        await db
+            .update(shots)
+            .set({ reservedAt: ago(STUCK_MINUTES + 5) })
+            .where(eq(shots.id, lost));
+        await db
+            .update(shots)
+            .set({ reservedAt: ago(GIVE_UP_HOURS * 60 + 5) })
+            .where(eq(shots.id, stale));
+
+        const swept = await sweepUploaded();
+        expect(swept.queued).toBeGreaterThanOrEqual(1);
+        expect(await jobs(lost)).toHaveLength(1);
+        // A second sweep doesn't queue it twice.
+        await sweepUploaded();
+        expect(await jobs(lost)).toHaveLength(1);
+        const [given] = await db.select().from(shots).where(eq(shots.id, stale));
+        expect(given?.state).toBe("failed");
+        const me = await call("GET", `/v1/e/${event.code}/me`, { device: guest.device });
+        expect(me.body.shotsLeft).toBe(4);
+        await waitFor(async () => !(await exists(keys.shot(event.id, stale, "original"))));
     });
 });
 
@@ -306,7 +372,7 @@ describe("after the reveal", () => {
             token,
         });
         expect(removed.status).toBe(204);
-        expect(await exists(keys.shot(event.id, benShot, "developed"))).toBe(false);
+        await waitFor(async () => !(await exists(keys.shot(event.id, benShot, "developed"))));
         const [liked] = await db.select().from(shots).where(eq(shots.id, id));
         expect(liked?.likes).toBe(0);
         const gallery = await call("GET", `/v1/e/${event.code}/gallery`, { device: ana.device });
@@ -607,7 +673,7 @@ describe("taking a photo back", () => {
         );
         expect((await call("DELETE", `/v1/shots/${id}`, { token })).body.code).toBe("not-yours");
         expect((await call("DELETE", `/v1/shots/${id}`, { device: a.device })).status).toBe(204);
-        expect(await exists(keys.shot(event.id, id, "developed"))).toBe(false);
+        await waitFor(async () => !(await exists(keys.shot(event.id, id, "developed"))));
         const gallery = await call("GET", `/v1/e/${event.code}/gallery`, { token });
         expect(gallery.body.total).toBe(0);
     });

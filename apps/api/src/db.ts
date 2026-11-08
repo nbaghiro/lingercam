@@ -69,7 +69,10 @@ export const events = pgTable(
         /** The guest limit the host was last told about, so "is full" is sent once per limit. */
         fullNoticeLimit: integer("full_notice_limit"),
     },
-    (t) => [index("events_host_idx").on(t.hostId, t.createdAt)],
+    (t) => [
+        index("events_host_idx").on(t.hostId, t.createdAt),
+        index("events_state_idx").on(t.state),
+    ],
 );
 
 export const guests = pgTable(
@@ -244,6 +247,10 @@ export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 export const QUEUES = [
     "develop",
     "reveal",
+    "reveal-sweep",
+    "reveal-email",
+    "develop-sweep",
+    "remove-files",
     "release-reservations",
     "expire-sessions",
     "push-receipts",
@@ -267,7 +274,7 @@ export const boss = new PgBoss({
 // pg-boss emits "error" when a poll or its maintenance can't reach the database. Without a
 // listener Node treats that as unhandled and the whole API stops; pg-boss retries on its own.
 boss.on("error", (error: unknown) =>
-    log("error", "job queue error", { error: errorDetail(error) }),
+    log("error", "job queue error", { error: errorDetail(error) }, error),
 );
 
 let bossStarted: Promise<void> | null = null;

@@ -37,6 +37,7 @@ import { rgbaToThumbHash } from "thumbhash";
 import { z } from "zod";
 import { requireHost } from "./accounts.ts";
 import { boss, db, events, guests, likes, reports, shots } from "./db.ts";
+import { removeLater } from "./deletion.ts";
 import {
     eventByCode,
     guestFor,
@@ -141,6 +142,30 @@ async function refund(guestId: string): Promise<void> {
 }
 
 /**
+ * Marks an uploaded shot failed, gives it back to the guest and removes its files. Returns the
+ * failed row, or null when something else got to the shot first.
+ */
+async function failShot(shot: ShotRow, reason: string): Promise<ShotRow | null> {
+    log("warn", "photo could not be developed", { shotId: shot.id, reason });
+    const [failed] = await db
+        .update(shots)
+        .set({ state: "failed" })
+        .where(and(eq(shots.id, shot.id), eq(shots.state, "uploaded")))
+        .returning();
+    if (!failed) return null;
+    await refund(shot.guestId);
+    await removeLater(keys.shotFolder(shot.eventId, shot.id));
+    return failed;
+}
+
+/** Retried with backoff for about three hours, which rides out a storage outage. */
+const DEVELOP_RETRIES = { retryLimit: 10, retryDelay: 30, retryBackoff: true, retryDelayMax: 1800 };
+
+function queueDevelop(shotId: string): Promise<string | null> {
+    return boss.send("develop", { shotId }, DEVELOP_RETRIES);
+}
+
+/**
  * The develop job: original in, developed photo and thumbnail out, then the original is deleted,
  * so nothing with the camera's metadata is kept. A file that can't be decoded as a photo marks
  * the shot failed and gives it back to the guest; storage errors throw, so the job retries.
@@ -154,25 +179,16 @@ export async function developShot(shotId: string): Promise<ShotRow | null> {
     if (!row) return null;
     const { shot, look } = row;
     if (shot.state !== "uploaded") return shot;
-    const original = await get(keys.shot(shot.eventId, shot.id, "original"));
+    const key = keys.shot(shot.eventId, shot.id, "original");
+    // Checked again: the upload URL can replace the file after the confirm looked at it.
+    const size = await objectSize(key);
+    if (size === null) return (await failShot(shot, "original missing")) ?? shot;
+    if (size > MAX_UPLOAD_BYTES) return (await failShot(shot, "original too large")) ?? shot;
     let out: Developed;
     try {
-        out = await developImage(original, look, seedFor(shot.id));
+        out = await developImage(await get(key), look, seedFor(shot.id));
     } catch (error) {
-        log("warn", "photo could not be developed", {
-            shotId: shot.id,
-            error: errorDetail(error),
-        });
-        const [failed] = await db
-            .update(shots)
-            .set({ state: "failed" })
-            .where(and(eq(shots.id, shot.id), eq(shots.state, "uploaded")))
-            .returning();
-        if (failed) {
-            await refund(shot.guestId);
-            await removePrefix(keys.shotFolder(shot.eventId, shot.id));
-        }
-        return failed ?? shot;
+        return (await failShot(shot, errorDetail(error))) ?? shot;
     }
     await put(keys.shot(shot.eventId, shot.id, "developed"), out.developed, IMMUTABLE);
     await put(keys.shot(shot.eventId, shot.id, "thumb"), out.thumb, IMMUTABLE);
@@ -186,8 +202,47 @@ export async function developShot(shotId: string): Promise<ShotRow | null> {
         })
         .where(eq(shots.id, shot.id))
         .returning();
-    await remove(keys.shot(shot.eventId, shot.id, "original"));
-    return updated ?? null;
+    if (!updated) {
+        // The shot, its event or its host was deleted while this ran, so nothing may stay behind.
+        await removePrefix(keys.shotFolder(shot.eventId, shot.id));
+        return null;
+    }
+    await remove(key);
+    return updated;
+}
+
+/** Uploaded shots this old are queued again when no develop job is waiting for them. */
+export const STUCK_MINUTES = 30;
+/** After this an uploaded shot is given up on: marked failed and given back to the guest. */
+export const GIVE_UP_HOURS = 6;
+
+/**
+ * Catches uploaded shots that never developed: a lost job is queued again, and a shot still
+ * stuck after GIVE_UP_HOURS is failed and refunded instead of being kept forever.
+ */
+export async function sweepUploaded(now = new Date()): Promise<{ queued: number; failed: number }> {
+    const stuckBefore = new Date(now.getTime() - STUCK_MINUTES * 60_000);
+    const giveUpBefore = now.getTime() - GIVE_UP_HOURS * 3_600_000;
+    const stuck = await db
+        .select()
+        .from(shots)
+        .where(and(eq(shots.state, "uploaded"), lt(shots.reservedAt, stuckBefore)))
+        .orderBy(asc(shots.reservedAt))
+        .limit(500);
+    let queued = 0;
+    let failed = 0;
+    for (const shot of stuck) {
+        if (shot.reservedAt.getTime() < giveUpBefore) {
+            if (await failShot(shot, "gave up after retries")) failed++;
+            continue;
+        }
+        const waiting = await boss.findJobs("develop", { data: { shotId: shot.id }, queued: true });
+        if (waiting.length === 0) {
+            await queueDevelop(shot.id);
+            queued++;
+        }
+    }
+    return { queued, failed };
 }
 
 /**
@@ -243,9 +298,7 @@ async function keepUploaded(cutoff: Date): Promise<void> {
         .set({ state: "uploaded" })
         .where(and(inArray(shots.id, arrived), eq(shots.state, "reserved")))
         .returning({ id: shots.id });
-    for (const k of kept) {
-        await boss.send("develop", { shotId: k.id }, { retryLimit: 3, retryDelay: 10 });
-    }
+    for (const k of kept) await queueDevelop(k.id);
 }
 
 export async function startShotWorkers(): Promise<void> {
@@ -256,6 +309,11 @@ export async function startShotWorkers(): Promise<void> {
         await releaseExpired();
     });
     await boss.schedule("release-reservations", "* * * * *");
+    await boss.work("develop-sweep", async () => {
+        const swept = await sweepUploaded();
+        if (swept.queued + swept.failed > 0) log("info", "stuck photos swept", swept);
+    });
+    await boss.schedule("develop-sweep", "*/15 * * * *");
 }
 
 /**
@@ -668,7 +726,7 @@ shotRoutes.post("/v1/shots/:id/confirm", async (c) => {
         .where(and(eq(shots.id, id), eq(shots.state, "reserved")))
         .returning();
     if (updated) {
-        await boss.send("develop", { shotId: id }, { retryLimit: 3, retryDelay: 10 });
+        await queueDevelop(id);
         return c.json({ shot: shotJson(updated) });
     }
     // Something changed it since the read: a parallel confirm, or the release of the reservation.
@@ -765,6 +823,6 @@ shotRoutes.delete("/v1/shots/:id", async (c) => {
         throw new ApiError(403, "not-yours", "Only the person who took a photo can remove it.");
     }
     await db.delete(shots).where(eq(shots.id, shot.id));
-    await removePrefix(keys.shotFolder(shot.eventId, shot.id));
+    await removeLater(keys.shotFolder(shot.eventId, shot.id));
     return c.body(null, 204);
 });

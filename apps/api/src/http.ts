@@ -3,6 +3,7 @@ import { DeviceId } from "@linger/core/events";
 import type { Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { z } from "zod";
+import { track } from "./monitoring.ts";
 
 /** An error the client can act on. Rendered as `{ code, message }`. */
 export class ApiError extends Error {
@@ -49,8 +50,17 @@ export function uuidOr(id: string, missing: ApiError): string {
 
 type Level = "info" | "warn" | "error";
 
-/** One JSON line per entry, to stdout or stderr. */
-export function log(level: Level, message: string, extra: Record<string, unknown> = {}): void {
+/**
+ * One JSON line per entry, to stdout or stderr. Errors also go to Sentry when it's set up, with
+ * `cause` for the stack.
+ */
+export function log(
+    level: Level,
+    message: string,
+    extra: Record<string, unknown> = {},
+    cause?: unknown,
+): void {
+    if (level === "error") track(message, extra, cause);
     if (process.env.LOG_SILENT === "1" && level !== "error") return;
     const line = JSON.stringify({ level, message, time: new Date().toISOString(), ...extra });
     (level === "info" ? process.stdout : process.stderr).write(`${line}\n`);

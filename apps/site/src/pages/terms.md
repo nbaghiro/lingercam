@@ -2,7 +2,7 @@
 layout: ../layout.astro
 title: Terms of use
 description: The terms for hosts and guests using LingerCam.
-updated: 2 November 2026
+updated: 8 November 2026
 ---
 
 > **Draft for lawyer review.** This is a first draft. It has not been reviewed by a lawyer and is
@@ -68,13 +68,31 @@ and our total liability is limited to the amount you paid us for the event conce
 You can stop using LingerCam and delete your account at any time, see
 [Delete your account](/delete-account/). We may end access for anyone who breaks these terms.
 
+## Apple's terms
+
+If you got LingerCam from the App Store, these terms are between you and GalleoApp, Inc., not
+Apple, and Apple's standard licensed application terms also apply. Apple isn't responsible for
+LingerCam or for supporting it.
+
 ## Changes
 
 We'll update the date above when these terms change, and tell hosts in the app about significant
 changes.
 
+## Governing law
+
+These terms are governed by the laws of [the State of Delaware, or the Province of Ontario and
+the federal laws of Canada that apply there: to choose with a lawyer], without regard to its
+conflict-of-law rules. Nothing in these terms takes away rights you have under the consumer laws
+of the place you live.
+
 ## Contact
 
-GalleoApp, Inc. [Postal address and governing law to add.]
+LingerCam is provided by GalleoApp, Inc., a Delaware corporation.
+
+GalleoApp, Inc.<br>
+3704 Lakepoint Drive<br>
+Severn, ON L3V 8M9<br>
+Canada
 
 Email: [support@lingercam.app](mailto:support@lingercam.app)

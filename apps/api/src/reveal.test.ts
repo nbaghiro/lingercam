@@ -1,9 +1,9 @@
 import type { ExpoPushMessage } from "expo-server-sdk";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { db, events, guests, pushTokens, startQueue, stopQueue } from "./db.ts";
-import { checkReceipts, push, sendPush } from "./notify.ts";
-import { advance, revealOverdue, startRevealWorker } from "./reveal.ts";
+import { boss, db, events, guests, pushTokens, startQueue, stopQueue } from "./db.ts";
+import { checkReceipts, mail, pooled, push, sendPush } from "./notify.ts";
+import { advance, revealOverdue, sendRevealEmail, startRevealWorker } from "./reveal.ts";
 import { developShot, startShotWorkers } from "./shots.ts";
 import {
     call,
@@ -22,6 +22,8 @@ const sent: ExpoPushMessage[] = [];
 
 beforeAll(async () => {
     await startQueue();
+    // Earlier test files queue develops without a worker; this file's worker shouldn't wait on them.
+    await boss.deleteQueuedJobs("develop");
     await startShotWorkers();
     await startRevealWorker();
     push.send = async (messages) => {
@@ -185,6 +187,22 @@ describe("advancing events", () => {
         });
     });
 
+    test("a sweep every minute catches a reveal whose job was lost", async () => {
+        const schedules = await boss.getSchedules("reveal-sweep");
+        expect(schedules.map((s) => s.cron)).toEqual(["* * * * *"]);
+        const { token } = await newHost();
+        const event = await newEvent(token, { live: true });
+        const row = await stateOf(event.id);
+        if (!row) throw new Error("missing");
+        const past = new Date(Date.now() - 60_000).toISOString();
+        await db
+            .update(events)
+            .set({ settings: { ...row.settings, endsAt: past } })
+            .where(eq(events.id, event.id));
+        await boss.send("reveal-sweep", {});
+        await waitFor(async () => (await stateOf(event.id))?.state === "revealed");
+    });
+
     test("revealed events are archived after 90 days and keep their photos visible", async () => {
         const { token } = await newHost();
         const event = await newEvent(token, { live: true });
@@ -336,6 +354,42 @@ describe("telling people", () => {
             messages?: unknown[];
         };
         expect(found.messages ?? []).toHaveLength(0);
+    });
+
+    test("a reveal email that fails isn't marked sent, so its retry delivers it once", async () => {
+        const { token } = await newHost();
+        const event = await newEvent(token, { live: true, settings: { title: "Bake off" } });
+        const jo = await join(event.code, "Jo");
+        const address = `jo-${event.code.toLowerCase()}@example.com`;
+        await call("POST", `/v1/e/${event.code}/email`, {
+            device: jo.device,
+            json: { email: address },
+        });
+        const emailedAt = async () =>
+            (await db.select().from(guests).where(eq(guests.id, jo.guestId)))[0]?.emailedAt;
+
+        const send = mail.send;
+        mail.send = async () => {
+            throw new Error("smtp is down");
+        };
+        try {
+            await expect(
+                sendRevealEmail(jo.guestId, "Bake off: the photos are ready."),
+            ).rejects.toThrow();
+        } finally {
+            mail.send = send;
+        }
+        expect(await emailedAt()).toBeNull();
+        expect(await sendRevealEmail(jo.guestId, "Bake off: the photos are ready.")).toBe(true);
+        expect(await emailedAt()).toBeInstanceOf(Date);
+        expect(await sendRevealEmail(jo.guestId, "Bake off: the photos are ready.")).toBe(false);
+    });
+
+    test("SMTP connections are pooled unless the URL says otherwise", () => {
+        expect(pooled("smtp://resend:key@smtp.resend.com:587")).toBe(
+            "smtp://resend:key@smtp.resend.com:587?pool=true",
+        );
+        expect(pooled("smtp://localhost:8177?pool=false")).toBe("smtp://localhost:8177?pool=false");
     });
 
     test("a host hears once when the event fills, and again after making room", async () => {

@@ -11,17 +11,17 @@ Render or Cloudflare is an estimate until it runs there.
 
 ## Status
 
-Last updated 2026-11-07. Stage: 2 of 7, reveal correctness, with the deploy setup (stage 4)
-started alongside. The steps to deploy are in `.docs/deployment.md`.
+Last updated 2026-11-08. Stage: 3 of 7, storage, with the deploy setup (stage 4) and the store
+preparation (stage 6) alongside. The steps to deploy are in `.docs/deployment.md`.
 
 | Stage | State |
 | --- | --- |
 | 1. App Store blockers (B1 to B3) | Done 2026-11-04 |
-| 2. Reveal correctness (B4 to B7) | In progress: B7 done |
-| 3. Storage on R2 (B8, B9, F1 to F7) | Not started |
-| 4. Deploy on Render and Neon (B10, B11, F18 to F21) | In progress: config, F18, F19 done |
+| 2. Reveal correctness (B4 to B7) | Done 2026-11-08 |
+| 3. Storage on R2 (B8, B9, F1 to F7) | In progress: B8, B9, F1 to F5 done; F6, F7 left |
+| 4. Deploy on Render and Neon (B10, B11, F18 to F21) | In progress: B10, B11, F18, F19 done |
 | 5. Remaining fixes (F8 to F17) | Not started |
-| 6. Device pass, TestFlight, App Store Connect | Not started |
+| 6. Device pass, TestFlight, App Store Connect | In progress: S4 done, S7 and S8 drafted |
 | 7. Submission, launch and live users | Not started |
 
 ## How this document is kept
@@ -121,27 +121,45 @@ These stop submission or break a promise the product makes.
       host to remove a guest, a way for anyone to hide a person, a terms and privacy line on the join
       sheet, and reports reaching Linger as well as the host, as the terms promise.
       Done 2026-11-04: the host removes a guest (with their photos and likes, and that phone can't rejoin) from the photo menu or by holding their name in People; anyone can hide a person's photos on their phone; the join sheet links the Terms and Privacy Policy; every report emails `MODERATION_EMAIL` (support@galleo.app). Checked by API tests and on the simulator.
-- [ ] **B4.** **Late reveals are only caught at startup.** `revealOverdue` runs once when the server boots. A
+- [x] **B4.** **Late reveals are only caught at startup.** `revealOverdue` runs once when the server boots. A
       reveal job that fires early, or is lost, leaves the event developing until the next restart.
       Add a sweep every minute, and an index on `events.state`.
-- [ ] **B5.** **Reveal notifications don't scale and can be lost.** The reveal job sends the push and then
+      Done 2026-11-08: the worker runs `revealOverdue` every minute (`reveal-sweep`), and
+      `events.state` has an index (migration 0006). API test: an event whose reveal job never ran is
+      revealed by the sweep.
+- [x] **B5.** **Reveal notifications don't scale and can be lost.** The reveal job sends the push and then
       each email in turn, over SMTP without pooling, one event at a time. With 20 events revealing
       together, the last could wait 20 to 30 minutes. Emails are marked sent before they go out, so a
       crash partway loses the rest. Send through a queue with one job per email, and mark each sent
       after it goes.
-- [ ] **B6.** **A venue's shared Wi-Fi can lock everyone out.** The code-miss limiter is checked on every
+      Done 2026-11-08: the reveal sends the push, then queues one `reveal-email` job per guest
+      (retried with backoff for about an hour) that marks `emailedAt` only after the send. SMTP
+      connections are pooled, and four reveals and four emails run side by side per worker. API
+      tests: a failed send stays unmarked and the retry delivers it once.
+- [x] **B6.** **A venue's shared Wi-Fi can lock everyone out.** The code-miss limiter is checked on every
       request that carries a code, keyed by IP. Twenty mistyped codes from one venue's Wi-Fi or a
       carrier's network block gallery polling for every guest there for 10 minutes. Check it only
       when the code doesn't exist, and key it more finely.
+      Done 2026-11-08: a device already in the event is never checked, so polling carries on. Misses
+      count per address and device (20 in 10 minutes), and the address alone only against 300, so
+      one phone mistyping on a venue Wi-Fi blocks only that phone. The limit is still checked before
+      a lookup reveals whether a code exists, otherwise a 404 or 429 would tell a guesser which
+      codes are real. API test: a phone over its limit is refused while a joined guest and a new
+      guest on the same address carry on.
 - [x] **B7.** **pg-boss has no error listener.** A database blip during its maintenance crashes the process.
       Done 2026-11-04: it happened in testing. The local storage container was killed, a pg-boss poll
       timed out, and the unhandled "error" event stopped the API. `db.ts` now logs pg-boss errors and
       pg-boss retries on its own. Checked by restarting the API and rerunning the Maestro suite.
-- [ ] **B8.** **Photos of deleted events can stay in storage.** A develop that finishes after a delete writes
+- [x] **B8.** **Photos of deleted events can stay in storage.** A develop that finishes after a delete writes
       the photo back, and an upload URL stays valid for 15 minutes after its event or account is
       gone. Both leave full JPEGs, with location, that the privacy policy says are deleted. The
       uploads bucket's expiry rule fixes most of it; developing should also check the photo still
       exists before writing.
+      Done 2026-11-08: a develop that finds its shot gone after writing removes what it wrote, and
+      deleting an event, or a guest with photos still uploading, removes the files again after every
+      upload URL has run out (`afterUploadsExpire`). The R2 expiry rule for originals is still worth
+      adding as a backstop; originals share their folder with the developed photo, so it needs its
+      own prefix first. API test: a photo developed while its event is deleted leaves nothing.
 - [x] **B9.** **No production CORS on storage.** Only the local rules exist, so browser uploads and web Save
       and Share would fail on R2.
       Done 2026-11-07: the `lingercam` R2 bucket allows GET, PUT and HEAD from join.lingercam.app
@@ -153,8 +171,18 @@ These stop submission or break a promise the product makes.
       drops Neon's `channel_binding` parameter, which the Postgres client would otherwise send to
       the server and fail on (tested). Ticked when the project exists and production runs on it.
       Done 2026-11-07: production runs on it; `/health/deep` passes from api.lingercam.app.
-- [ ] **B11.** **No error tracking or alerting.** Add Sentry across the app, the web build and the API, and an
+- [x] **B11.** **No error tracking or alerting.** Add Sentry across the app, the web build and the API, and an
        alert for any event past its reveal time that hasn't revealed.
+      Done 2026-11-08: Sentry is wired in and stays off until a DSN is set. The API
+      (`monitoring.ts`) sends every error-level log, with the stack where there is one, tagged with
+      the Render commit and the role. The app and the guest web app wrap the root layout with
+      `@sentry/react-native` when the build has `EXPO_PUBLIC_SENTRY_DSN`; the web bundle was checked
+      with a DSN set. The reveal sweep logs an error for any event still unrevealed 10 minutes past
+      its reveal time, or that fails to advance, so an alert rule on new errors covers it. Left for
+      Naib: create Sentry projects for the API and the app, set `SENTRY_DSN` in the `lingercam-
+      backend` group and `EXPO_PUBLIC_SENTRY_DSN` on the join site and in EAS, and add an alert
+      rule. For readable native stacks the `@sentry/react-native` plugin still needs adding to
+      `app.config.ts`, and the next native build picks the SDK up.
 
 ## Fix before launch
 
@@ -162,16 +190,29 @@ Grouped by area. Each one has a failure that a real event can hit.
 
 **Developing and storage**
 
-- [ ] **F1.** Develops give up after three quick retries, so a short storage outage leaves a shot uploaded
+- [x] **F1.** Develops give up after three quick retries, so a short storage outage leaves a shot uploaded
       forever: never shown, never refunded, original kept. Sweep old uploaded shots, retry with
       backoff, then mark failed and refund.
-- [ ] **F2.** Develop reads the whole upload into memory after only a size check at confirm, so a file swapped
+      Done 2026-11-08: develops retry with backoff for about three hours, and a sweep every 15
+      minutes queues uploaded shots again when no job is waiting (after 30 minutes) and fails and
+      refunds them after six hours. API test.
+- [x] **F2.** Develop reads the whole upload into memory after only a size check at confirm, so a file swapped
       in afterwards can run the instance out of memory. Check the size again before reading.
-- [ ] **F3.** Deleting a photo removes its row before its files, so a storage failure orphans them.
-- [ ] **F4.** Deleting an event or an account runs inside the request: about 18,000 objects for a 6,000-photo
+      Done 2026-11-08: the develop checks the size again before reading the file, and fails and
+      refunds an original that is missing or over the limit. API test.
+- [x] **F3.** Deleting a photo removes its row before its files, so a storage failure orphans them.
+      Done 2026-11-08: the row goes first and the files follow in a `remove-files` job retried for
+      most of a day, so a storage failure delays the delete instead of orphaning the files. The same
+      job removes a removed guest's photos.
+- [x] **F4.** Deleting an event or an account runs inside the request: about 18,000 objects for a 6,000-photo
       event, against the app's 20-second timeout. Move it to a job.
-- [ ] **F5.** Account deletion skips each event's teardown, so guests' reveal reminders still fire for deleted
+      Done 2026-11-08: the rows are deleted in the request and the files in a `remove-files` job
+      (`deletion.ts`). API tests wait for the job.
+- [x] **F5.** Account deletion skips each event's teardown, so guests' reveal reminders still fire for deleted
       events. Run the event teardown for each one.
+      Done 2026-11-08: account deletion runs `deleteEvent` for each event: devices hear quietly,
+      queued checks are cancelled and the files go in a job. API test: a guest phone gets the quiet
+      "deleted" push and the event's checks are gone.
 - [ ] **F6.** Covers: `hasCover` is set before the upload, so a failed upload leaves a broken link. HEIC is
       accepted, which most link previews can't show, and covers up to 15 MB are served as the preview
       image. Convert to JPEG on the device, and set the flag after the upload.
@@ -284,14 +325,27 @@ upgrades charging the full tier price; and a few RevenueCat webhook edge cases.
       first deploy. EAS secrets: the RevenueCat public key, the Expo access token; Render secrets: the
       RevenueCat webhook secret, Stripe, R2, email.
 - [ ] **S3.** App Store Connect products for every tier and Unlimited shots, as consumables.
-- [ ] **S4.** Privacy nutrition labels: email, name, photos, user and device ids, purchase
+- [x] **S4.** Privacy nutrition labels: email, name, photos, user and device ids, purchase
       history. Age rating answered for user-generated content.
+      Done 2026-11-08: the answers for App Store Connect and Google Play Data safety are in
+      `.docs/store/privacy-labels.md`, each type traced to the table or file it comes from, with the
+      age-rating answers. Two checks remain on a device: whether library covers carry location (F6),
+      and adding the diagnostics rows only with the build that sets a Sentry DSN.
 - [ ] **S5.** Steps in `.docs/device-testing.md`. Device pass on a real iPhone: remote push, the film look, uploads with the phone
       locked, haptics, the front flash, the Live Activity, and Safari as a guest.
 - [ ] **S6.** TestFlight build and a real event with a handful of people.
 - [ ] **S7.** Store listing: screenshots, description, keywords, support and privacy URLs, and
       review notes with the review account and its event code.
+      Drafted 2026-11-08: the name, subtitle, promotional text, description, keywords, URLs, category,
+      review notes and a ten-screen shot list are in `.docs/store/listing.md`. The review notes name
+      RVW4PP, RVW8TF and RVW2DR and point to Render for the login itself. Screenshots are still to
+      capture.
 - [ ] **S8.** Legal pages reviewed by a lawyer, with the postal address and governing law.
+      Prepared 2026-11-08: both pages now carry the postal address and the
+      Delaware entity, the named processors (Render, Neon, Resend, Sentry when on) and where data is
+      processed, how covers keep their metadata, how deletion works in time, a governing-law clause
+      with the choice marked, and Apple's licensed application terms. The twelve open questions are
+      in `.docs/store/legal-review.md`. Stays open until a lawyer has reviewed them.
 - [ ] **S9.** Submit, answer review, release.
 - [ ] **S10.** Live: error rates, reveal-lag alerts and storage costs watched for the first weeks;
       problems from live users go in as new items here.
@@ -343,3 +397,19 @@ unconfirmed.
   with the code 000000 in development.
 - 2026-11-07: site pages for How it works, Guests, The reveal and Questions, linked from the nav and
   from each home section. Facts read from core where they can be; nothing planned is described.
+- 2026-11-08: B4 done: a reveal sweep every minute and an index on events.state.
+- 2026-11-08: B5 done: reveal emails go through a queue, one job per email, marked after sending,
+  over pooled SMTP.
+- 2026-11-08: B6 done: code misses are counted per device and address, and guests already in an
+  event are never checked.
+- 2026-11-08: B8 and F1 to F5 done: deletes move files to a retried job with a second pass after
+  upload URLs expire, develops retry for hours and a sweep catches stuck uploads, and account
+  deletion tears down each event.
+- 2026-11-08: B11 done: Sentry in the API, the app and the web build, off until a DSN is set, with
+  an error for any event that misses its reveal.
+- 2026-11-08: S4 done: privacy labels, Data safety answers and the age-rating answers in
+  .docs/store/privacy-labels.md.
+- 2026-11-08: S7 drafted: the listing and review notes in .docs/store/listing.md; screenshots still
+  to capture.
+- 2026-11-08: S8 prepared: legal pages filled in where the facts are known, open questions in
+  .docs/store/legal-review.md.

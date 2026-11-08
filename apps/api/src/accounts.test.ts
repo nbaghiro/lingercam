@@ -20,10 +20,26 @@ import {
     startQueue,
     stopQueue,
 } from "./db.ts";
-import { call, join, newDevice, newEvent, newHost, samplePhoto, shoot, upload } from "./testing.ts";
+import { startDeletionWorkers } from "./deletion.ts";
+import { push } from "./notify.ts";
+import { cancelReveal } from "./reveal.ts";
+import {
+    call,
+    join,
+    newDevice,
+    newEvent,
+    newHost,
+    samplePhoto,
+    shoot,
+    upload,
+    waitFor,
+} from "./testing.ts";
 import { keys, list } from "./storage.ts";
 
-beforeAll(startQueue);
+beforeAll(async () => {
+    await startQueue();
+    await startDeletionWorkers();
+});
 afterAll(stopQueue);
 
 const MAILPIT = "http://localhost:8176";
@@ -254,13 +270,28 @@ describe("account deletion", () => {
         const device = newDevice();
         const guestToken = `ExponentPushToken[${randomBytes(6).toString("hex")}]`;
         await call("POST", "/v1/push", { device, json: { token: guestToken } });
+        const guestPhone = `ExponentPushToken[${randomBytes(6).toString("hex")}]`;
+        await call("POST", "/v1/push", { device: guest.device, json: { token: guestPhone } });
 
-        expect((await call("DELETE", "/v1/me", {})).status).toBe(401);
-        expect((await call("DELETE", "/v1/me", { token, device })).status).toBe(204);
+        const sent: string[] = [];
+        const send = push.send;
+        push.send = async (messages) => {
+            for (const m of messages) if (m.data?.type === "deleted") sent.push(String(m.to));
+            return [];
+        };
+        try {
+            expect((await call("DELETE", "/v1/me", {})).status).toBe(401);
+            expect((await call("DELETE", "/v1/me", { token, device })).status).toBe(204);
+        } finally {
+            push.send = send;
+        }
+        // Each event was torn down: guests' reminders are cancelled and its checks are gone.
+        expect(sent).toContain(guestPhone);
+        expect(await cancelReveal(event.id)).toBe(0);
         expect(await db.select().from(pushTokens).where(eq(pushTokens.token, guestToken))).toEqual(
             [],
         );
-        expect(await list(keys.event(event.id))).toEqual([]);
+        await waitFor(async () => (await list(keys.event(event.id))).length === 0);
         expect(await db.select().from(hosts).where(eq(hosts.id, hostId))).toEqual([]);
         expect(await db.select().from(events).where(eq(events.id, event.id))).toEqual([]);
         expect((await call("GET", "/v1/me", { token })).status).toBe(401);

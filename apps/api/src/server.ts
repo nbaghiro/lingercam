@@ -6,6 +6,8 @@ import { HTTPException } from "hono/http-exception";
 import { accounts, startAccountWorkers } from "./accounts.ts";
 import { billing } from "./billing.ts";
 import { migrate, role, runsJobs, sql, startQueue, stopQueue } from "./db.ts";
+import { startDeletionWorkers } from "./deletion.ts";
+import { flushTracking } from "./monitoring.ts";
 import { eventRoutes } from "./events.ts";
 import { ApiError, errorDetail, isProduction, log, productionProblems } from "./http.ts";
 import { startNotifyWorkers } from "./notify.ts";
@@ -92,7 +94,7 @@ export function createApp(): Hono {
         if (error instanceof HTTPException) {
             return c.json({ code: "http-error", message: error.message }, error.status);
         }
-        log("error", "unhandled error", { path: c.req.path, error: errorDetail(error) });
+        log("error", "unhandled error", { path: c.req.path, error: errorDetail(error) }, error);
         return c.json({ code: "server-error", message: "Something went wrong on our side." }, 500);
     });
 
@@ -103,6 +105,7 @@ export function createApp(): Hono {
 export async function startWorkers(): Promise<void> {
     await startQueue();
     await startAccountWorkers();
+    await startDeletionWorkers();
     await startNotifyWorkers();
     await startShotWorkers();
     await startRevealWorker();
@@ -136,8 +139,9 @@ async function main(): Promise<void> {
         stopQueue()
             .then(() => sql.end({ timeout: 5 }))
             .catch((error: unknown) =>
-                log("error", "shutdown failed", { error: errorDetail(error) }),
+                log("error", "shutdown failed", { error: errorDetail(error) }, error),
             )
+            .then(flushTracking)
             .finally(() => process.exit(0));
     };
     process.once("SIGINT", () => shutdown("SIGINT"));

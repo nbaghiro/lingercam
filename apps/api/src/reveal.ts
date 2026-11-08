@@ -1,6 +1,6 @@
 import { ARCHIVE_AFTER_DAYS, dueState } from "@linger/core/events";
 import { revealTime } from "@linger/core/reveal";
-import { and, count, countDistinct, eq, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
+import { and, count, countDistinct, eq, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import { boss, db, events, guests, shots } from "./db.ts";
 import type { EventRow } from "./events.ts";
 import { log } from "./http.ts";
@@ -21,7 +21,7 @@ export async function revealedCounts(eventId: string): Promise<{ photos: number;
 
 /**
  * Tells the host and every guest with a stored token that the photos are in, with the counts,
- * and emails each guest who left an address and hasn't had the email yet.
+ * and queues one email for each guest who left an address and hasn't had it yet.
  */
 export async function notifyReveal(event: EventRow): Promise<number> {
     const { photos, people } = await revealedCounts(event.id);
@@ -35,19 +35,37 @@ export async function notifyReveal(event: EventRow): Promise<number> {
             data: { type: "revealed", url: `/e/${event.code}`, code: event.code },
         })),
     );
-    // Claimed before sending, so a second run of the job can't email anyone twice.
-    const claimed = await db
-        .update(guests)
-        .set({ emailedAt: new Date() })
-        .where(and(eq(guests.eventId, event.id), isNotNull(guests.email), isNull(guests.emailedAt)))
-        .returning({ id: guests.id, email: guests.email });
-    let emailed = 0;
-    for (const guest of claimed) {
-        if (guest.email && (await emailReveal({ id: guest.id, email: guest.email }, event, line))) {
-            emailed++;
-        }
+    const waiting = await db
+        .select({ id: guests.id })
+        .from(guests)
+        .where(
+            and(eq(guests.eventId, event.id), isNotNull(guests.email), isNull(guests.emailedAt)),
+        );
+    for (const guest of waiting) {
+        await boss.send("reveal-email", { guestId: guest.id, line }, EMAIL_RETRIES);
     }
-    return sent + emailed;
+    return sent + waiting.length;
+}
+
+/** About an hour of retries, for a mail provider that's down for a while. */
+const EMAIL_RETRIES = { retryLimit: 8, retryDelay: 30, retryBackoff: true, retryDelayMax: 900 };
+
+/**
+ * Sends one guest's reveal email and marks it sent only once it has gone, so a crash or a failed
+ * send leaves it for the retry. Returns false when there was nothing to send.
+ */
+export async function sendRevealEmail(guestId: string, line: string): Promise<boolean> {
+    const [row] = await db
+        .select({ guest: guests, event: events })
+        .from(guests)
+        .innerJoin(events, eq(events.id, guests.eventId))
+        .where(eq(guests.id, guestId));
+    if (!row?.guest.email || row.guest.emailedAt) return false;
+    if (!(await emailReveal({ id: guestId, email: row.guest.email }, row.event, line))) {
+        throw new Error("reveal email not sent");
+    }
+    await db.update(guests).set({ emailedAt: new Date() }).where(eq(guests.id, guestId));
+    return true;
 }
 
 /**
@@ -89,30 +107,63 @@ export async function scheduleReveal(event: EventRow): Promise<void> {
     }
 }
 
-/** Reveals, ends or archives everything that is overdue, for example after downtime. */
+/** How long past its reveal time an event can stay unrevealed before it's reported as an error. */
+const LATE_REVEAL_MS = 10 * 60_000;
+
+/**
+ * Reveals, ends or archives everything that is overdue, for example after downtime. An event
+ * that can't be moved on, or is still unrevealed well past its reveal time, is logged as an error,
+ * which Sentry turns into an alert.
+ */
 export async function revealOverdue(now = new Date()): Promise<number> {
     const archiveBefore = new Date(now.getTime() - ARCHIVE_AFTER_DAYS * DAY_MS);
     const due = await db
-        .select({ id: events.id, state: events.state })
+        .select({ id: events.id, state: events.state, settings: events.settings })
         .from(events)
         .where(
             or(
-                inArray(events.state, ["live", "ended"]),
+                and(
+                    eq(events.state, "live"),
+                    sql`(${events.settings}->>'endsAt')::timestamptz <= ${now.toISOString()}::timestamptz`,
+                ),
+                eq(events.state, "ended"),
                 and(eq(events.state, "revealed"), lt(events.revealedAt, archiveBefore)),
             ),
         );
     let changed = 0;
-    for (const { id, state } of due) {
-        const after = await advance(id, now);
-        if (after && after.state !== state) changed++;
+    for (const { id, state, settings } of due) {
+        try {
+            const after = await advance(id, now);
+            if (after && after.state !== state) changed++;
+            const late = now.getTime() - revealTime(settings).getTime() > LATE_REVEAL_MS;
+            if (after && (after.state === "live" || after.state === "ended") && late) {
+                log("error", "event is past its reveal time and hasn't revealed", { eventId: id });
+            }
+        } catch (error) {
+            log("error", "overdue event could not advance", { eventId: id }, error);
+        }
     }
     return changed;
 }
 
+/** Every minute, in case a reveal job fired early or was lost. */
 export async function startRevealWorker(): Promise<void> {
-    await boss.work<{ eventId: string }>("reveal", async (jobs) => {
+    // Many events reveal on the same minute, so several are worked on side by side.
+    await boss.work<{ eventId: string }>("reveal", { localConcurrency: 4 }, async (jobs) => {
         for (const job of jobs) await advance(job.data.eventId);
     });
+    await boss.work<{ guestId: string; line: string }>(
+        "reveal-email",
+        { localConcurrency: 4 },
+        async (jobs) => {
+            for (const job of jobs) await sendRevealEmail(job.data.guestId, job.data.line);
+        },
+    );
+    await boss.work("reveal-sweep", async () => {
+        const changed = await revealOverdue();
+        if (changed > 0) log("info", "overdue events advanced", { changed });
+    });
+    await boss.schedule("reveal-sweep", "* * * * *");
 }
 
 /** Drops the queued end, reveal and archive checks of an event that is being deleted. */

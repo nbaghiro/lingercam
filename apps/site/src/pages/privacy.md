@@ -2,7 +2,7 @@
 layout: ../layout.astro
 title: Privacy policy
 description: What LingerCam stores about hosts and guests, why, who processes it, and how to delete it.
-updated: 2 November 2026
+updated: 8 November 2026
 ---
 
 > **Draft for lawyer review.** This is a first draft written to describe what the product actually
@@ -22,7 +22,8 @@ host chooses. This policy explains what we store to make that work, why, and how
 - **Sessions.** When you sign in we store a hashed session token so the app stays signed in.
 - **Event data.** For each event: its title, occasion, start and end times, time zone, reveal
   settings, shots per guest, who can see the photos, the film look, the event code and an optional
-  cover photo.
+  cover photo. The cover is stored as you uploaded it, so it keeps any details the file carries,
+  such as where the photo was taken, and it's shown in the event's link previews.
 - **Purchase records.** When you pay for an event we store the product, the store it came from
   (App Store, Google Play or Stripe), the transaction id and the event it applies to. We never
   receive your card number. Apple, Google and Stripe process the payment under their own policies.
@@ -39,8 +40,8 @@ Guests don't create an account.
   phone's advertising id or hardware identifiers.
 - **Photos.** The developed version of each photo you take, with the event's film look, and a
   smaller thumbnail, along with the time it was taken and its size. The photo as your camera took
-  it is deleted once it has been developed, and the developed copies carry no location or other
-  camera metadata.
+  it is deleted once it has been developed, usually within seconds, and the developed copies
+  carry no location or other camera metadata.
 - **Likes and reports.** Which photos you liked or reported, so each person counts once.
 - **Push tokens.** If you allow notifications, the push token for your phone, so we can tell you
   when the photos are ready.
@@ -67,12 +68,18 @@ don't sell personal information, show ads or use photos to train models.
 
 ## Services that process data for us
 
-- **Render** hosts the API and the database.
+- **Render** runs the API, in the United States (Ohio).
+- **Neon** hosts the database, in the United States (Ohio).
 - **Cloudflare R2** stores photos.
-- **An email provider** delivers sign-in codes and the guests' reveal emails. [To name before
-  publishing.]
+- **Resend** delivers sign-in codes and the guests' reveal emails.
 - **Expo** delivers push notifications.
 - **RevenueCat** verifies App Store and Google Play purchases. **Stripe** processes web payments.
+- **Sentry** receives error and crash reports from the app and the API, with the device model and
+  system version but no names, email addresses or photos. [Keep this line only once error
+  reporting is turned on.]
+
+These companies are based in the United States, and the API and the database run there, so your
+information is stored and processed in the United States wherever you use LingerCam from.
 
 This website loads its serif font from Google Fonts, which means Google receives your IP address
 when you open a page. The site doesn't use cookies or analytics.
@@ -83,7 +90,9 @@ Events and photos stay available to the event's members until the host deletes t
 account. A guest's email address is kept with their place in the event until they ask us to
 remove it or the event is deleted. Sign-in codes expire after a short time. When an event is
 deleted, we delete what we store for it: its guests' names, email addresses and photos, likes,
-reports, purchase records and the stored photo files. When an account is deleted, we do the same
+reports, purchase records and the stored photo files. The rows go straight away; the files are
+removed by a background job within minutes, and again about 15 minutes later to catch any photo
+that was still uploading. When an account is deleted, we do the same
 for each of the host's events and also delete the host's push tokens. A guest's push token
 belongs to the phone, not to one event, so it isn't deleted with an event. We delete it when
 the push service tells us it no longer works, for example after the app is removed. [To confirm before
@@ -119,6 +128,11 @@ change is significant.
 
 ## Contact
 
-GalleoApp, Inc. [Postal address to add.]
+LingerCam is provided by GalleoApp, Inc., a Delaware corporation.
+
+GalleoApp, Inc.<br>
+3704 Lakepoint Drive<br>
+Severn, ON L3V 8M9<br>
+Canada
 
 Email: [support@lingercam.app](mailto:support@lingercam.app)
