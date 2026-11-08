@@ -325,8 +325,12 @@ upgrades charging the full tier price; and a few RevenueCat webhook edge cases.
       first deploy. EAS secrets: the RevenueCat public key, the Expo access token; Render secrets: the
       RevenueCat webhook secret, Stripe, R2, email.
 - [ ] **S3.** App Store Connect products for every tier and Unlimited shots, as consumables.
-- [ ] **S4.** Privacy nutrition labels: email, name, photos, user and device ids, purchase
+- [x] **S4.** Privacy nutrition labels: email, name, photos, user and device ids, purchase
       history. Age rating answered for user-generated content.
+      Done 2026-11-08: the answers for App Store Connect and Google Play Data safety are in
+      `.docs/store/privacy-labels.md`, each type traced to the table or file it comes from, with the
+      age-rating answers. Two checks remain on a device: whether library covers carry location (F6),
+      and adding the diagnostics rows only with the build that sets a Sentry DSN.
 - [ ] **S5.** Steps in `.docs/device-testing.md`. Device pass on a real iPhone: remote push, the film look, uploads with the phone
       locked, haptics, the front flash, the Live Activity, and Safari as a guest.
 - [ ] **S6.** TestFlight build and a real event with a handful of people.
@@ -394,3 +398,5 @@ unconfirmed.
   deletion tears down each event.
 - 2026-11-08: B11 done: Sentry in the API, the app and the web build, off until a DSN is set, with
   an error for any event that misses its reveal.
+- 2026-11-08: S4 done: privacy labels, Data safety answers and the age-rating answers in
+  .docs/store/privacy-labels.md.
