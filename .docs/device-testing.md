@@ -15,6 +15,8 @@ terminal here.
 - **Which backend it talks to** is set when Metro starts:
   - `pnpm device:on`: the local API and storage on this Mac, over Wi-Fi.
   - `pnpm device:staging`: the deployed staging backend on Render.
+  - `pnpm device:prod`: production at api.lingercam.app. There are no demo accounts there, so sign
+    in with the review login or a real email.
   - `pnpm device:off`: back to localhost, for the simulator only.
 
   After switching, restart Metro with `--clear`.
@@ -237,5 +239,8 @@ staging is simpler for this one.
   builds allow plain HTTP to local addresses only (`NSAllowsLocalNetworking`). Checked over the
   Wi-Fi address: health, signed photos, covers, and the app on the simulator.
 - 2026-11-07: staging's database moved to Neon, as in `deployment.md`.
+- 2026-11-08: `pnpm device:prod` points the development build at production. Signing still waits
+  on GalleoApp, Inc.'s team in Xcode: only PocketSuite's team and a free Personal Team are signed
+  in, and the old Apple Development certificate is revoked.
 - 2026-11-07: `pnpm device:staging`, `render.staging.yaml`, the `staging` EAS profile and
   `APPLE_TEAM_ID` in `app.config.ts` added for the staging half of the run.

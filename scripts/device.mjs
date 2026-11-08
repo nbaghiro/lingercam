@@ -1,6 +1,6 @@
 // Chooses which backend the app on a phone talks to. `pnpm device:on` points the local stack at
-// this Mac's Wi-Fi address, `pnpm device:staging` points the app at the deployed staging backend,
-// and `pnpm device:off` puts everything back on localhost. See .docs/device-testing.md.
+// this Mac's Wi-Fi address, `pnpm device:staging` and `pnpm device:prod` point the app at a
+// deployed backend, and `pnpm device:off` puts everything back on localhost. See .docs/device-testing.md.
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { networkInterfaces } from "node:os";
@@ -94,13 +94,15 @@ if (command === "on") {
             "",
         ].join("\n"),
     );
-} else if (command === "staging") {
-    const staging = JSON.parse(readFileSync(new URL("scripts/staging.json", ROOT), "utf8"));
-    writeAppEnv({ label: "staging on Render", command: "staging", ...staging });
+} else if (command === "staging" || command === "prod") {
+    const file = command === "staging" ? "staging.json" : "production.json";
+    const label = command === "staging" ? "staging on Render" : "production";
+    const urls = JSON.parse(readFileSync(new URL(`scripts/${file}`, ROOT), "utf8"));
+    writeAppEnv({ label, command, ...urls });
     process.stdout.write(
         [
             "",
-            `The app now uses staging at ${staging.api}.`,
+            `The app now uses ${label} at ${urls.api}.`,
             "Restart Metro with --clear: pnpm --filter app start --clear",
             "",
         ].join("\n"),
@@ -111,6 +113,6 @@ if (command === "on") {
     compose();
     process.stdout.write("\nBack on localhost. Restart the API and Metro (--clear).\n");
 } else {
-    process.stdout.write("Usage: node scripts/device.mjs on|staging|off\n");
+    process.stdout.write("Usage: node scripts/device.mjs on|staging|prod|off\n");
     process.exitCode = 1;
 }
