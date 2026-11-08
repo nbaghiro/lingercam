@@ -248,6 +248,7 @@ export const QUEUES = [
     "develop",
     "reveal",
     "reveal-sweep",
+    "reveal-email",
     "release-reservations",
     "expire-sessions",
     "push-receipts",

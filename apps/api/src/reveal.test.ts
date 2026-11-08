@@ -2,8 +2,8 @@ import type { ExpoPushMessage } from "expo-server-sdk";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { boss, db, events, guests, pushTokens, startQueue, stopQueue } from "./db.ts";
-import { checkReceipts, push, sendPush } from "./notify.ts";
-import { advance, revealOverdue, startRevealWorker } from "./reveal.ts";
+import { checkReceipts, mail, pooled, push, sendPush } from "./notify.ts";
+import { advance, revealOverdue, sendRevealEmail, startRevealWorker } from "./reveal.ts";
 import { developShot, startShotWorkers } from "./shots.ts";
 import {
     call,
@@ -352,6 +352,42 @@ describe("telling people", () => {
             messages?: unknown[];
         };
         expect(found.messages ?? []).toHaveLength(0);
+    });
+
+    test("a reveal email that fails isn't marked sent, so its retry delivers it once", async () => {
+        const { token } = await newHost();
+        const event = await newEvent(token, { live: true, settings: { title: "Bake off" } });
+        const jo = await join(event.code, "Jo");
+        const address = `jo-${event.code.toLowerCase()}@example.com`;
+        await call("POST", `/v1/e/${event.code}/email`, {
+            device: jo.device,
+            json: { email: address },
+        });
+        const emailedAt = async () =>
+            (await db.select().from(guests).where(eq(guests.id, jo.guestId)))[0]?.emailedAt;
+
+        const send = mail.send;
+        mail.send = async () => {
+            throw new Error("smtp is down");
+        };
+        try {
+            await expect(
+                sendRevealEmail(jo.guestId, "Bake off: the photos are ready."),
+            ).rejects.toThrow();
+        } finally {
+            mail.send = send;
+        }
+        expect(await emailedAt()).toBeNull();
+        expect(await sendRevealEmail(jo.guestId, "Bake off: the photos are ready.")).toBe(true);
+        expect(await emailedAt()).toBeInstanceOf(Date);
+        expect(await sendRevealEmail(jo.guestId, "Bake off: the photos are ready.")).toBe(false);
+    });
+
+    test("SMTP connections are pooled unless the URL says otherwise", () => {
+        expect(pooled("smtp://resend:key@smtp.resend.com:587")).toBe(
+            "smtp://resend:key@smtp.resend.com:587?pool=true",
+        );
+        expect(pooled("smtp://localhost:8177?pool=false")).toBe("smtp://localhost:8177?pool=false");
     });
 
     test("a host hears once when the event fills, and again after making room", async () => {

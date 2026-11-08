@@ -18,7 +18,7 @@ import {
 
 describe("storage", () => {
     test("uses the test bucket", () => {
-        expect(bucket).toBe("linger-test");
+        expect(bucket).toBe(process.env.S3_TEST_BUCKET ?? "linger-test");
     });
 
     test("keys follow the layout", () => {

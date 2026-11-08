@@ -12,8 +12,15 @@ import { errorDetail, log, maskEmail } from "./http.ts";
 
 const accessToken = process.env.EXPO_ACCESS_TOKEN || undefined;
 const mailFrom = process.env.MAIL_FROM ?? "LingerCam <hello@lingercam.app>";
-const mailer = nodemailer.createTransport(process.env.SMTP_URL ?? "smtp://localhost:8177");
+const mailer = nodemailer.createTransport(pooled(process.env.SMTP_URL ?? "smtp://localhost:8177"));
 const joinUrl = process.env.JOIN_URL ?? "http://localhost:8173";
+
+/** Keeps a few SMTP connections open, so a reveal's emails don't each open a new one. */
+export function pooled(url: string): string {
+    const parsed = new URL(url);
+    if (!parsed.searchParams.has("pool")) parsed.searchParams.set("pool", "true");
+    return parsed.toString();
+}
 
 /** Minutes before Expo's receipts are checked; Expo has them within 15 minutes. */
 export const RECEIPT_MINUTES = 15;

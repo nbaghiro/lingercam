@@ -127,11 +127,15 @@ These stop submission or break a promise the product makes.
       Done 2026-11-08: the worker runs `revealOverdue` every minute (`reveal-sweep`), and
       `events.state` has an index (migration 0006). API test: an event whose reveal job never ran is
       revealed by the sweep.
-- [ ] **B5.** **Reveal notifications don't scale and can be lost.** The reveal job sends the push and then
+- [x] **B5.** **Reveal notifications don't scale and can be lost.** The reveal job sends the push and then
       each email in turn, over SMTP without pooling, one event at a time. With 20 events revealing
       together, the last could wait 20 to 30 minutes. Emails are marked sent before they go out, so a
       crash partway loses the rest. Send through a queue with one job per email, and mark each sent
       after it goes.
+      Done 2026-11-08: the reveal sends the push, then queues one `reveal-email` job per guest
+      (retried with backoff for about an hour) that marks `emailedAt` only after the send. SMTP
+      connections are pooled, and four reveals and four emails run side by side per worker. API
+      tests: a failed send stays unmarked and the retry delivers it once.
 - [ ] **B6.** **A venue's shared Wi-Fi can lock everyone out.** The code-miss limiter is checked on every
       request that carries a code, keyed by IP. Twenty mistyped codes from one venue's Wi-Fi or a
       carrier's network block gallery polling for every guest there for 10 minutes. Check it only
@@ -347,3 +351,5 @@ unconfirmed.
 - 2026-11-07: site pages for How it works, Guests, The reveal and Questions, linked from the nav and
   from each home section. Facts read from core where they can be; nothing planned is described.
 - 2026-11-08: B4 done: a reveal sweep every minute and an index on events.state.
+- 2026-11-08: B5 done: reveal emails go through a queue, one job per email, marked after sending,
+  over pooled SMTP.
