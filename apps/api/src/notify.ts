@@ -150,7 +150,12 @@ export async function sendMail(message: {
         await mail.send(message);
         return true;
     } catch (error) {
-        log("error", "email failed", { email: maskEmail(message.to), error: errorDetail(error) });
+        log(
+            "error",
+            "email failed",
+            { email: maskEmail(message.to), error: errorDetail(error) },
+            error,
+        );
         return false;
     }
 }

@@ -274,7 +274,7 @@ export const boss = new PgBoss({
 // pg-boss emits "error" when a poll or its maintenance can't reach the database. Without a
 // listener Node treats that as unhandled and the whole API stops; pg-boss retries on its own.
 boss.on("error", (error: unknown) =>
-    log("error", "job queue error", { error: errorDetail(error) }),
+    log("error", "job queue error", { error: errorDetail(error) }, error),
 );
 
 let bossStarted: Promise<void> | null = null;

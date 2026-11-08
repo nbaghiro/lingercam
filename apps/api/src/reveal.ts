@@ -1,6 +1,6 @@
 import { ARCHIVE_AFTER_DAYS, dueState } from "@linger/core/events";
 import { revealTime } from "@linger/core/reveal";
-import { and, count, countDistinct, eq, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
+import { and, count, countDistinct, eq, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import { boss, db, events, guests, shots } from "./db.ts";
 import type { EventRow } from "./events.ts";
 import { log } from "./http.ts";
@@ -107,22 +107,41 @@ export async function scheduleReveal(event: EventRow): Promise<void> {
     }
 }
 
-/** Reveals, ends or archives everything that is overdue, for example after downtime. */
+/** How long past its reveal time an event can stay unrevealed before it's reported as an error. */
+const LATE_REVEAL_MS = 10 * 60_000;
+
+/**
+ * Reveals, ends or archives everything that is overdue, for example after downtime. An event
+ * that can't be moved on, or is still unrevealed well past its reveal time, is logged as an error,
+ * which Sentry turns into an alert.
+ */
 export async function revealOverdue(now = new Date()): Promise<number> {
     const archiveBefore = new Date(now.getTime() - ARCHIVE_AFTER_DAYS * DAY_MS);
     const due = await db
-        .select({ id: events.id, state: events.state })
+        .select({ id: events.id, state: events.state, settings: events.settings })
         .from(events)
         .where(
             or(
-                inArray(events.state, ["live", "ended"]),
+                and(
+                    eq(events.state, "live"),
+                    sql`(${events.settings}->>'endsAt')::timestamptz <= ${now.toISOString()}::timestamptz`,
+                ),
+                eq(events.state, "ended"),
                 and(eq(events.state, "revealed"), lt(events.revealedAt, archiveBefore)),
             ),
         );
     let changed = 0;
-    for (const { id, state } of due) {
-        const after = await advance(id, now);
-        if (after && after.state !== state) changed++;
+    for (const { id, state, settings } of due) {
+        try {
+            const after = await advance(id, now);
+            if (after && after.state !== state) changed++;
+            const late = now.getTime() - revealTime(settings).getTime() > LATE_REVEAL_MS;
+            if (after && (after.state === "live" || after.state === "ended") && late) {
+                log("error", "event is past its reveal time and hasn't revealed", { eventId: id });
+            }
+        } catch (error) {
+            log("error", "overdue event could not advance", { eventId: id }, error);
+        }
     }
     return changed;
 }

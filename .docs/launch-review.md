@@ -171,8 +171,18 @@ These stop submission or break a promise the product makes.
       drops Neon's `channel_binding` parameter, which the Postgres client would otherwise send to
       the server and fail on (tested). Ticked when the project exists and production runs on it.
       Done 2026-11-07: production runs on it; `/health/deep` passes from api.lingercam.app.
-- [ ] **B11.** **No error tracking or alerting.** Add Sentry across the app, the web build and the API, and an
+- [x] **B11.** **No error tracking or alerting.** Add Sentry across the app, the web build and the API, and an
        alert for any event past its reveal time that hasn't revealed.
+      Done 2026-11-08: Sentry is wired in and stays off until a DSN is set. The API
+      (`monitoring.ts`) sends every error-level log, with the stack where there is one, tagged with
+      the Render commit and the role. The app and the guest web app wrap the root layout with
+      `@sentry/react-native` when the build has `EXPO_PUBLIC_SENTRY_DSN`; the web bundle was checked
+      with a DSN set. The reveal sweep logs an error for any event still unrevealed 10 minutes past
+      its reveal time, or that fails to advance, so an alert rule on new errors covers it. Left for
+      Naib: create Sentry projects for the API and the app, set `SENTRY_DSN` in the `lingercam-
+      backend` group and `EXPO_PUBLIC_SENTRY_DSN` on the join site and in EAS, and add an alert
+      rule. For readable native stacks the `@sentry/react-native` plugin still needs adding to
+      `app.config.ts`, and the next native build picks the SDK up.
 
 ## Fix before launch
 
@@ -382,3 +392,5 @@ unconfirmed.
 - 2026-11-08: B8 and F1 to F5 done: deletes move files to a retried job with a second pass after
   upload URLs expire, develops retry for hours and a sweep catches stuck uploads, and account
   deletion tears down each event.
+- 2026-11-08: B11 done: Sentry in the API, the app and the web build, off until a DSN is set, with
+  an error for any event that misses its reveal.

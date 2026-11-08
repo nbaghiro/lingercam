@@ -9,6 +9,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { endPastActivities } from "@/activity";
 import { loadSession } from "@/api";
+import { withTracking } from "@/monitoring";
 import { resyncReminders, useNotificationTaps } from "@/notify";
 import { claimPending } from "@/purchase";
 import { ConfirmHost, FONTS, ToastHost, color } from "@/ui";
@@ -30,7 +31,7 @@ const theme = {
     colors: { ...DarkTheme.colors, background: color.night, card: color.night, text: color.paper },
 };
 
-export default function RootLayout() {
+function RootLayout() {
     const [fontsLoaded, fontError] = useFonts(FONTS);
     const [sessionLoaded, setSessionLoaded] = useState(false);
     const [timedOut, setTimedOut] = useState(false);
@@ -82,3 +83,5 @@ export default function RootLayout() {
         </GestureHandlerRootView>
     );
 }
+
+export default withTracking(RootLayout);

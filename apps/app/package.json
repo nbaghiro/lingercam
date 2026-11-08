@@ -19,6 +19,7 @@
         "@linger/core": "workspace:*",
         "@react-native-community/datetimepicker": "9.2.1",
         "@react-native-community/netinfo": "12.0.1",
+        "@sentry/react-native": "~8.28.0",
         "@shopify/react-native-skia": "catalog:",
         "expo": "catalog:",
         "expo-asset": "~58.0.19",
