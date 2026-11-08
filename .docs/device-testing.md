@@ -42,7 +42,7 @@ terminal here.
 ## 2. Install the development build (Claude, with the phone plugged in)
 
 ```
-cd ~/Documents/code/linger
+cd ~/Documents/code/lingercam
 pnpm device:on                       # the local backend for now
 xcrun xctrace list devices           # find the phone's exact name
 cd apps/app && npx expo run:ios --device "<phone name>"
@@ -67,8 +67,8 @@ the link EAS prints. It loads its addresses from Metro like the local build.
 session get stopped after a while, so run these yourself:
 
 ```
-cd ~/Documents/code/linger && pnpm --filter api dev
-cd ~/Documents/code/linger && pnpm --filter app start --clear
+cd ~/Documents/code/lingercam && pnpm --filter api dev
+cd ~/Documents/code/lingercam && pnpm --filter app start --clear
 ```
 
 Docker must be running (`pnpm device:on` starts storage), with Docker Desktop's memory raised to
