@@ -588,4 +588,30 @@ describe("guessing codes", () => {
         expect(status).toBe(429);
         expect((await call("GET", `/v1/e/${event.code}`)).status).toBe(429);
     });
+
+    test("one phone's misses on a venue's Wi-Fi don't lock out the guests around it", async () => {
+        const { token } = await newHost();
+        const event = await newEvent(token, { live: true });
+        // The app sends its device with every request, so its misses are counted apart.
+        const ana = newDevice();
+        const joined = await call("POST", `/v1/e/${event.code}/join`, {
+            device: ana,
+            json: { name: "Ana", device: ana },
+        });
+        expect(joined.status).toBe(200);
+        const typo = newDevice();
+        let status = 404;
+        for (let i = 0; i < 25 && status === 404; i++) {
+            const code = `YYYY${String(i).padStart(2, "2")}`;
+            status = (await call("GET", `/v1/e/${code}`, { device: typo })).status;
+        }
+        expect(status).toBe(429);
+        // Ana is already in the event, and a new guest at the same venue can still join.
+        const gallery = await call("GET", `/v1/e/${event.code}/gallery`, { device: ana });
+        expect(gallery.status).toBe(200);
+        expect((await call("GET", `/v1/e/${event.code}`, { device: newDevice() })).status).toBe(
+            200,
+        );
+        expect((await call("GET", `/v1/e/${event.code}`, { device: typo })).status).toBe(429);
+    });
 });

@@ -136,10 +136,16 @@ These stop submission or break a promise the product makes.
       (retried with backoff for about an hour) that marks `emailedAt` only after the send. SMTP
       connections are pooled, and four reveals and four emails run side by side per worker. API
       tests: a failed send stays unmarked and the retry delivers it once.
-- [ ] **B6.** **A venue's shared Wi-Fi can lock everyone out.** The code-miss limiter is checked on every
+- [x] **B6.** **A venue's shared Wi-Fi can lock everyone out.** The code-miss limiter is checked on every
       request that carries a code, keyed by IP. Twenty mistyped codes from one venue's Wi-Fi or a
       carrier's network block gallery polling for every guest there for 10 minutes. Check it only
       when the code doesn't exist, and key it more finely.
+      Done 2026-11-08: a device already in the event is never checked, so polling carries on. Misses
+      count per address and device (20 in 10 minutes), and the address alone only against 300, so
+      one phone mistyping on a venue Wi-Fi blocks only that phone. The limit is still checked before
+      a lookup reveals whether a code exists, otherwise a 404 or 429 would tell a guesser which
+      codes are real. API test: a phone over its limit is refused while a joined guest and a new
+      guest on the same address carry on.
 - [x] **B7.** **pg-boss has no error listener.** A database blip during its maintenance crashes the process.
       Done 2026-11-04: it happened in testing. The local storage container was killed, a pg-boss poll
       timed out, and the unhandled "error" event stopped the API. `db.ts` now logs pg-boss errors and
@@ -353,3 +359,5 @@ unconfirmed.
 - 2026-11-08: B4 done: a reveal sweep every minute and an index on events.state.
 - 2026-11-08: B5 done: reveal emails go through a queue, one job per email, marked after sending,
   over pooled SMTP.
+- 2026-11-08: B6 done: code misses are counted per device and address, and guests already in an
+  event are never checked.

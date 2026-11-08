@@ -163,20 +163,31 @@ export async function ownedEvent(host: Host, id: string): Promise<EventRow> {
     return event;
 }
 
-// Join codes are short enough to guess, so an address that keeps missing is turned away.
+// Join codes are short enough to guess, so a device that keeps missing is turned away. A whole
+// venue's Wi-Fi shares one address, so the address itself only counts against a far higher limit.
 const codeMisses = limiter("code-miss", 20, 10 * 60_000);
+const addressMisses = limiter("code-miss-address", 300, 10 * 60_000);
 // Shared links can all arrive through the join site's proxy under one address, and the page
 // gives away no more than a title and a cover, so it has its own, looser count.
 const pageMisses = limiter("page-miss", 300, 10 * 60_000);
 
-/** The event for the `:code` in the route. */
+/**
+ * The event for the `:code` in the route. Misses are only counted against callers who aren't
+ * already in the event, so guests keep loading it whatever anyone else on their network types.
+ */
 export async function eventByCode(c: Context, misses = codeMisses): Promise<EventRow> {
     const ip = clientIp(c);
-    misses.check(ip);
+    const device = deviceOf(c);
     const code = normalizeJoinCode(c.req.param("code") ?? "");
     const [event] = code ? await db.select().from(events).where(eq(events.code, code)) : [];
+    if (event && device && (await guestFor(event.id, device))) return event;
+    const key = `${ip}|${device ?? ""}`;
+    const byAddress = misses === codeMisses;
+    misses.check(key);
+    if (byAddress) addressMisses.check(ip);
     if (!event) {
-        misses.hit(ip);
+        misses.hit(key);
+        if (byAddress) addressMisses.hit(ip);
         throw notFound();
     }
     return event;
