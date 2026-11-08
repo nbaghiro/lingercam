@@ -1,5 +1,5 @@
 # Signed out with nothing joined: welcome, sign-in, the code sheet and every join sheet state.
-appId: app.galleo.linger
+appId: app.lingercam
 ---
 - runFlow:
     file: _start.yaml

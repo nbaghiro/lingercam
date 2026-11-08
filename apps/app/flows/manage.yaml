@@ -1,7 +1,7 @@
 # The demo host makes room at Game night (GAMENT, nine of ten guests) through the development
 # claim, moves the reveal later, limits who sees the photos, shows the code, ends the event and
 # deletes it. It changes the seed, so reseed before running it again.
-appId: app.galleo.linger
+appId: app.lingercam
 ---
 - runFlow: open.yaml
 - runFlow:

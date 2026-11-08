@@ -1,6 +1,6 @@
 # The last minutes of shooting. Run straight after a seed: Friday office drinks closes 9 minutes
 # after it.
-appId: app.galleo.linger
+appId: app.lingercam
 ---
 - runFlow:
     file: _start.yaml

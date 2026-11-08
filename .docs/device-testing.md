@@ -48,8 +48,8 @@ xcrun xctrace list devices           # find the phone's exact name
 cd apps/app && npx expo run:ios --device "<phone name>"
 ```
 
-- Xcode's automatic signing registers the phone and creates the bundle id `app.galleo.linger`
-  and the Live Activity's `app.galleo.linger.activity`, with push and the app group.
+- Xcode's automatic signing registers the phone and creates the bundle id `app.lingercam`
+  and the Live Activity's `app.lingercam.activity`, with push.
 - The first build takes 5 to 10 minutes. It installs and opens the app on the phone.
 - **On the phone, if asked:** Settings → General → VPN & Device Management → trust the
   developer. Allow **Local Network** when Linger asks; the development build needs it to reach
@@ -239,6 +239,11 @@ staging is simpler for this one.
   builds allow plain HTTP to local addresses only (`NSAllowsLocalNetworking`). Checked over the
   Wi-Fi address: health, signed photos, covers, and the app on the simulator.
 - 2026-11-07: staging's database moved to Neon, as in `deployment.md`.
+- 2026-11-08: the bundle id is now `app.lingercam` (Android package too), matching the domain.
+  Until GalleoApp, Inc.'s team exists, `PERSONAL_TEAM=1` and `APPLE_TEAM_ID=PS5BB4TQD2` in
+  `apps/app/.env.local` sign phone builds with the free Personal Team as `app.lingercam.dev`, without
+  push or join links, which a free team can't sign. Those builds expire after 7 days. Build with
+  `npx expo run:ios --device <id> --configuration Release` for a copy that needs no Metro.
 - 2026-11-08: `pnpm device:prod` points the development build at production. Signing still waits
   on GalleoApp, Inc.'s team in Xcode: only PocketSuite's team and a free Personal Team are signed
   in, and the old Apple Development certificate is revoked.

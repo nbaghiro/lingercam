@@ -1,5 +1,5 @@
 # Opens a link, waits for a text and saves a screenshot as SHOT.
-appId: app.galleo.linger
+appId: app.lingercam
 ---
 - openLink: ${LINK}
 - extendedWaitUntil:

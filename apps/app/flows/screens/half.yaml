@@ -1,5 +1,5 @@
 # A host partway in: an event waiting for its first guest and a draft to finish.
-appId: app.galleo.linger
+appId: app.lingercam
 ---
 - runFlow:
     file: _start.yaml

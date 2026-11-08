@@ -1,7 +1,7 @@
 # The demo host with every kind of event: the full list, the card menu, a live event and its
 # Manage sheet, a nearly full free event, waiting, coming up, right away, the first reveal,
 # moderation, a large crowd and Settings.
-appId: app.galleo.linger
+appId: app.lingercam
 ---
 - runFlow:
     file: _start.yaml

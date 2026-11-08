@@ -1,6 +1,6 @@
 # The large demo events: the 3,000-photo festival from top to deep in the grid, its 251 people
 # and the recap, the 1,500 photos developing at the live wedding, and the festival as a guest.
-appId: app.galleo.linger
+appId: app.lingercam
 ---
 - runFlow:
     file: _start.yaml

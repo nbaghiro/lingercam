@@ -1,6 +1,6 @@
 # A new host with no events: the empty list, every step of making a free event, the invite, the
 # list with its first event, and Settings with the name sheet.
-appId: app.galleo.linger
+appId: app.lingercam
 ---
 - runFlow:
     file: _start.yaml

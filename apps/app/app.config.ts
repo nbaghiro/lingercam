@@ -1,4 +1,5 @@
 import type { ExpoConfig } from "expo/config";
+import { withEntitlementsPlist, type ConfigPlugin } from "expo/config-plugins";
 
 const NIGHT = "#0D0D0D";
 const CAMERA =
@@ -11,6 +12,20 @@ const SAVE_PHOTOS = "LingerCam saves the photos you choose to your photo library
 const MICROPHONE = "LingerCam only takes photos and never records sound.";
 /** Guests' links and printed codes point here; the app opens them when it's installed. */
 const JOIN_HOST = "join.lingercam.app";
+/**
+ * A build signed by a free Personal Team, for a phone before GalleoApp, Inc.'s team exists. Free
+ * teams can't sign push or associated domains, and the real bundle id stays free for the company.
+ */
+const PERSONAL_TEAM = process.env.PERSONAL_TEAM === "1";
+const BUNDLE_ID = PERSONAL_TEAM ? "app.lingercam.dev" : "app.lingercam";
+
+/** Drops the push and associated-domains entitlements, which a free team can't sign. */
+const forPersonalTeam: ConfigPlugin = (config) =>
+    withEntitlementsPlist(config, (mod) => {
+        delete mod.modResults["aps-environment"];
+        delete mod.modResults["com.apple.developer.associated-domains"];
+        return mod;
+    });
 
 const config: ExpoConfig = {
     name: "LingerCam",
@@ -23,7 +38,7 @@ const config: ExpoConfig = {
     backgroundColor: NIGHT,
     runtimeVersion: { policy: "fingerprint" },
     ios: {
-        bundleIdentifier: "app.galleo.linger",
+        bundleIdentifier: BUNDLE_ID,
         // GalleoApp, Inc.'s team, for signing builds for a phone. Set APPLE_TEAM_ID in the shell
         // or in apps/app/.env.local; simulator builds don't need it.
         ...(process.env.APPLE_TEAM_ID ? { appleTeamId: process.env.APPLE_TEAM_ID } : {}),
@@ -34,10 +49,10 @@ const config: ExpoConfig = {
             NSMicrophoneUsageDescription: MICROPHONE,
             NSSupportsLiveActivities: true,
         },
-        associatedDomains: [`applinks:${JOIN_HOST}`],
+        associatedDomains: PERSONAL_TEAM ? [] : [`applinks:${JOIN_HOST}`],
     },
     android: {
-        package: "app.galleo.linger",
+        package: "app.lingercam",
         adaptiveIcon: {
             foregroundImage: "./assets/adaptive-icon.png",
             monochromeImage: "./assets/adaptive-monochrome.png",
@@ -86,4 +101,4 @@ const config: ExpoConfig = {
     experiments: { typedRoutes: true, reactCompiler: true },
 };
 
-export default config;
+export default PERSONAL_TEAM ? forPersonalTeam(config) : config;

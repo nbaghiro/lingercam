@@ -4,7 +4,7 @@
 # answers from earlier runs don't hide the card. The simulator can't preset the notification
 # permission, so the system prompt sets it, and Maestro answers that prompt with the
 # NOTIFICATIONS value open.yaml launches with.
-appId: app.galleo.linger
+appId: app.lingercam
 ---
 - launchApp:
     clearState: true

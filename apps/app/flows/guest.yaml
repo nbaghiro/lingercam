@@ -1,7 +1,7 @@
 # A guest opens the seeded live birthday from its link, joins and shoots, checks the camera's
 # tools, then leaves and comes back. Also opens a code by hand and the seeded states the join
 # sheet has: before the start, right-away while shooting, a draft, ended and revealed.
-appId: app.galleo.linger
+appId: app.lingercam
 ---
 - runFlow: open.yaml
 # A guest, so the demo host from host.yaml signs out first.

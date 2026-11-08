@@ -2,7 +2,7 @@
 # `maestro test -e METRO_PORT=8178` points it at another Metro. Maestro grants every permission
 # on launch. NOTIFICATIONS (allow or deny) is how Maestro answers the notification prompt, which
 # the simulator can't preset.
-appId: app.galleo.linger
+appId: app.lingercam
 env:
   METRO_PORT: ${METRO_PORT || "8173"}
   NOTIFICATIONS: ${NOTIFICATIONS || "allow"}

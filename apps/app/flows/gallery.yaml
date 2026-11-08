@@ -1,7 +1,7 @@
 # Opens the revealed wedding as its host, scrolls the gallery, views a photo, hides it and undoes
 # that, closes the viewer with a swipe down, plays the recap to its end card and saves every
 # photo into an album named after the event.
-appId: app.galleo.linger
+appId: app.lingercam
 ---
 - runFlow: open.yaml
 - runFlow:

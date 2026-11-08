@@ -2,7 +2,7 @@
 # with a start time and a custom reveal, the seeded draft resuming at step 5 with Back to every
 # step, and the name row in Settings. The first-sign-in name sheet needs an email account, so the
 # name is checked through Settings, which uses the same sheet.
-appId: app.galleo.linger
+appId: app.lingercam
 ---
 - runFlow: open.yaml
 - runFlow:

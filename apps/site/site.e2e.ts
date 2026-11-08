@@ -108,7 +108,7 @@ test.describe("join domain", () => {
         expect(links.ok()).toBe(true);
         expect(links.headers()["content-type"]).toContain("json");
         const android = (await links.json()) as { target: { package_name: string } }[];
-        expect(android[0]?.target.package_name).toBe("app.galleo.linger");
+        expect(android[0]?.target.package_name).toBe("app.lingercam");
     });
 
     test("the page shell fits the screen and names the app", async ({ request }) => {

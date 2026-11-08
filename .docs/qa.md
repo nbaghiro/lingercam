@@ -20,7 +20,7 @@ Useful commands, with `<udid>` the iPhone 17 Pro simulator:
 ```sh
 xcrun simctl openurl <udid> linger://j/MAYA3X   # join as a guest
 xcrun simctl openurl <udid> linger://e/EMMADN   # open the revealed wedding
-xcrun simctl privacy <udid> reset all app.galleo.linger   # ask for permissions again
+xcrun simctl privacy <udid> reset all app.lingercam   # ask for permissions again
 ```
 
 ## Brand and first launch
@@ -168,7 +168,7 @@ still running on 8171, 8173 and 8170, so this pass ran its own API on 8179 and M
 ### Running the flows
 
 ```sh
-xcrun simctl spawn <udid> defaults write app.galleo.linger EXDevMenuShowFloatingActionButton -bool false
+xcrun simctl spawn <udid> defaults write app.lingercam EXDevMenuShowFloatingActionButton -bool false
 pnpm --filter api seed
 cd apps/app/flows && maestro --device <udid> test .
 ```

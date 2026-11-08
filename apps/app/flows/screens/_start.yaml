@@ -1,6 +1,6 @@
 # Opens the development build and puts the device in a demo state through linger://dev/<persona>,
 # with the development-only controls hidden. Shared by the screen flows here.
-appId: app.galleo.linger
+appId: app.lingercam
 env:
   NOTIFICATIONS: ${NOTIFICATIONS || "allow"}
 ---

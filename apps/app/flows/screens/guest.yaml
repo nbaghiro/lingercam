@@ -1,6 +1,6 @@
 # The demo guest: joined events at every stage, the camera with shots left and with none, the
 # first reveal, the gallery, a photo of their own and someone else's, the recap and the people.
-appId: app.galleo.linger
+appId: app.lingercam
 ---
 - runFlow:
     file: _start.yaml

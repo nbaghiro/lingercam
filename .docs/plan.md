@@ -20,7 +20,7 @@ the decisions every part of the code has to agree on.
   Pretendard bundled as font files, `react-native-qrcode-svg`. New Architecture, React Compiler on,
   typed routes. Check `https://docs.expo.dev/versions/v58.0.0/` before using an Expo API.
 - Site: Astro (current stable), static output.
-- Identifiers: bundle id and package `app.galleo.linger`, scheme `linger`, Expo slug `linger`.
+- Identifiers: bundle id and package `app.lingercam`, scheme `linger`, Expo slug `linger`.
 - Domains: `lingercam.app` for the site and `join.lingercam.app` for the guest web app. Locally
   these are `http://localhost:8170` and `http://localhost:8173`.
 

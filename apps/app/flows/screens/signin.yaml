@@ -1,6 +1,6 @@
 # Signing in with email for the first time: the code step, and the name sheet a new host gets.
 # EMAIL must be new each run, e.g. `-e EMAIL=robin+$(date +%s)@example.com`.
-appId: app.galleo.linger
+appId: app.lingercam
 ---
 - runFlow:
     file: _start.yaml
