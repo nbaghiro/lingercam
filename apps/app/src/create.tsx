@@ -64,7 +64,14 @@ import {
 import { HostAppNote } from "@/home";
 import { Invite } from "@/invite";
 import { LookImage } from "@/look";
-import { claimPending, purchase, storePrices, testPurchases, type StorePrice } from "@/purchase";
+import {
+    claimPending,
+    PaymentsUnavailable,
+    purchase,
+    storePrices,
+    testPurchases,
+    type StorePrice,
+} from "@/purchase";
 import {
     Button,
     Field,
@@ -1453,6 +1460,10 @@ function Footer({
 
     const fail = (error: unknown, created: boolean) => {
         setBusy(false);
+        if (error instanceof PaymentsUnavailable) {
+            setProblemLine(t("create.paymentsUnavailable"));
+            return;
+        }
         if (error instanceof StoreFailure) {
             setProblemLine(t("create.paymentFailedDraft"));
             return;
@@ -1509,7 +1520,9 @@ function Footer({
                     tier: wanted.tier?.id ?? "free",
                     unlimitedShots: wanted.addOn !== null,
                 }).catch((error: unknown) => {
-                    throw error instanceof ApiError ? error : new StoreFailure(String(error));
+                    if (error instanceof ApiError || error instanceof PaymentsUnavailable)
+                        throw error;
+                    throw new StoreFailure(String(error));
                 });
                 if (result.kind === "redirected") return;
                 onEvent(result.event);

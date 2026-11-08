@@ -108,6 +108,9 @@ export function hasPendingClaims(hostId: string): boolean {
     return readPending().some((c) => c.hostId === hostId);
 }
 
+/** A release build without a store key, which can't take payments. */
+export class PaymentsUnavailable extends Error {}
+
 /** Purchases go through the API's development claim, with no store and no card. */
 export function testPurchases(): boolean {
     return !storeKey;
@@ -161,6 +164,7 @@ export async function purchase(request: PurchaseRequest): Promise<PurchaseResult
     let event = request.event;
 
     if (!storeKey) {
+        if (!__DEV__) throw new PaymentsUnavailable();
         for (const id of ids) event = await api.billing.devClaim(event.id, id);
         return { kind: "paid", event };
     }

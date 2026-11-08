@@ -25,6 +25,9 @@ export function hasPendingClaims(_hostId: string): boolean {
     return false;
 }
 
+/** Matches the native module; the web pays through Stripe Checkout, so it never throws this. */
+export class PaymentsUnavailable extends Error {}
+
 /** In development the API's development claim applies purchases without a card. */
 export function testPurchases(): boolean {
     return __DEV__;

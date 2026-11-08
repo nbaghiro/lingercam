@@ -176,6 +176,8 @@ const en = {
     "create.rules.unlimitedPrice": "Unlimited shots add {price}",
     "create.guests.included": "Included",
     "create.testPurchase": "Test purchase",
+    "create.paymentsUnavailable":
+        "Paid plans aren't available in this build yet. Choose Free without Unlimited shots, and your event is saved as a draft.",
     "create.paymentFailedDraft": "The payment didn't go through. Your event is saved as a draft.",
     "create.offlineDraft": "LingerCam couldn't reach the server. Your event is saved as a draft.",
     "create.partlyPaid": "{tier} is paid. Unlimited shots wasn't added.",

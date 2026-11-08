@@ -242,8 +242,16 @@ staging is simpler for this one.
 - 2026-11-08: the bundle id is now `app.lingercam` (Android package too), matching the domain.
   Until GalleoApp, Inc.'s team exists, `PERSONAL_TEAM=1` and `APPLE_TEAM_ID=PS5BB4TQD2` in
   `apps/app/.env.local` sign phone builds with the free Personal Team as `app.lingercam.dev`, without
-  push or join links, which a free team can't sign. Those builds expire after 7 days. Build with
-  `npx expo run:ios --device <id> --configuration Release` for a copy that needs no Metro.
+  push or join links, which a free team can't sign. Those builds expire after 7 days. A Release
+  copy that needs no Metro (Expo's `run:ios` can't create the free team's profiles, so call Xcode):
+  ```
+  cd apps/app/ios
+  xcodebuild -workspace LingerCam.xcworkspace -scheme LingerCam -configuration Release \
+      -destination id=<udid> -derivedDataPath build -allowProvisioningUpdates \
+      -allowProvisioningDeviceRegistration build
+  xcrun devicectl device install app --device <udid> build/Build/Products/Release-iphoneos/LingerCam.app
+  ```
+  The UDID is in `xcrun xctrace list devices`. Installed on Naib's iPhone Air (iOS 26.0.1).
 - 2026-11-08: `pnpm device:prod` points the development build at production. Signing still waits
   on GalleoApp, Inc.'s team in Xcode: only PocketSuite's team and a free Personal Team are signed
   in, and the old Apple Development certificate is revoked.
