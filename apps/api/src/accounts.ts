@@ -4,10 +4,10 @@ import { and, eq, gt, lt, sql } from "drizzle-orm";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { z } from "zod";
-import { boss, db, emailCodes, events, guests, hosts, pushTokens, sessions } from "./db.ts";
+import { boss, db, emailCodes, guests, hosts, pushTokens, sessions } from "./db.ts";
 import { ApiError, body, clientIp, deviceOf, devRoutes, limiter, log, maskEmail } from "./http.ts";
 import { mail } from "./notify.ts";
-import { keys, removePrefix } from "./storage.ts";
+import { deleteHost } from "./deletion.ts";
 
 export const DEMO_EMAIL = "demo@lingercam.app";
 
@@ -146,18 +146,6 @@ export async function findOrCreateHost(email: string, name?: string): Promise<Ho
     const [found] = await db.select().from(hosts).where(eq(hosts.email, email));
     if (!found) throw new Error(`Host ${email} vanished`);
     return found;
-}
-
-/**
- * Deletes the host's stored photos, then the host; every row cascades from it, including push
- * tokens registered while signed in. `device` also removes the tokens this device registered as a
- * guest.
- */
-export async function deleteHost(hostId: string, device: string | null = null): Promise<void> {
-    const owned = await db.select({ id: events.id }).from(events).where(eq(events.hostId, hostId));
-    for (const event of owned) await removePrefix(keys.event(event.id));
-    if (device) await db.delete(pushTokens).where(eq(pushTokens.device, device));
-    await db.delete(hosts).where(eq(hosts.id, hostId));
 }
 
 const Email = z.string().trim().toLowerCase().pipe(z.email());

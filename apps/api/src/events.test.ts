@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { db, events, pushTokens, shots, startQueue, stopQueue } from "./db.ts";
+import { startDeletionWorkers } from "./deletion.ts";
 import { joinPage, withPreview } from "./events.ts";
 import { developShot } from "./shots.ts";
 import { list } from "./storage.ts";
@@ -14,9 +15,13 @@ import {
     settings,
     shoot,
     upload,
+    waitFor,
 } from "./testing.ts";
 
-beforeAll(startQueue);
+beforeAll(async () => {
+    await startQueue();
+    await startDeletionWorkers();
+});
 afterAll(stopQueue);
 
 describe("creating and editing", () => {
@@ -509,7 +514,7 @@ describe("deleting an event", () => {
         const path = `/v1/events/${event.id}`;
         expect((await call("DELETE", path, { token: other.token })).status).toBe(404);
         expect((await call("DELETE", path, { token })).status).toBe(204);
-        expect(await list(`events/${event.id}/`)).toEqual([]);
+        await waitFor(async () => (await list(`events/${event.id}/`)).length === 0);
         expect(await db.select().from(events).where(eq(events.id, event.id))).toEqual([]);
         expect(await db.select().from(shots).where(eq(shots.eventId, event.id))).toEqual([]);
         expect((await call("GET", `/v1/e/${event.code}`)).status).toBe(404);

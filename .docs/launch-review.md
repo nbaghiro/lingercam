@@ -150,11 +150,16 @@ These stop submission or break a promise the product makes.
       Done 2026-11-04: it happened in testing. The local storage container was killed, a pg-boss poll
       timed out, and the unhandled "error" event stopped the API. `db.ts` now logs pg-boss errors and
       pg-boss retries on its own. Checked by restarting the API and rerunning the Maestro suite.
-- [ ] **B8.** **Photos of deleted events can stay in storage.** A develop that finishes after a delete writes
+- [x] **B8.** **Photos of deleted events can stay in storage.** A develop that finishes after a delete writes
       the photo back, and an upload URL stays valid for 15 minutes after its event or account is
       gone. Both leave full JPEGs, with location, that the privacy policy says are deleted. The
       uploads bucket's expiry rule fixes most of it; developing should also check the photo still
       exists before writing.
+      Done 2026-11-08: a develop that finds its shot gone after writing removes what it wrote, and
+      deleting an event, or a guest with photos still uploading, removes the files again after every
+      upload URL has run out (`afterUploadsExpire`). The R2 expiry rule for originals is still worth
+      adding as a backstop; originals share their folder with the developed photo, so it needs its
+      own prefix first. API test: a photo developed while its event is deleted leaves nothing.
 - [x] **B9.** **No production CORS on storage.** Only the local rules exist, so browser uploads and web Save
       and Share would fail on R2.
       Done 2026-11-07: the `lingercam` R2 bucket allows GET, PUT and HEAD from join.lingercam.app
@@ -175,16 +180,29 @@ Grouped by area. Each one has a failure that a real event can hit.
 
 **Developing and storage**
 
-- [ ] **F1.** Develops give up after three quick retries, so a short storage outage leaves a shot uploaded
+- [x] **F1.** Develops give up after three quick retries, so a short storage outage leaves a shot uploaded
       forever: never shown, never refunded, original kept. Sweep old uploaded shots, retry with
       backoff, then mark failed and refund.
-- [ ] **F2.** Develop reads the whole upload into memory after only a size check at confirm, so a file swapped
+      Done 2026-11-08: develops retry with backoff for about three hours, and a sweep every 15
+      minutes queues uploaded shots again when no job is waiting (after 30 minutes) and fails and
+      refunds them after six hours. API test.
+- [x] **F2.** Develop reads the whole upload into memory after only a size check at confirm, so a file swapped
       in afterwards can run the instance out of memory. Check the size again before reading.
-- [ ] **F3.** Deleting a photo removes its row before its files, so a storage failure orphans them.
-- [ ] **F4.** Deleting an event or an account runs inside the request: about 18,000 objects for a 6,000-photo
+      Done 2026-11-08: the develop checks the size again before reading the file, and fails and
+      refunds an original that is missing or over the limit. API test.
+- [x] **F3.** Deleting a photo removes its row before its files, so a storage failure orphans them.
+      Done 2026-11-08: the row goes first and the files follow in a `remove-files` job retried for
+      most of a day, so a storage failure delays the delete instead of orphaning the files. The same
+      job removes a removed guest's photos.
+- [x] **F4.** Deleting an event or an account runs inside the request: about 18,000 objects for a 6,000-photo
       event, against the app's 20-second timeout. Move it to a job.
-- [ ] **F5.** Account deletion skips each event's teardown, so guests' reveal reminders still fire for deleted
+      Done 2026-11-08: the rows are deleted in the request and the files in a `remove-files` job
+      (`deletion.ts`). API tests wait for the job.
+- [x] **F5.** Account deletion skips each event's teardown, so guests' reveal reminders still fire for deleted
       events. Run the event teardown for each one.
+      Done 2026-11-08: account deletion runs `deleteEvent` for each event: devices hear quietly,
+      queued checks are cancelled and the files go in a job. API test: a guest phone gets the quiet
+      "deleted" push and the event's checks are gone.
 - [ ] **F6.** Covers: `hasCover` is set before the upload, so a failed upload leaves a broken link. HEIC is
       accepted, which most link previews can't show, and covers up to 15 MB are served as the preview
       image. Convert to JPEG on the device, and set the flag after the upload.
@@ -361,3 +379,6 @@ unconfirmed.
   over pooled SMTP.
 - 2026-11-08: B6 done: code misses are counted per device and address, and guests already in an
   event are never checked.
+- 2026-11-08: B8 and F1 to F5 done: deletes move files to a retried job with a second pass after
+  upload URLs expire, develops retry for hours and a sweep catches stuck uploads, and account
+  deletion tears down each event.

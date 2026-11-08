@@ -62,7 +62,8 @@ import {
     RESTORE_DAYS,
     revealLine,
 } from "./notify.ts";
-import { advance, cancelReveal, revealedCounts, scheduleReveal } from "./reveal.ts";
+import { afterUploadsExpire, deleteEvent, removeLater } from "./deletion.ts";
+import { advance, revealedCounts, scheduleReveal } from "./reveal.ts";
 import {
     downloadUrl,
     IMAGE_TYPES,
@@ -70,7 +71,6 @@ import {
     MAX_UPLOAD_BYTES,
     objectSize,
     remove,
-    removePrefix,
     uploadUrl,
 } from "./storage.ts";
 
@@ -369,14 +369,6 @@ async function revealMoved(before: EventRow, after: EventRow): Promise<void> {
     if (was !== now) await notifyQuietly(after, { type: "reveal-changed", revealsAt: now });
 }
 
-/** Deletes an event's stored files, its queued jobs and its rows. */
-export async function deleteEvent(event: EventRow): Promise<void> {
-    await notifyQuietly(event, { type: "deleted" });
-    await cancelReveal(event.id);
-    await removePrefix(keys.event(event.id));
-    await db.delete(events).where(eq(events.id, event.id));
-}
-
 const emailsPerIp = limiter("guest-email-ip", 20, 60 * 60_000);
 const emailsPerGuest = limiter("guest-email-guest", 5, 86_400_000);
 const restoreSendsPerIp = limiter("restore-send-ip", 10, 15 * 60_000);
@@ -610,7 +602,10 @@ eventRoutes.delete("/v1/events/:id/guests/:guestId", async (c) => {
     if (!guest || guest.isHost) {
         throw new ApiError(404, "not-found", "That guest isn't at this event.");
     }
-    const theirs = await db.select({ id: shots.id }).from(shots).where(eq(shots.guestId, guest.id));
+    const theirs = await db
+        .select({ id: shots.id, state: shots.state })
+        .from(shots)
+        .where(eq(shots.guestId, guest.id));
     await db.transaction(async (tx) => {
         await tx
             .insert(removedGuests)
@@ -631,7 +626,12 @@ eventRoutes.delete("/v1/events/:id/guests/:guestId", async (c) => {
                 .where(eq(shots.id, shotId));
         }
     });
-    for (const shot of theirs) await removePrefix(keys.shotFolder(event.id, shot.id));
+    for (const shot of theirs) {
+        await removeLater(keys.shotFolder(event.id, shot.id));
+        if (shot.state === "reserved") {
+            await removeLater(keys.shotFolder(event.id, shot.id), afterUploadsExpire());
+        }
+    }
     log("info", "guest removed", { eventId: event.id, photos: theirs.length });
     return c.body(null, 204);
 });

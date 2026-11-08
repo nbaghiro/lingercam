@@ -6,6 +6,7 @@ import { HTTPException } from "hono/http-exception";
 import { accounts, startAccountWorkers } from "./accounts.ts";
 import { billing } from "./billing.ts";
 import { migrate, role, runsJobs, sql, startQueue, stopQueue } from "./db.ts";
+import { startDeletionWorkers } from "./deletion.ts";
 import { eventRoutes } from "./events.ts";
 import { ApiError, errorDetail, isProduction, log, productionProblems } from "./http.ts";
 import { startNotifyWorkers } from "./notify.ts";
@@ -103,6 +104,7 @@ export function createApp(): Hono {
 export async function startWorkers(): Promise<void> {
     await startQueue();
     await startAccountWorkers();
+    await startDeletionWorkers();
     await startNotifyWorkers();
     await startShotWorkers();
     await startRevealWorker();

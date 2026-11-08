@@ -22,6 +22,8 @@ const sent: ExpoPushMessage[] = [];
 
 beforeAll(async () => {
     await startQueue();
+    // Earlier test files queue develops without a worker; this file's worker shouldn't wait on them.
+    await boss.deleteQueuedJobs("develop");
     await startShotWorkers();
     await startRevealWorker();
     push.send = async (messages) => {
