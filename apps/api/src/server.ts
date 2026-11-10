@@ -9,7 +9,14 @@ import { migrate, role, runsJobs, sql, startQueue, stopQueue } from "./db.ts";
 import { startDeletionWorkers } from "./deletion.ts";
 import { flushTracking } from "./monitoring.ts";
 import { eventRoutes } from "./events.ts";
-import { ApiError, errorDetail, isProduction, log, productionProblems } from "./http.ts";
+import {
+    ApiError,
+    errorDetail,
+    isProduction,
+    launchGaps,
+    log,
+    productionProblems,
+} from "./http.ts";
 import { startNotifyWorkers } from "./notify.ts";
 import { revealOverdue, startRevealWorker } from "./reveal.ts";
 import { releaseExpired, shotRoutes, startShotWorkers } from "./shots.ts";
@@ -122,6 +129,8 @@ async function main(): Promise<void> {
         });
         process.exit(1);
     }
+    const gaps = isProduction ? launchGaps() : [];
+    if (gaps.length > 0) log("warn", "not ready for the stores: settings missing", { gaps });
     // In production migrations run once per deploy, in Render's pre-deploy step.
     if (role === "all") await migrate();
     if (runsJobs) await startWorkers();

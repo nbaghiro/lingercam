@@ -41,11 +41,9 @@ submission ships without it, leave them out and add them with the build that tur
 ## Points to check before submitting
 
 - **Location inside photos.** The app never asks for location, and the in-app camera doesn't add
-  GPS to the photos it takes. A host's cover photo is picked from the library and uploaded as it
-  is, so it can carry the location the phone's camera recorded, and it's served as the event's
-  link preview (F6). Stripping metadata from covers on the device removes the question; until
-  then, Apple's Photos type covers the file, but the privacy policy should say covers keep their
-  metadata. Check one cover from the library on a real iPhone (S5).
+  GPS to the photos it takes. A host's cover photo is picked from the library, and since
+  2026-11-09 the app uploads a new JPEG copy drawn from its pixels, so covers carry no location
+  either (F6). Still to confirm on a real iPhone (S5): download one cover and check it has no GPS.
 - **Originals.** A guest's original upload is deleted once it's developed, usually within
   seconds and at most six hours later if developing keeps failing (F1). That's long enough to
   count as collected, and it's covered by the Photos row.

@@ -5,6 +5,8 @@ const env = {
     NODE_ENV: "test",
     DEV_ROUTES: "1",
     LOG_SILENT: "1",
+    // Lets a test say which address a request came from, with X-Forwarded-For.
+    TRUST_PROXY: "1",
     DATABASE_URL:
         process.env.TEST_DATABASE_URL ?? "postgres://linger:linger@localhost:8172/linger_test",
     S3_BUCKET: process.env.S3_TEST_BUCKET ?? "linger-test",

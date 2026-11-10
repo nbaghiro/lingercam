@@ -85,6 +85,34 @@ describe("dev claims", () => {
         expect(over.body.code).toBe("wrong-state");
     });
 
+    test("more places are refused once no one new can join, the add-on still sells", async () => {
+        const { token } = await newHost();
+        const event = await newEvent(token, {
+            live: true,
+            settings: { revealMode: "next-morning" },
+        });
+        const [row] = await db.select().from(events).where(eq(events.id, event.id));
+        if (!row) throw new Error("no event");
+        const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
+        await db
+            .update(events)
+            .set({
+                state: "ended",
+                settings: { ...row.settings, startsAt: hoursAgo(4), endsAt: hoursAgo(2) },
+            })
+            .where(eq(events.id, event.id));
+        const tier = await call("POST", "/v1/billing/dev-claim", {
+            token,
+            json: { eventId: event.id, productId: "linger.tier.30" },
+        });
+        expect(tier.body.code).toBe("joins-closed");
+        const addOn = await call("POST", "/v1/billing/dev-claim", {
+            token,
+            json: { eventId: event.id, productId: "linger.addon.unlimited" },
+        });
+        expect(addOn.body.event?.unlimitedShots).toBe(true);
+    });
+
     test("a store transaction applies once", async () => {
         const { token, hostId } = await newHost();
         const event = await newEvent(token);

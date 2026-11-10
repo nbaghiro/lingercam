@@ -22,8 +22,9 @@ host chooses. This policy explains what we store to make that work, why, and how
 - **Sessions.** When you sign in we store a hashed session token so the app stays signed in.
 - **Event data.** For each event: its title, occasion, start and end times, time zone, reveal
   settings, shots per guest, who can see the photos, the film look, the event code and an optional
-  cover photo. The cover is stored as you uploaded it, so it keeps any details the file carries,
-  such as where the photo was taken, and it's shown in the event's link previews.
+  cover photo. The app makes a new, smaller copy of the photo you choose before uploading it, so
+  the cover carries no location or other camera metadata. It's shown in the event's link
+  previews.
 - **Purchase records.** When you pay for an event we store the product, the store it came from
   (App Store, Google Play or Stripe), the transaction id and the event it applies to. We never
   receive your card number. Apple, Google and Stripe process the payment under their own policies.

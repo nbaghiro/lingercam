@@ -1,4 +1,5 @@
 import {
+    LATE_JOIN_MS,
     TITLE_MAX,
     lockedSettings,
     type EventSettingsPatch,
@@ -18,7 +19,6 @@ import {
     asApiError,
     invalidate,
     joinLink,
-    uploadFile,
     useLoad,
     useSession,
     type Event,
@@ -35,6 +35,7 @@ import {
 } from "@/copy";
 import { refreshGallery } from "@/gallery";
 import { InviteCard, PrintQr, canPrint, copyLink, factsOfSummary, useTableCards } from "@/invite";
+import { sendCover } from "@/cover";
 import { purchase } from "@/purchase";
 import {
     Button,
@@ -105,7 +106,10 @@ export function HostRow(props: HostToolsProps) {
 
     const count = summary.guestCount;
     const filled = limit > 0 ? Math.min(1, count / limit) : 1;
-    const open = summary.state === "live" || summary.state === "ended";
+    // Room only helps while someone new can still join: live, or the hour after the camera closes.
+    const open =
+        (summary.state === "live" || summary.state === "ended") &&
+        Date.parse(summary.now) < Date.parse(summary.endsAt) + LATE_JOIN_MS;
     const canGrow = open && filled >= MAKE_ROOM_AT && TIERS.some((tier) => tier.guests > limit);
     const line = t("guests.ofLimit", { count, limit });
 
@@ -324,12 +328,10 @@ function ManageSheet(props: HostToolsProps & { visible: boolean; onClose: () => 
         });
         const asset = result.canceled ? undefined : result.assets[0];
         if (!asset) return;
-        const type = asset.mimeType ?? "image/jpeg";
         setBusy(true);
         setError(null);
         try {
-            const { uploadUrl } = await api.events.cover(event.id, type);
-            await uploadFile(uploadUrl, asset.uri, type);
+            await sendCover(event.id, asset.uri);
             haptic("success");
             changed(props);
             showSaved();

@@ -18,9 +18,9 @@ preparation (stage 6) alongside. The steps to deploy are in `.docs/deployment.md
 | --- | --- |
 | 1. App Store blockers (B1 to B3) | Done 2026-11-04 |
 | 2. Reveal correctness (B4 to B7) | Done 2026-11-08 |
-| 3. Storage on R2 (B8, B9, F1 to F7) | In progress: B8, B9, F1 to F5 done; F6, F7 left |
+| 3. Storage on R2 (B8, B9, F1 to F7) | In progress: B8, B9, F1 to F6 done; F7 left |
 | 4. Deploy on Render and Neon (B10, B11, F18 to F21) | In progress: B10, B11, F18, F19 done |
-| 5. Remaining fixes (F8 to F17) | Not started |
+| 5. Remaining fixes (F8 to F17) | In progress: F8, F9, F13, F14 done |
 | 6. Device pass, TestFlight, App Store Connect | In progress: S4 done, S7 and S8 drafted |
 | 7. Submission, launch and live users | Not started |
 
@@ -213,17 +213,28 @@ Grouped by area. Each one has a failure that a real event can hit.
       Done 2026-11-08: account deletion runs `deleteEvent` for each event: devices hear quietly,
       queued checks are cancelled and the files go in a job. API test: a guest phone gets the quiet
       "deleted" push and the event's checks are gone.
-- [ ] **F6.** Covers: `hasCover` is set before the upload, so a failed upload leaves a broken link. HEIC is
+- [x] **F6.** Covers: `hasCover` is set before the upload, so a failed upload leaves a broken link. HEIC is
       accepted, which most link previews can't show, and covers up to 15 MB are served as the preview
       image. Convert to JPEG on the device, and set the flag after the upload.
+      Done 2026-11-09: the app uploads a 1600 px JPEG copy drawn from the photo's pixels, so no
+      HEIC and no location (`cover.ts`), then confirms at `/cover/done`, which checks the file
+      arrived and is at most 3 MB before the event shows it. Only JPEG is signed. API tests; the
+      missing GPS is still to check on a phone (S5).
 - [ ] **F7.** The recap never renews its URLs, and Save all stops at about 6,000 photos.
 
 **Joining and abuse**
 
-- [ ] **F8.** "Make room" is still offered, and sold, after joins have closed. Gate it on `joinsOpen` in the
+- [x] **F8.** "Make room" is still offered, and sold, after joins have closed. Gate it on `joinsOpen` in the
       app and the API.
-- [ ] **F9.** Joins have no rate limit, so a script with the code can fill a free event's 10 places. Add a
+      Done 2026-11-09: the app hides Make room after the late-join hour, and the API refuses a tier
+      for a started event that no one new can join (`joins-closed`) before any payment starts. The
+      add-on still sells. API test.
+- [x] **F9.** Joins have no rate limit, so a script with the code can fill a free event's 10 places. Add a
       per-IP join limit alongside Remove guest.
+      Done 2026-11-09: one address gets 20 new places per event and 60 across events in 10
+      minutes; rejoining doesn't count. That slows a script but can't stop one address taking a
+      free event's 10 places, which is below what a venue's Wi-Fi needs; Remove guest is the
+      answer there. Moves to Postgres with F11. API test.
 - [ ] **F10.** Late uploads trust the phone's time, so someone who joined after the end can add photos for up
       to 7 days after the reveal. Require the photo's time to be after the guest joined.
 - [ ] **F11.** The rate limiter lives in memory per instance, so it doesn't hold with two or more instances,
@@ -233,10 +244,18 @@ Grouped by area. Each one has a failure that a real event can hit.
 
 - [ ] **F12.** A purchase that can't be applied after Apple charged is dropped without telling the host.
       Re-check what's due just before buying, and show a refund path when applying fails.
-- [ ] **F13.** The startup check doesn't require the RevenueCat key, its webhook secret or the Expo push token,
+- [x] **F13.** The startup check doesn't require the RevenueCat key, its webhook secret or the Expo push token,
       and `eas.json` doesn't set the RevenueCat public key. A release build without it calls the
       development claim and fails the reviewer's paid start.
-- [ ] **F14.** Stripe refunds have no idempotency key, so a retried webhook can refund twice.
+      Done 2026-11-09: an EAS production build stops in `app.config.ts` without the platform's
+      RevenueCat public key (set as an EAS environment variable, not in `eas.json`). The API logs
+      "not ready for the stores" at startup while any of the three server settings is missing;
+      it doesn't refuse to start, because production runs before RevenueCat exists (S2). Since
+      F26 a release build without the key says paid plans aren't available.
+- [x] **F14.** Stripe refunds have no idempotency key, so a retried webhook can refund twice.
+      Done 2026-11-09: the refund carries a key from the checkout session and the refunded
+      products, so a retry within Stripe's 24 hours can't pay twice; after that, the recorded
+      refund rows make the retry apply nothing new.
 
 **Web guests**
 
@@ -423,3 +442,5 @@ unconfirmed.
   or join links (`.docs/device-testing.md`). The first Release build against production is on
   Naib's iPhone Air. F26 found and fixed there. D-U-N-S requested for GalleoApp, Inc. (S1 waits on
   it).
+- 2026-11-09: production deployed at 75a0328 (migration 0006 and the new jobs). F6, F8, F9, F13
+  and F14 done. D&B acknowledged the D-U-N-S request (case 11256007); the number is still to come.

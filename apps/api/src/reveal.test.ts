@@ -57,6 +57,9 @@ describe("the full lifecycle", () => {
         expect(cover.status).toBe(200);
         expect(await upload(String(cover.body.uploadUrl), await samplePhoto())).toBe(200);
         expect(await exists(keys.cover(event.id))).toBe(true);
+        expect((await call("POST", `/v1/events/${event.id}/cover/done`, { token })).status).toBe(
+            200,
+        );
         const coverRedirect = await call("GET", `/v1/e/${event.code}/cover`);
         expect(coverRedirect.status).toBe(302);
 

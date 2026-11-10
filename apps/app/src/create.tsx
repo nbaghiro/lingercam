@@ -42,10 +42,10 @@ import {
     asApiError,
     invalidate,
     storage,
-    uploadFile,
     useLoad,
     useSession,
 } from "@/api";
+import { sendCover } from "@/cover";
 import {
     deviceZone,
     formatDay,
@@ -550,18 +550,15 @@ function Create() {
         if (cover.remote) return;
         latestCover.current = cover.uri;
         setCoverState("uploading");
-        coverJob.current = api.events
-            .cover(eventId, cover.mimeType)
-            .then(({ uploadUrl }) => uploadFile(uploadUrl, cover.uri, cover.mimeType))
-            .then(
-                () => {
-                    if (latestCover.current === cover.uri) setCoverState("done");
-                    invalidate("events:");
-                },
-                () => {
-                    if (latestCover.current === cover.uri) setCoverState("failed");
-                },
-            );
+        coverJob.current = sendCover(eventId, cover.uri).then(
+            () => {
+                if (latestCover.current === cover.uri) setCoverState("done");
+                invalidate("events:");
+            },
+            () => {
+                if (latestCover.current === cover.uri) setCoverState("failed");
+            },
+        );
     };
 
     const canCreate = (d: Draft) => d.title.trim() !== "" && !problemsAt(d, "endsAt");

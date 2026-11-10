@@ -1,4 +1,5 @@
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
+import { joinsOpen } from "@linger/core/events";
 import {
     CURRENCY,
     productById,
@@ -37,6 +38,14 @@ function assertWorthBuying(event: EventRow, productId: string): void {
     const bought = product(productId);
     if (bought.kind === "tier" && bought.tier.guests <= event.guestLimit) {
         throw new ApiError(409, "already-covered", "This event already has room for that many.");
+    }
+    // More places are worth nothing once no one new can join.
+    if (
+        bought.kind === "tier" &&
+        event.state !== "draft" &&
+        !joinsOpen(event.state, event.settings, event.revealedAt, new Date())
+    ) {
+        throw new ApiError(409, "joins-closed", "No one new can join this event now.");
     }
     if (bought.kind === "addon" && event.unlimitedShots) {
         throw new ApiError(409, "already-covered", "This event already has unlimited shots.");
@@ -363,10 +372,11 @@ billing.post("/v1/billing/webhooks/stripe", async (c) => {
                     const bought = product(id);
                     return sum + (bought.kind === "tier" ? bought.tier : bought.addOn).priceCents;
                 }, 0);
-                await stripe.refunds.create({
-                    payment_intent: session.payment_intent,
-                    amount: cents,
-                });
+                // Stripe retries webhooks, so the same refund must not be paid twice.
+                await stripe.refunds.create(
+                    { payment_intent: session.payment_intent, amount: cents },
+                    { idempotencyKey: `refund:${session.id}:${unapplied.join(",")}` },
+                );
                 for (const id of unapplied) {
                     await db
                         .insert(purchases)

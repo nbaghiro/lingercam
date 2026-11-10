@@ -64,15 +64,7 @@ import {
 } from "./notify.ts";
 import { afterUploadsExpire, deleteEvent, removeLater } from "./deletion.ts";
 import { advance, revealedCounts, scheduleReveal } from "./reveal.ts";
-import {
-    downloadUrl,
-    IMAGE_TYPES,
-    keys,
-    MAX_UPLOAD_BYTES,
-    objectSize,
-    remove,
-    uploadUrl,
-} from "./storage.ts";
+import { downloadUrl, keys, MAX_UPLOAD_BYTES, objectSize, remove, uploadUrl } from "./storage.ts";
 
 export type EventRow = typeof events.$inferSelect;
 export type GuestRow = typeof guests.$inferSelect;
@@ -170,6 +162,10 @@ const addressMisses = limiter("code-miss-address", 300, 10 * 60_000);
 // Shared links can all arrive through the join site's proxy under one address, and the page
 // gives away no more than a title and a cover, so it has its own, looser count.
 const pageMisses = limiter("page-miss", 300, 10 * 60_000);
+// New places from one address, so a script with the code can't take an event's places in a
+// burst. Set high enough for a venue's Wi-Fi; the host can still remove anyone who got in.
+const placesPerAddressEvent = limiter("join-address-event", 20, 10 * 60_000);
+const placesPerAddress = limiter("join-address", 60, 10 * 60_000);
 
 /**
  * The event for the `:code` in the route. Misses are only counted against callers who aren't
@@ -547,21 +543,40 @@ eventRoutes.delete("/v1/events/:id", async (c) => {
     return c.body(null, 204);
 });
 
+/** Covers are JPEGs the app makes from the chosen photo, small enough to be a link preview. */
+const COVER_MAX_BYTES = 3 * 1024 * 1024;
+
+// The app uploads to the signed URL, then confirms; the event shows the cover only after that,
+// so a failed upload never leaves a broken link.
 eventRoutes.post("/v1/events/:id/cover", async (c) => {
     const event = await ownedEvent(await requireHost(c), c.req.param("id"));
-    const { contentType } = c.req.header("content-type")?.includes("json")
-        ? await body(c, z.object({ contentType: z.enum(IMAGE_TYPES).default("image/jpeg") }))
-        : { contentType: "image/jpeg" as const };
+    if (c.req.header("content-type")?.includes("json")) {
+        await body(c, z.object({ contentType: z.literal("image/jpeg").default("image/jpeg") }));
+    }
+    return c.json({
+        uploadUrl: await uploadUrl(keys.cover(event.id), "image/jpeg"),
+        coverUrl: coverUrl(event),
+    });
+});
+
+eventRoutes.post("/v1/events/:id/cover/done", async (c) => {
+    const event = await ownedEvent(await requireHost(c), c.req.param("id"));
+    const size = await objectSize(keys.cover(event.id));
+    if (size === null) {
+        throw new ApiError(409, "no-cover", "The cover photo hasn't arrived yet.");
+    }
+    if (size > COVER_MAX_BYTES) {
+        await remove(keys.cover(event.id));
+        await db.update(events).set({ hasCover: false }).where(eq(events.id, event.id));
+        throw new ApiError(413, "too-large", "That photo is too large for a cover.");
+    }
     const [updated] = await db
         .update(events)
         .set({ hasCover: true, coverVersion: sql`${events.coverVersion} + 1` })
         .where(eq(events.id, event.id))
         .returning();
     if (!updated) throw notFound();
-    return c.json({
-        uploadUrl: await uploadUrl(keys.cover(event.id), contentType),
-        coverUrl: coverUrl(updated),
-    });
+    return c.json({ event: await hostEventJson(updated) });
 });
 
 eventRoutes.delete("/v1/events/:id/cover", async (c) => {
@@ -745,7 +760,9 @@ eventRoutes.post("/v1/e/:code/join", async (c) => {
         return c.json({ guest: guestJson(own), shotsLeft: shotsLeft(event, own) });
     }
     const input = await body(c, JoinRequest);
+    const ip = clientIp(c);
     let guest: GuestRow;
+    let added = false;
     try {
         guest = await db.transaction(async (tx) => {
             // Locking the event row serialises joins, so the guest limit holds under parallel joins.
@@ -780,6 +797,8 @@ eventRoutes.post("/v1/e/:code/join", async (c) => {
                 return renamed ?? existing;
             }
             if (!locked) throw notFound();
+            placesPerAddressEvent.check(`${ip}:${event.id}`);
+            placesPerAddress.check(ip);
             const now = new Date();
             const state = dueState(locked.state, locked.settings, locked.revealedAt, now);
             if (state === "draft") {
@@ -808,11 +827,16 @@ eventRoutes.post("/v1/e/:code/join", async (c) => {
                 .values({ eventId: event.id, device: input.device, name: input.name })
                 .returning();
             if (!created) throw new Error("Guest insert returned nothing");
+            added = true;
             return created;
         });
     } catch (error) {
         if (error instanceof ApiError && error.code === "event-full") await notifyFull(event);
         throw error;
+    }
+    if (added) {
+        placesPerAddressEvent.hit(`${ip}:${event.id}`);
+        placesPerAddress.hit(ip);
     }
     return c.json({ guest: guestJson(guest), shotsLeft: shotsLeft(event, guest) });
 });

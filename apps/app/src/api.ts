@@ -433,12 +433,14 @@ export const api = {
         /** Changes what the event's state still allows; a locked field fails with "locked". */
         update: (id: string, patch: EventSettingsPatch) =>
             request("PATCH", `/v1/events/${id}`, { body: patch, schema: EventEnvelope }),
-        /** A signed upload URL for the cover, which must then be PUT with the same type. */
-        cover: (id: string, contentType: string) =>
+        /** A signed upload URL for the cover, a JPEG; `coverDone` then puts it on the event. */
+        cover: (id: string) =>
             request("POST", `/v1/events/${id}/cover`, {
-                body: { contentType },
+                body: { contentType: "image/jpeg" },
                 schema: CoverUpload,
             }),
+        coverDone: (id: string) =>
+            request("POST", `/v1/events/${id}/cover/done`, { schema: EventEnvelope }),
         /** Removes the cover photo. */
         removeCover: (id: string) =>
             request("DELETE", `/v1/events/${id}/cover`, { schema: EventEnvelope }),

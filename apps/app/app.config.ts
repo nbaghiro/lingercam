@@ -19,6 +19,16 @@ const JOIN_HOST = "join.lingercam.app";
 const PERSONAL_TEAM = process.env.PERSONAL_TEAM === "1";
 const BUNDLE_ID = PERSONAL_TEAM ? "app.lingercam.dev" : "app.lingercam";
 
+// A store build without RevenueCat's keys can't sell plans, so App Review would hit a paid start
+// that doesn't work. The keys come from EAS environment variables.
+if (process.env.EAS_BUILD_PROFILE === "production") {
+    const key =
+        process.env.EAS_BUILD_PLATFORM === "android"
+            ? "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY"
+            : "EXPO_PUBLIC_REVENUECAT_IOS_KEY";
+    if (!process.env[key]) throw new Error(`A production build needs ${key}.`);
+}
+
 /** Drops the push and associated-domains entitlements, which a free team can't sign. */
 const forPersonalTeam: ConfigPlugin = (config) =>
     withEntitlementsPlist(config, (mod) => {

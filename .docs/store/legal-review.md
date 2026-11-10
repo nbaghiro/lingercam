@@ -16,8 +16,8 @@ IRS SS-4 and is the one used for the D-U-N-S number and Apple enrollment.
 - The service providers: Render for the API, Neon for the database, Resend for email (named, where
   the draft said "an email provider"), and Sentry, marked to keep only once error reporting is on.
 - Where data is processed: the United States.
-- Cover photos keep their file's metadata, including location, and are shown in link previews.
-  That's how the code works today (F6); the sentence goes when covers are cleaned on the device.
+- Cover photos are shown in link previews. Since 2026-11-09 the app uploads a new JPEG copy drawn
+  from the photo's pixels, so covers carry no location (F6); the page says so.
 - How deletion works in time: rows straight away, files within minutes and once more after
   upload links expire.
 - A governing-law clause with the choice left marked, and a line keeping consumer rights.

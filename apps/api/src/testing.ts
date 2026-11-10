@@ -105,12 +105,21 @@ export async function newEvent(
     return event;
 }
 
+/** A made-up client address, so guests in a test don't share the join limit's count. */
+export function newAddress(): string {
+    const [a = 0, b = 0, c = 0] = randomBytes(3);
+    return `10.${a}.${b}.${c}`;
+}
+
 export async function join(
     code: string,
     name = "Guest",
 ): Promise<{ device: string; guestId: string }> {
     const device = newDevice();
-    const res = await call("POST", `/v1/e/${code}/join`, { json: { name, device } });
+    const res = await call("POST", `/v1/e/${code}/join`, {
+        json: { name, device },
+        headers: { "x-forwarded-for": newAddress() },
+    });
     if (res.status !== 200) throw new Error(JSON.stringify(res.body));
     return { device, guestId: String(res.body.guest?.id) };
 }
@@ -135,6 +144,15 @@ export async function upload(url: string, data: Buffer): Promise<number> {
         headers: { "content-type": "image/jpeg" },
     });
     return res.status;
+}
+
+/** Uploads a cover for the event and confirms it, as the app does. */
+export async function addCover(token: string, eventId: string): Promise<void> {
+    const started = await call("POST", `/v1/events/${eventId}/cover`, { token });
+    const status = await upload(String(started.body.uploadUrl), await samplePhoto());
+    if (status !== 200) throw new Error(`cover upload failed with ${status}`);
+    const done = await call("POST", `/v1/events/${eventId}/cover/done`, { token });
+    if (done.status !== 200) throw new Error(JSON.stringify(done.body));
 }
 
 /** Reserves, uploads and confirms one shot; returns its id. */

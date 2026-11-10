@@ -107,6 +107,16 @@ export function productionProblems(env = process.env): string[] {
 }
 
 /**
+ * Settings the server runs without but a store launch needs: RevenueCat to apply App Store and
+ * Play purchases, and Expo's token for push. Logged at startup until they're set.
+ */
+export function launchGaps(env = process.env): string[] {
+    return ["REVENUECAT_SECRET_KEY", "REVENUECAT_WEBHOOK_AUTH", "EXPO_ACCESS_TOKEN"].filter(
+        (key) => !env[key],
+    );
+}
+
+/**
  * The caller's address. Behind Render's proxy (TRUST_PROXY=1) that is the last entry the proxy
  * appended to X-Forwarded-For; otherwise the socket's address.
  */

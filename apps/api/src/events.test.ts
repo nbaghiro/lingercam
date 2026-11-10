@@ -6,6 +6,7 @@ import { joinPage, withPreview } from "./events.ts";
 import { developShot } from "./shots.ts";
 import { list } from "./storage.ts";
 import {
+    addCover,
     call,
     join,
     newDevice,
@@ -105,24 +106,34 @@ describe("creating and editing", () => {
         expect(moved.body.event?.revealsAt).toBe(later);
     });
 
-    test("a cover can be a JPEG, PNG, HEIC or WebP, and nothing else", async () => {
+    test("a cover is a JPEG, and shows only once its upload is confirmed", async () => {
         const { token } = await newHost();
         const event = await newEvent(token);
-        const png = await call("POST", `/v1/events/${event.id}/cover`, {
+        for (const contentType of ["image/heic", "text/html"]) {
+            const refused = await call("POST", `/v1/events/${event.id}/cover`, {
+                token,
+                json: { contentType },
+            });
+            expect(refused.status).toBe(400);
+        }
+        const started = await call("POST", `/v1/events/${event.id}/cover`, {
             token,
-            json: { contentType: "image/png" },
+            json: { contentType: "image/jpeg" },
         });
-        const put = await fetch(String(png.body.uploadUrl), {
-            method: "PUT",
-            body: new Uint8Array([137, 80, 78, 71]),
-            headers: { "content-type": "image/png" },
-        });
-        expect(put.status).toBe(200);
-        const html = await call("POST", `/v1/events/${event.id}/cover`, {
-            token,
-            json: { contentType: "text/html" },
-        });
-        expect(html.status).toBe(400);
+        expect(started.body.coverUrl).toBeNull();
+        const early = await call("POST", `/v1/events/${event.id}/cover/done`, { token });
+        expect(early.body.code).toBe("no-cover");
+        expect((await call("GET", `/v1/events/${event.id}`, { token })).body.event?.coverUrl).toBe(
+            null,
+        );
+        expect(await upload(String(started.body.uploadUrl), await samplePhoto())).toBe(200);
+        const done = await call("POST", `/v1/events/${event.id}/cover/done`, { token });
+        expect(done.body.event?.coverUrl).toMatch(/\/cover\?v=1$/);
+        const big = await call("POST", `/v1/events/${event.id}/cover`, { token });
+        await upload(String(big.body.uploadUrl), Buffer.alloc(3 * 1024 * 1024 + 1));
+        const tooBig = await call("POST", `/v1/events/${event.id}/cover/done`, { token });
+        expect(tooBig.body.code).toBe("too-large");
+        expect((await call("GET", `/v1/e/${event.code}/cover`)).body.code).toBe("no-cover");
         const removed = await call("DELETE", `/v1/events/${event.id}/cover`, { token });
         expect(removed.status).toBe(200);
         expect(removed.body.event?.coverUrl).toBeNull();
@@ -177,6 +188,28 @@ describe("joining", () => {
         });
         expect(res.body.event?.hostId).toBeUndefined();
         expect((await call("GET", "/v1/e/NOPE00")).status).toBe(404);
+    });
+
+    test("one address can take only so many places in an event, and rejoining isn't counted", async () => {
+        const { token } = await newHost();
+        const event = await newEvent(token, { live: true });
+        await call("POST", "/v1/billing/dev-claim", {
+            token,
+            json: { eventId: event.id, productId: "linger.tier.30" },
+        });
+        const headers = { "x-forwarded-for": "203.0.113.7" };
+        const joinAs = (device: string) =>
+            call("POST", `/v1/e/${event.code}/join`, {
+                json: { name: "Guest", device },
+                headers,
+            });
+        const devices = Array.from({ length: 20 }, newDevice);
+        for (const device of devices) expect((await joinAs(device)).status).toBe(200);
+        expect((await joinAs(devices[0] ?? "")).status).toBe(200);
+        const extra = await joinAs(newDevice());
+        expect(extra.status).toBe(429);
+        expect(extra.body.code).toBe("too-many");
+        expect((await join(event.code)).guestId).toBeTruthy();
     });
 
     test("joining past the free limit returns event-full; the same device gets its guest back", async () => {
@@ -528,7 +561,7 @@ describe("the shared link", () => {
             live: true,
             settings: { title: "Maya <turns> thirty" },
         });
-        await call("POST", `/v1/events/${event.id}/cover`, { token });
+        await addCover(token, event.id);
         const index = joinPage.index;
         joinPage.index = async () =>
             '<!doctype html><html><head><title>LingerCam</title></head><body><div id="root"></div></body></html>';

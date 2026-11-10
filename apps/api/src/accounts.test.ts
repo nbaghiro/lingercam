@@ -9,7 +9,7 @@ import {
     fixedCode,
     reviewAccount,
 } from "./accounts.ts";
-import { productionProblems } from "./http.ts";
+import { launchGaps, productionProblems } from "./http.ts";
 import {
     db,
     emailCodes,
@@ -119,6 +119,21 @@ describe("the App Review login", () => {
                 ...base,
                 REVIEW_EMAIL: "review@lingercam.app",
                 REVIEW_CODE: "135790",
+            }),
+        ).toEqual([]);
+    });
+
+    test("names what a store launch still needs, without refusing to start", () => {
+        expect(launchGaps({})).toEqual([
+            "REVENUECAT_SECRET_KEY",
+            "REVENUECAT_WEBHOOK_AUTH",
+            "EXPO_ACCESS_TOKEN",
+        ]);
+        expect(
+            launchGaps({
+                REVENUECAT_SECRET_KEY: "sk",
+                REVENUECAT_WEBHOOK_AUTH: "auth",
+                EXPO_ACCESS_TOKEN: "token",
             }),
         ).toEqual([]);
     });
